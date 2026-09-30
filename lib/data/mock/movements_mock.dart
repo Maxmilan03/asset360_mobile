@@ -1,0 +1,165 @@
+import '../models/common.dart';
+import '../models/movement.dart';
+import 'people_mock.dart';
+import 'seed_utils.dart';
+
+List<LogEntry> _timeline(DateTime at, String status) => [
+  LogEntry(at: at, title: 'Submitted'),
+  if (status != MoveStatus.pending && status != MoveStatus.rejected)
+    LogEntry(at: at.add(const Duration(hours: 2)), title: 'Approved'),
+  if (status == MoveStatus.inTransit || status == MoveStatus.completed)
+    LogEntry(at: at.add(const Duration(hours: 3)), title: 'In Transit'),
+  if (status == MoveStatus.completed) LogEntry(at: at.add(const Duration(hours: 6)), title: 'Completed'),
+  if (status == MoveStatus.rejected) LogEntry(at: at.add(const Duration(hours: 2)), title: 'Rejected'),
+];
+
+MovementRequest _mov(
+  String id,
+  String assetId,
+  String status,
+  MovePlace from,
+  MovePlace to,
+  DateTime at, {
+  String requester = PersonIds.rex,
+  String approver = PersonIds.ahmed,
+  String type = MoveType.transfer,
+  String? custodian,
+  String reason = 'Department Transfer',
+  String? rejectReason,
+}) {
+  return MovementRequest(
+    id: id,
+    assetId: assetId,
+    type: type,
+    status: status,
+    from: from,
+    to: to,
+    requesterId: requester,
+    approverId: approver,
+    newCustodian: custodian,
+    createdAt: at,
+    requiredDate: at.add(const Duration(days: 1)),
+    reason: reason,
+    timeline: _timeline(at, status),
+    rejectReason: rejectReason,
+  );
+}
+
+/// My Requests (by Rex) = 8; Pending Approval = 4, of which Rex approves 2.
+List<MovementRequest> seedMovements() => [
+  MovementRequest(
+    id: 'MOV-2026-0045',
+    assetId: 'LAP-0098',
+    type: MoveType.transfer,
+    status: MoveStatus.pending,
+    from: const MovePlace('IT Store (Dubai)', 'Head Office', 'Building A – Room 101'),
+    to: const MovePlace('Finance Department', 'Head Office', 'Building A – Floor 2'),
+    requesterId: PersonIds.rex,
+    approverId: PersonIds.ahmed,
+    fromCustodian: 'Unassigned',
+    newCustodian: 'Sara Khan (Finance)',
+    createdAt: sep(25, 9, 10),
+    requiredDate: sep(26),
+    reason: 'Department Transfer',
+    remarks: 'For Finance team use',
+    attachments: const [
+      Attachment(name: 'Transfer_Approval_Request.pdf', sizeKb: 245, path: 'assets/docs/sample_document.pdf'),
+    ],
+    timeline: [LogEntry(at: sep(25, 9, 10), title: 'Submitted', by: 'Rex Kumar')],
+  ),
+  _mov(
+    'MOV-2026-0044',
+    'CAM-0044',
+    MoveStatus.inTransit,
+    const MovePlace('Marketing', 'Head Office', 'Floor 3'),
+    const MovePlace('Event Team', 'Dubai World Trade Centre', 'Hall 4'),
+    sep(24, 9, 0),
+    custodian: 'Event Team',
+    reason: 'Project',
+  ),
+  _mov(
+    'MOV-2026-0043',
+    'DRL-0043',
+    MoveStatus.completed,
+    const MovePlace('Maintenance Store', 'Main Plant', 'Store M-01'),
+    const MovePlace('Building B – Floor 1', 'Main Plant', 'Workshop'),
+    sep(23, 8, 30),
+    custodian: 'Maintenance',
+  ),
+  _mov(
+    'MOV-2026-0042',
+    'PRJ-0042',
+    MoveStatus.completed,
+    const MovePlace('Training Room', 'Admin Building', 'Floor 1'),
+    const MovePlace('Meeting Room 3', 'Admin Building', 'Floor 2'),
+    sep(22, 10, 0),
+    custodian: 'Admin',
+  ),
+  _mov(
+    'MOV-2026-0041',
+    'FL-015',
+    MoveStatus.pending,
+    const MovePlace('Main Warehouse / Zone B', 'Main Plant'),
+    const MovePlace('Workshop', 'Main Plant', 'Battery Bay'),
+    sep(24, 16, 0),
+    type: MoveType.transfer,
+    custodian: 'Suresh Kumar',
+    reason: 'Repair',
+  ),
+  _mov(
+    'MOV-2026-0040',
+    'TL-034',
+    MoveStatus.completed,
+    const MovePlace('Maintenance Store', 'Main Plant'),
+    const MovePlace('Admin Block – 2nd Floor', 'Education City'),
+    sep(20, 9, 0),
+    type: MoveType.checkOut,
+    custodian: 'Maintenance',
+    reason: 'Project',
+  ),
+  _mov(
+    'MOV-2026-0039',
+    'CAB-011',
+    MoveStatus.completed,
+    const MovePlace('Main Warehouse', 'Receiving'),
+    const MovePlace('Utility Room', 'Main Plant'),
+    sep(18, 11, 0),
+    custodian: 'Facilities',
+    reason: 'Installation',
+  ),
+  _mov(
+    'MOV-2026-0038',
+    'MTR-007',
+    MoveStatus.rejected,
+    const MovePlace('Production Line 2', 'Main Plant'),
+    const MovePlace('Motor Rewinding Shop', 'Al Quoz'),
+    sep(17, 14, 0),
+    custodian: 'Production',
+    reason: 'Repair',
+    rejectReason: 'Repair will be done on site.',
+  ),
+  // Requested by others; Rex is the approver
+  _mov(
+    'MOV-2026-0047',
+    'DRL-0043',
+    MoveStatus.pending,
+    const MovePlace('Building B – Floor 1', 'Main Plant', 'Workshop'),
+    const MovePlace('Main Warehouse', 'Main Plant', 'Tool Crib'),
+    sep(25, 9, 55),
+    requester: PersonIds.ahmed,
+    approver: PersonIds.rex,
+    type: MoveType.returnAsset,
+    reason: 'Return',
+  ),
+  _mov(
+    'MOV-2026-0046',
+    'PRJ-0042',
+    MoveStatus.pending,
+    const MovePlace('Meeting Room 3', 'Admin Building', 'Floor 2'),
+    const MovePlace('IT Store (Dubai)', 'Head Office', 'Building A – Room 101'),
+    sep(25, 8, 40),
+    requester: PersonIds.fatima,
+    approver: PersonIds.rex,
+    reason: 'Repair',
+  ),
+];

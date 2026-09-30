@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AppColors.authBackground: the light lavender behind the Purple IQ logo -->
+    <color name="splash_background">#F7F8FD</color>
+</resources>

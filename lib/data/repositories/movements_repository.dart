@@ -1,0 +1,137 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/demo_clock.dart';
+import '../mock/movements_mock.dart';
+import '../models/asset.dart';
+import '../models/common.dart';
+import '../models/movement.dart';
+import 'assets_repository.dart';
+import 'repo_utils.dart';
+import 'session_repository.dart';
+
+class MovementsNotifier extends Notifier<List<MovementRequest>> {
+  @override
+  List<MovementRequest> build() => seedMovements();
+
+  String get _me => ref.read(currentUserProvider).name;
+  LogEntry _log(String title, [String? note]) => LogEntry(at: DemoClock.now, title: title, by: _me, note: note);
+
+  MovementRequest? byId(String id) => state.firstWhereOrNull((m) => m.id == id);
+  void _update(String id, MovementRequest Function(MovementRequest) f) =>
+      state = replaceWhere(state, id, (m) => m.id, f);
+
+  String get nextMovId => nextId('MOV-2026-', state.map((m) => m.id));
+
+  /// Submits a request. Transfers wait for approval; other types complete at once.
+  String submit({
+    required String assetId,
+    required String type,
+    required MovePlace from,
+    required MovePlace to,
+    String? newCustodian,
+    DateTime? requiredDate,
+    String? reason,
+    String? remarks,
+    List<Attachment> attachments = const [],
+    String approverId = 'ahmed',
+  }) {
+    final id = nextMovId;
+    final asset = ref.read(assetByIdProvider(assetId));
+    final needsApproval = type == MoveType.transfer;
+    state = [
+      MovementRequest(
+        id: id,
+        assetId: assetId,
+        type: type,
+        status: needsApproval ? MoveStatus.pending : MoveStatus.completed,
+        from: from,
+        to: to,
+        requesterId: ref.read(currentUserProvider).id,
+        approverId: needsApproval ? approverId : null,
+        fromCustodian: asset?.custodian,
+        newCustodian: newCustodian,
+        createdAt: DemoClock.now,
+        requiredDate: requiredDate,
+        reason: reason,
+        remarks: remarks,
+        attachments: attachments,
+        timeline: [_log('Submitted'), if (!needsApproval) _log('Completed')],
+      ),
+      ...state,
+    ];
+    if (!needsApproval) _applyToAsset(id);
+    return id;
+  }
+
+  void approve(String id) =>
+      _update(id, (m) => m.copyWith(status: MoveStatus.approved, timeline: [...m.timeline, _log('Approved')]));
+
+  void reject(String id, String reason) => _update(
+    id,
+    (m) => m.copyWith(
+      status: MoveStatus.rejected,
+      rejectReason: reason,
+      timeline: [...m.timeline, _log('Rejected', reason)],
+    ),
+  );
+
+  void cancel(String id) =>
+      _update(id, (m) => m.copyWith(status: MoveStatus.cancelled, timeline: [...m.timeline, _log('Cancelled')]));
+
+  void dispatch(String id) {
+    _update(id, (m) => m.copyWith(status: MoveStatus.inTransit, timeline: [...m.timeline, _log('In Transit')]));
+    final m = byId(id)!;
+    ref.read(assetsProvider.notifier).setStatus(m.assetId, AssetStatus.inTransit);
+  }
+
+  /// "Mark as Received": completes the move and updates the asset.
+  void markReceived(String id) {
+    _update(id, (m) => m.copyWith(status: MoveStatus.completed, timeline: [...m.timeline, _log('Completed')]));
+    _applyToAsset(id);
+  }
+
+  void _applyToAsset(String id) {
+    final m = byId(id)!;
+    final assets = ref.read(assetsProvider.notifier);
+    final place = [m.to.name, m.to.line1, m.to.line2].whereType<String>().join(' – ');
+    // A check-out at the asset's current place changes the custodian only.
+    final current = ref.read(assetByIdProvider(m.assetId))?.location;
+    if (m.type != MoveType.assign && place != current) assets.setLocation(m.assetId, place);
+    if (m.type == MoveType.checkIn || m.type == MoveType.returnAsset) {
+      assets.setCustodian(m.assetId, 'Unassigned');
+    } else if (m.newCustodian != null) {
+      assets.setCustodian(m.assetId, m.newCustodian!);
+    }
+    final asset = ref.read(assetByIdProvider(m.assetId));
+    if (asset?.status == AssetStatus.inTransit) assets.setStatus(m.assetId, AssetStatus.active);
+  }
+}
+
+final movementsProvider = NotifierProvider<MovementsNotifier, List<MovementRequest>>(MovementsNotifier.new);
+
+final movementByIdProvider = Provider.family<MovementRequest?, String>(
+  (ref, id) => ref.watch(movementsProvider).firstWhereOrNull((m) => m.id == id),
+);
+
+extension MovementQueries on List<MovementRequest> {
+  List<MovementRequest> mine(String userId) => where((m) => m.requesterId == userId).toList();
+  List<MovementRequest> get pending => where((m) => m.status == MoveStatus.pending).toList();
+
+  /// Home "Approvals – Pending" and My Approvals.
+  List<MovementRequest> toApprove(String userId) =>
+      where((m) => m.status == MoveStatus.pending && m.approverId == userId).toList();
+  List<MovementRequest> get completed => where((m) => m.status == MoveStatus.completed).toList();
+  List<MovementRequest> forAsset(String assetId) => where((m) => m.assetId == assetId).toList();
+
+  /// Assets currently checked out (latest record per asset is a Check Out).
+  List<String> get checkedOutAssetIds {
+    final latest = <String, MovementRequest>{};
+    for (final m in [...this]..sort((a, b) => a.createdAt.compareTo(b.createdAt))) {
+      if (m.status == MoveStatus.completed) latest[m.assetId] = m;
+    }
+    return [
+      for (final e in latest.entries)
+        if (e.value.type == MoveType.checkOut) e.key,
+    ];
+  }
+}
