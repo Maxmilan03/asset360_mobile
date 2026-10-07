@@ -108,9 +108,9 @@ class _RegistrationHubScreenState extends ConsumerState<RegistrationHubScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Capture Asset Information', style: AppText.sectionTitle),
+                  Text('Capture Asset Information', style: AppText.sectionTitle),
                   const SizedBox(height: 3),
-                  const Text('Scan tag or enter details manually', style: AppText.secondary),
+                  Text('Scan tag or enter details manually', style: AppText.secondary),
                   const SizedBox(height: 12),
                   GridView.count(
                     crossAxisCount: 2,
@@ -178,7 +178,7 @@ class _ModeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.primarySoft : Colors.white,
+      color: selected ? AppColors.primarySoft : AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.tile),
         side: BorderSide(color: selected ? AppColors.primary : AppColors.border, width: selected ? 1.5 : 1),
@@ -194,6 +194,8 @@ class _ModeCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: AppText.body.copyWith(
                   fontSize: 13,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
@@ -229,31 +231,38 @@ class _RecentScans extends ConsumerWidget {
       title: 'Recent Scans',
       actionLabel: 'View All',
       actionIcon: null,
-      onAction: () => context.push(Routes.scanHistory),
+      onAction: () => context.push(Routes.scanHistoryFrom(GoRouterState.of(context).uri.path)),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
-      child: Column(
-        children: [
-          for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0) const Divider(indent: 76),
-            AssetListTile(
-              title: rows[i].$1.id,
-              subtitle: rows[i].$1.name,
-              imagePath: rows[i].$1.imagePath,
-              fallbackIcon: assetIcon(rows[i].$1),
-              details: [
-                IconLine(
-                  icon: Icons.access_time_rounded,
-                  text: '${DemoClock.formatShort(rows[i].$2)} · ${DemoClock.formatTime(rows[i].$2)}',
-                ),
-              ],
-              trailingTop: rows[i].$3
-                  ? const StatusChip('New', tone: ChipTone.green)
-                  : const StatusChip('Existing', tone: ChipTone.grey),
-              onTap: () => context.push(Routes.assetDetail(rows[i].$1.id)),
+      child: rows.isEmpty
+          ? EmptyState(
+              icon: Icons.qr_code_scanner_rounded,
+              title: 'No recent scans',
+              message: 'Assets you scan or register appear here.',
+              actionLabel: 'Open Scan History',
+              onAction: () => context.push(Routes.scanHistoryFrom(GoRouterState.of(context).uri.path)),
+            )
+          : LoadingGate(
+              rows: 3,
+              card: false,
+              child: Column(
+                children: [
+                  for (var i = 0; i < rows.length; i++) ...[
+                    if (i > 0) const Divider(indent: 76),
+                    AssetListTile(
+                      title: rows[i].$1.id,
+                      subtitle: rows[i].$1.name,
+                      imagePath: rows[i].$1.imagePath,
+                      fallbackIcon: assetIcon(rows[i].$1),
+                      details: [IconLine(icon: Icons.location_on_outlined, text: DemoClock.formatDateTime(rows[i].$2))],
+                      trailingTop: rows[i].$3
+                          ? const StatusChip('New', tone: ChipTone.green)
+                          : const StatusChip('Existing', tone: ChipTone.grey),
+                      onTap: () => context.push(Routes.assetDetail(rows[i].$1.id)),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ],
-        ],
-      ),
     );
   }
 }

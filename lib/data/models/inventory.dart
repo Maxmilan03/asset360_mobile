@@ -99,10 +99,16 @@ abstract final class TxnType {
   static const transferred = 'Transferred';
   static const reserved = 'Reserved for Work Order';
   static const returned = 'Returned';
-  static const adjusted = 'Adjusted';
+  static const adjusted = 'Stock Count Adjustment';
+  static const released = 'Reservation Released';
+  static const issuedToWo = 'Issued to Work Order';
+  static const issuedToProduction = 'Issued to Production';
+
+  static const all = [received, issued, issuedToWo, issuedToProduction, transferred, reserved, released, adjusted];
 }
 
-/// One stock transaction. [balanceAfter] must equal the previous balance + [qtyChange].
+/// One stock transaction. [balanceAfter] (stock on hand) must equal the previous balance + [qtyChange].
+/// Reservations do not move stock: they carry [reservedChange] and leave the balance unchanged.
 class StockTxn {
   const StockTxn({
     required this.id,
@@ -117,6 +123,7 @@ class StockTxn {
     this.po,
     this.assetId,
     this.remarks,
+    this.reservedChange = 0,
   });
 
   final String id;
@@ -125,6 +132,9 @@ class StockTxn {
   final String type;
   final String ref;
   final int qtyChange;
+
+  /// + reserved / − released (balance unchanged).
+  final int reservedChange;
   final int balanceAfter;
   final String? from;
   final String? to;
@@ -133,7 +143,15 @@ class StockTxn {
   final String? remarks;
 }
 
-/// Purchase order / part request raised from Inventory.
+abstract final class RequestStatus {
+  static const pending = 'Pending';
+  static const approved = 'Approved';
+  static const open = 'Open';
+  static const received = 'Received';
+  static const cancelled = 'Cancelled';
+}
+
+/// Purchase order (one line) or part request raised from Inventory.
 class PartRequest {
   const PartRequest({
     required this.id,
@@ -144,6 +162,13 @@ class PartRequest {
     required this.createdAt,
     this.supplier,
     this.remarks,
+    this.unitCost,
+    this.expectedAt,
+    this.neededBy,
+    this.workOrderId,
+    this.requesterId,
+    this.receivedAt,
+    this.grn,
   });
 
   final String id;
@@ -155,9 +180,26 @@ class PartRequest {
   final String status;
   final DateTime createdAt;
   final String? supplier;
-  final String? remarks;
 
-  PartRequest copyWith({String? status}) => PartRequest(
+  /// Request: reason. PO: notes.
+  final String? remarks;
+  final double? unitCost;
+
+  /// PO: expected delivery date. Request: [neededBy].
+  final DateTime? expectedAt;
+  final DateTime? neededBy;
+  final String? workOrderId;
+  final String? requesterId;
+  final DateTime? receivedAt;
+
+  /// Goods receipt number once received.
+  final String? grn;
+
+  bool get isPo => kind == 'Purchase Order';
+  bool get isOpen => status == RequestStatus.open;
+  double get total => (unitCost ?? 0) * qty;
+
+  PartRequest copyWith({String? status, DateTime? receivedAt, String? grn}) => PartRequest(
     id: id,
     partId: partId,
     qty: qty,
@@ -166,5 +208,14 @@ class PartRequest {
     createdAt: createdAt,
     supplier: supplier,
     remarks: remarks,
+    unitCost: unitCost,
+    expectedAt: expectedAt,
+    neededBy: neededBy,
+    workOrderId: workOrderId,
+    requesterId: requesterId,
+    receivedAt: receivedAt ?? this.receivedAt,
+    grn: grn ?? this.grn,
   );
 }
+
+const partRequestReasons = ['Work order', 'Preventive maintenance', 'Stock replenishment', 'Emergency', 'Other'];

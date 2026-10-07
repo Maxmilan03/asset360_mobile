@@ -58,20 +58,20 @@ class TaskRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             task.kind == TaskKind.approval
-                ? const Column(
+                ? Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text('Awaiting', style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
-                      SizedBox(height: 2),
-                      Text(
+                      const SizedBox(height: 2),
+                      const Text(
                         'You',
                         style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.purple),
                       ),
                     ],
                   )
                 : DueLabel(task.due),
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
               child: Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
             ),
           ],

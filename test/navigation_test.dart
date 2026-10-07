@@ -33,17 +33,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Search, scan or filter assets'), findsOneWidget);
 
+    // Scan opens on top of the current screen; back returns there.
     await tester.tap(_navLabel('Scan'));
     await tester.pumpAndSettle();
     expect(find.text('Scan & Identify'), findsOneWidget);
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Search, scan or filter assets'), findsOneWidget);
 
     await tester.tap(_navLabel('Work'));
     await tester.pumpAndSettle();
     expect(find.text('Your work orders, inspections, issues and operations'), findsOneWidget);
 
+    // More opens the All Modules sheet over the current screen; ✕ closes it.
     await tester.tap(_navLabel('More'));
     await tester.pumpAndSettle();
-    expect(find.text('Modules, account and app settings'), findsOneWidget);
+    expect(find.text('All Modules'), findsOneWidget);
+    expect(find.text('Your work orders, inspections, issues and operations'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('All Modules'), findsNothing);
   });
 
   testWidgets('every Work hub tile opens its module and back returns', (tester) async {
@@ -54,10 +63,10 @@ void main() {
     const modules = {
       'Maintenance': 'Manage work orders, preventive maintenance and asset service',
       'Inspection': 'Conduct inspections, checklists and compliance',
-      'Issues / Defects': 'Report, track and resolve asset issues',
-      'WIP / Operations': 'Track production orders and units through each station',
+      'Issues / Defects': 'Report and track asset issues, breakdowns and incidents',
+      'WIP / Operations': 'Track production flow, WIP assets and operations in real-time',
       'Movement & Custody': 'Transfer, assign and track asset movement',
-      'Asset Audit': 'Verify assets physically against the register',
+      'Asset Audit': 'Physical verification and reconciliation of assets',
     };
     for (final entry in modules.entries) {
       await tester.tap(find.text(entry.key));
@@ -69,33 +78,50 @@ void main() {
     }
   });
 
-  testWidgets('every More item navigates', (tester) async {
+  testWidgets('every All Modules tile navigates, keeps the bar, and Logout confirms', (tester) async {
     await _pumpApp(tester);
-    await tester.tap(_navLabel('More'));
-    await tester.pumpAndSettle();
-
     const items = {
-      'Tracking & IoT': 'Real-time location, sensors and telemetry',
-      'Inventory / Spare Parts': 'Manage stock, spare parts and consumables',
-      'Documents': 'Manuals, certificates, warranties and reports',
+      'Assets': 'Search, scan or filter assets',
+      'Tracking & IoT': 'Real-time location, telemetry and asset monitoring',
+      'Movement & Custody': 'Transfer, assign and track asset movement',
+      'Maintenance': 'Manage work orders, preventive maintenance and asset service',
+      'Inspection': 'Conduct inspections, checklists and compliance',
+      'Inventory': 'Manage spare parts, stock levels and procurement',
+      'WIP / Operations': 'Track production flow, WIP assets and operations in real-time',
+      'Audit & Compliance': 'Physical verification and reconciliation of assets',
+      'Contracts & Warranty': 'Warranties and maintenance contracts',
+      'Financial': 'Costs, asset value and depreciation',
+      'Reports & Analytics': 'Charts and exports for every module',
+      'Administration': 'Users, roles, sites and master data',
+      'Issues / Defects': 'Report and track asset issues, breakdowns and incidents',
+      'Alerts & Notifications': 'Stay updated with real-time asset events and actions',
+      'Documents': 'Manage all asset related documents and files',
       'Asset Registration': 'Register a new asset in the system',
-      'Alerts & Notifications': 'Monitor alarms, thresholds and messages',
-      'Offline Sync': 'Work offline and sync your changes later',
+      'Offline Sync': 'Work offline and sync your data when connected',
       'Profile': 'Your details, role and password',
-      'Settings': 'Language, notifications and preferences',
+      'Settings': 'Appearance, notifications and preferences',
       'Help & Support': 'FAQs, contact support and report a bug',
+      'Dashboard': 'Quick Actions',
     };
+    final sheetScroll = find.descendant(of: find.byType(BottomSheet), matching: find.byType(Scrollable));
     for (final entry in items.entries) {
-      await tester.scrollUntilVisible(find.text(entry.key), 100, scrollable: find.byType(Scrollable).first);
-      await tester.tap(find.text(entry.key));
+      await tester.tap(_navLabel('More'));
       await tester.pumpAndSettle();
+      final tile = find.descendant(of: find.byType(BottomSheet), matching: find.text(entry.key));
+      await tester.scrollUntilVisible(tile, 120, scrollable: sheetScroll.first);
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing, reason: entry.key);
       expect(find.text(entry.value), findsWidgets, reason: entry.key);
-      await tester.tap(find.byTooltip('Back'));
-      await tester.pumpAndSettle();
+      expect(_navLabel('Scan'), findsOneWidget, reason: entry.key);
+      expect(tester.takeException(), isNull, reason: entry.key);
     }
 
-    await tester.scrollUntilVisible(find.text('Logout'), 100, scrollable: find.byType(Scrollable).first);
-    await tester.tap(find.text('Logout'));
+    await tester.tap(_navLabel('More'));
+    await tester.pumpAndSettle();
+    final logout = find.descendant(of: find.byType(BottomSheet), matching: find.text('Logout'));
+    await tester.scrollUntilVisible(logout, 120, scrollable: sheetScroll.first);
+    await tester.tap(logout);
     await tester.pumpAndSettle();
     expect(find.text('Are you sure you want to log out of Asset360?'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Logout'));
@@ -110,7 +136,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Notifications'));
     await tester.pumpAndSettle();
-    expect(find.text('Stay updated with alerts and messages'), findsOneWidget);
+    expect(find.text('All your recent asset related notifications'), findsOneWidget);
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
 
@@ -132,10 +158,15 @@ void main() {
     await _pumpApp(tester);
     await tester.tap(_navLabel('More'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Logout'), 100, scrollable: find.byType(Scrollable).first);
+    final settings = find.descendant(of: find.byType(BottomSheet), matching: find.text('Settings'));
+    await tester.scrollUntilVisible(
+      settings,
+      120,
+      scrollable: find.descendant(of: find.byType(BottomSheet), matching: find.byType(Scrollable)).first,
+    );
+    await tester.tap(settings);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Data check'), 300, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('Data check'));
     await tester.pumpAndSettle();
     expect(find.text('All checks passed'), findsOneWidget);

@@ -22,7 +22,7 @@ class AssetThumb extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.divider),
       ),
@@ -49,10 +49,12 @@ class AssetListTile extends StatelessWidget {
     this.imagePath,
     this.fallbackIcon = Icons.inventory_2_outlined,
     this.titleLeading,
+    this.titleTrailing,
     this.trailingTop,
     this.trailingBottom,
     this.showChevron = true,
     this.selected = false,
+    this.background,
   });
 
   final String title;
@@ -66,16 +68,22 @@ class AssetListTile extends StatelessWidget {
   final String? imagePath;
   final IconData fallbackIcon;
   final Widget? titleLeading;
+
+  /// Small widget right after the title (e.g. the priority chip on issue rows).
+  final Widget? titleTrailing;
   final Widget? trailingTop;
   final String? trailingBottom;
   final bool showChevron;
   final bool selected;
+
+  /// Row tint (e.g. amber for "expiring"); [selected] wins.
+  final Color? background;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.primarySoft : Colors.white,
+      color: selected ? AppColors.primarySoft : background ?? AppColors.surface,
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -90,7 +98,16 @@ class AssetListTile extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        if (titleLeading != null) ...[titleLeading!, const SizedBox(width: 8)],
+                        if (titleLeading != null) ...[
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: titleLeading,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         Flexible(
                           child: Text(
                             title,
@@ -99,6 +116,16 @@ class AssetListTile extends StatelessWidget {
                             style: AppText.cardTitle.copyWith(fontSize: 14.5),
                           ),
                         ),
+                        if (titleTrailing != null) ...[
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: titleTrailing,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     if (subtitle != null) ...[
@@ -141,7 +168,7 @@ class AssetListTile extends StatelessWidget {
               ],
               if (showChevron) ...[
                 const SizedBox(width: 4),
-                const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+                Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
               ],
             ],
           ),

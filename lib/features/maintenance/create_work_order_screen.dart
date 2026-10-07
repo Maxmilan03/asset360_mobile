@@ -7,7 +7,10 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text.dart';
 import '../../core/demo_clock.dart';
 import '../../core/widgets/widgets.dart';
+import '../../data/repositories/alerts_repository.dart';
 import '../../data/repositories/assets_repository.dart';
+import '../../data/repositories/inspections_repository.dart';
+import '../../data/repositories/issues_repository.dart';
 import '../../data/repositories/maintenance_repository.dart';
 import '../../data/repositories/session_repository.dart';
 import '../common/asset_picker.dart';
@@ -15,12 +18,44 @@ import '../common/asset_picker.dart';
 const _priorities = ['Critical', 'High', 'Medium', 'Low'];
 const _workTypes = ['Breakdown', 'Corrective', 'Scheduled', 'Inspection', 'Service', 'Calibration'];
 
+/// Values to start the form with (e.g. "Create Work Order" from an inspection finding).
+class WoPrefill {
+  const WoPrefill({
+    this.title,
+    this.description,
+    this.priority,
+    this.findingId,
+    this.issueId,
+    this.photos = const [],
+    this.workType,
+    this.alertId,
+  });
+
+  final String? title;
+  final String? description;
+  final String? priority;
+
+  /// When set, the new WO is linked to this finding (status Action Taken).
+  final String? findingId;
+
+  /// When set, the new WO is linked to this issue (Work Orders tab).
+  final String? issueId;
+
+  /// When set, the alert records the new WO.
+  final String? alertId;
+
+  /// Photos copied onto the new WO.
+  final List<String> photos;
+  final String? workType;
+}
+
 /// Create Work Order: asset, title, priority, type, due date and assignee.
 /// Saving adds the WO to the Maintenance list.
 class CreateWorkOrderScreen extends ConsumerStatefulWidget {
-  const CreateWorkOrderScreen({super.key, this.assetId});
+  const CreateWorkOrderScreen({super.key, this.assetId, this.prefill});
 
   final String? assetId;
+  final WoPrefill? prefill;
 
   @override
   ConsumerState<CreateWorkOrderScreen> createState() => _CreateWorkOrderScreenState();
@@ -28,11 +63,11 @@ class CreateWorkOrderScreen extends ConsumerStatefulWidget {
 
 class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _title = TextEditingController();
-  final _description = TextEditingController();
+  late final _title = TextEditingController(text: widget.prefill?.title);
+  late final _description = TextEditingController(text: widget.prefill?.description);
   late String? _assetId = widget.assetId;
-  String _priority = 'Medium';
-  String _workType = 'Corrective';
+  late String _priority = _priorities.contains(widget.prefill?.priority) ? widget.prefill!.priority! : 'Medium';
+  late String _workType = _workTypes.contains(widget.prefill?.workType) ? widget.prefill!.workType! : 'Corrective';
   bool _preventive = false;
   late DateTime _due = DateTime(DemoClock.now.year, DemoClock.now.month, DemoClock.now.day + 1, 17);
   String? _assigneeId;
@@ -57,13 +92,18 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
 
   Future<void> _pickDue() async {
     final date = await showDatePicker(
+      useRootNavigator: false,
       context: context,
       initialDate: _due,
       firstDate: DemoClock.today,
       lastDate: DemoClock.today.add(const Duration(days: 365)),
     );
     if (date == null || !mounted) return;
-    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_due));
+    final time = await showTimePicker(
+      useRootNavigator: false,
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_due),
+    );
     setState(
       () => _due = DateTime(date.year, date.month, date.day, time?.hour ?? _due.hour, time?.minute ?? _due.minute),
     );
@@ -91,7 +131,15 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
           workType: _workType,
           dueAt: _due,
           assigneeId: _assigneeId,
+          issueId: widget.prefill?.issueId,
         );
+    final p = widget.prefill;
+    if (p?.findingId != null) ref.read(inspectionsProvider.notifier).linkWorkOrder(p!.findingId!, id);
+    if (p?.issueId != null) ref.read(issuesProvider.notifier).linkWorkOrder(p!.issueId!, id);
+    if (p?.alertId != null) ref.read(alertsProvider.notifier).linkWorkOrder(p!.alertId!, id);
+    for (final photo in p?.photos ?? const <String>[]) {
+      ref.read(workOrdersProvider.notifier).addPhoto(id, photo);
+    }
     setState(() => _saving = false);
     final open = await showSuccessSheet(
       context,
@@ -163,7 +211,7 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
             ),
             label('Asset'),
             Material(
-              color: Colors.white,
+              color: AppColors.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(color: _assetError ? AppColors.red : AppColors.border),
@@ -171,9 +219,9 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
               clipBehavior: Clip.antiAlias,
               child: asset == null
                   ? ListTile(
-                      leading: const IconSquare(icon: Icons.qr_code_scanner_rounded, tone: TileTone.lavender, size: 40),
-                      title: const Text('Select an asset', style: AppText.bodyStrong),
-                      subtitle: const Text('Search by ID, name or location', style: AppText.caption),
+                      leading: IconSquare(icon: Icons.qr_code_scanner_rounded, tone: TileTone.lavender, size: 40),
+                      title: Text('Select an asset', style: AppText.bodyStrong),
+                      subtitle: Text('Search by ID, name or location', style: AppText.caption),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: _pickAsset,
                     )
@@ -243,6 +291,7 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               initialValue: _workType,
+              isExpanded: true,
               decoration: const InputDecoration(labelText: 'Work type'),
               items: [for (final t in _workTypes) DropdownMenuItem(value: t, child: Text(t))],
               onChanged: (v) => setState(() => _workType = v ?? _workType),
@@ -252,19 +301,22 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
               onTap: _pickDue,
               borderRadius: BorderRadius.circular(10),
               child: InputDecorator(
-                decoration: const InputDecoration(
-                  suffixIcon: Icon(Icons.calendar_month_rounded, color: AppColors.primary),
-                ),
+                decoration: InputDecoration(suffixIcon: Icon(Icons.calendar_month_rounded, color: AppColors.primary)),
                 child: Text(DemoClock.formatDateTime(_due), style: AppText.body),
               ),
             ),
             label('Assign to', required: false),
             DropdownButtonFormField<String?>(
               initialValue: _assigneeId,
+              isExpanded: true,
               decoration: const InputDecoration(hintText: 'Unassigned'),
               items: [
                 const DropdownMenuItem<String?>(value: null, child: Text('Unassigned')),
-                for (final p in people) DropdownMenuItem<String?>(value: p.id, child: Text(p.labelWithRole)),
+                for (final p in people)
+                  DropdownMenuItem<String?>(
+                    value: p.id,
+                    child: Text(p.labelWithRole, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
               ],
               onChanged: (v) => setState(() => _assigneeId = v),
             ),

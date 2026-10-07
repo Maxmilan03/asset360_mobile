@@ -25,12 +25,7 @@ class Code39Barcode extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             data,
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-              color: AppColors.text,
-              letterSpacing: .6,
-            ),
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.text, letterSpacing: .6),
           ),
         ],
       ],

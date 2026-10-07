@@ -6,8 +6,11 @@ import '../models/asset.dart';
 import '../models/common.dart';
 import '../models/movement.dart';
 import 'assets_repository.dart';
+import '../mock/people_mock.dart';
 import 'repo_utils.dart';
 import 'session_repository.dart';
+import 'sync_repository.dart';
+import '../models/sync_item.dart';
 
 class MovementsNotifier extends Notifier<List<MovementRequest>> {
   @override
@@ -17,8 +20,16 @@ class MovementsNotifier extends Notifier<List<MovementRequest>> {
   LogEntry _log(String title, [String? note]) => LogEntry(at: DemoClock.now, title: title, by: _me, note: note);
 
   MovementRequest? byId(String id) => state.firstWhereOrNull((m) => m.id == id);
-  void _update(String id, MovementRequest Function(MovementRequest) f) =>
-      state = replaceWhere(state, id, (m) => m.id, f);
+  void _update(String id, MovementRequest Function(MovementRequest) f) {
+    state = replaceWhere(state, id, (m) => m.id, f);
+    _q(id);
+  }
+
+  /// Offline: the movement goes into the sync queue as an asset update.
+  void _q(String id) {
+    final m = byId(id);
+    if (m != null) ref.queueOffline(SyncKind.asset, m.assetId, '${m.type} ${m.id} · ${m.status}', refId: m.assetId);
+  }
 
   String get nextMovId => nextId('MOV-2026-', state.map((m) => m.id));
 
@@ -33,7 +44,9 @@ class MovementsNotifier extends Notifier<List<MovementRequest>> {
     String? reason,
     String? remarks,
     List<Attachment> attachments = const [],
-    String approverId = 'ahmed',
+    String approverId = PersonIds.ahmed,
+    String? condition,
+    List<String> photos = const [],
   }) {
     final id = nextMovId;
     final asset = ref.read(assetByIdProvider(assetId));
@@ -55,11 +68,17 @@ class MovementsNotifier extends Notifier<List<MovementRequest>> {
         reason: reason,
         remarks: remarks,
         attachments: attachments,
+        condition: condition,
+        photos: photos,
         timeline: [_log('Submitted'), if (!needsApproval) _log('Completed')],
       ),
       ...state,
     ];
     if (!needsApproval) _applyToAsset(id);
+    _q(id);
+    for (final p in photos) {
+      ref.queueOffline(SyncKind.photo, syncFileName(p), 'Movement Photo', refId: assetId);
+    }
     return id;
   }
 
@@ -78,6 +97,7 @@ class MovementsNotifier extends Notifier<List<MovementRequest>> {
   void cancel(String id) =>
       _update(id, (m) => m.copyWith(status: MoveStatus.cancelled, timeline: [...m.timeline, _log('Cancelled')]));
 
+  /// Approved → In Transit (the asset shows In Transit until received).
   void dispatch(String id) {
     _update(id, (m) => m.copyWith(status: MoveStatus.inTransit, timeline: [...m.timeline, _log('In Transit')]));
     final m = byId(id)!;
@@ -93,10 +113,14 @@ class MovementsNotifier extends Notifier<List<MovementRequest>> {
   void _applyToAsset(String id) {
     final m = byId(id)!;
     final assets = ref.read(assetsProvider.notifier);
-    final place = [m.to.name, m.to.line1, m.to.line2].whereType<String>().join(' – ');
+    final place = m.to.assetLocation ?? [m.to.name, ...m.to.lines].join(' – ');
     // A check-out at the asset's current place changes the custodian only.
     final current = ref.read(assetByIdProvider(m.assetId))?.location;
-    if (m.type != MoveType.assign && place != current) assets.setLocation(m.assetId, place);
+    if (m.type != MoveType.assign && place.isNotEmpty && place != current) assets.setLocation(m.assetId, place);
+    if (m.condition != null) {
+      final a = ref.read(assetByIdProvider(m.assetId));
+      if (a != null) assets.update(a.copyWith(condition: m.condition, photos: [...a.photos, ...m.photos]));
+    }
     if (m.type == MoveType.checkIn || m.type == MoveType.returnAsset) {
       assets.setCustodian(m.assetId, 'Unassigned');
     } else if (m.newCustodian != null) {
@@ -121,6 +145,19 @@ extension MovementQueries on List<MovementRequest> {
   List<MovementRequest> toApprove(String userId) =>
       where((m) => m.status == MoveStatus.pending && m.approverId == userId).toList();
   List<MovementRequest> get completed => where((m) => m.status == MoveStatus.completed).toList();
+
+  /// Search by asset ID, asset name ([nameOf]) or request number.
+  List<MovementRequest> search(String q, String Function(String assetId) nameOf) {
+    final s = q.trim().toLowerCase();
+    if (s.isEmpty) return this;
+    return where(
+      (m) =>
+          m.id.toLowerCase().contains(s) ||
+          m.assetId.toLowerCase().contains(s) ||
+          nameOf(m.assetId).toLowerCase().contains(s),
+    ).toList();
+  }
+
   List<MovementRequest> forAsset(String assetId) => where((m) => m.assetId == assetId).toList();
 
   /// Assets currently checked out (latest record per asset is a Check Out).

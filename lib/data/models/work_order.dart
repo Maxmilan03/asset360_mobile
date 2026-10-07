@@ -1,3 +1,4 @@
+import '../../core/checklist/checklist.dart';
 import 'common.dart';
 
 abstract final class WoStatus {
@@ -18,21 +19,6 @@ abstract final class TaskStatus {
   static const completed = 'Completed';
 }
 
-class ChecklistItem {
-  const ChecklistItem({required this.id, required this.label, this.done = false, this.unit, this.value});
-
-  final String id;
-  final String label;
-  final bool done;
-
-  /// When set, the item has a number input with this unit (e.g. "mm/s").
-  final String? unit;
-  final String? value;
-
-  ChecklistItem copyWith({bool? done, String? value}) =>
-      ChecklistItem(id: id, label: label, done: done ?? this.done, unit: unit, value: value ?? this.value);
-}
-
 class WoTask {
   const WoTask({
     required this.id,
@@ -49,19 +35,19 @@ class WoTask {
   final String title;
   final String status;
   final DateTime? completedAt;
-  final List<ChecklistItem> checklist;
+  final List<CheckItem> checklist;
   final String notes;
   final List<String> voiceNotes;
   final List<String> photos;
 
   bool get isDone => status == TaskStatus.completed;
-  int get checklistDone => checklist.where((c) => c.done).length;
-  bool get checklistComplete => checklist.every((c) => c.done);
+  int get checklistDone => checklist.answered;
+  bool get checklistComplete => checklist.complete;
 
   WoTask copyWith({
     String? status,
     DateTime? completedAt,
-    List<ChecklistItem>? checklist,
+    List<CheckItem>? checklist,
     String? notes,
     List<String>? voiceNotes,
     List<String>? photos,
@@ -117,6 +103,8 @@ class WorkOrder {
     this.resolution,
     this.labourHours,
     this.savedOffline = false,
+    this.signature = const [],
+    this.holdReason,
   });
 
   final String id;
@@ -157,6 +145,23 @@ class WorkOrder {
   /// Saved on the device while offline, waiting for Offline Sync.
   final bool savedOffline;
 
+  /// Close-out signature: strokes of points as 0–1 fractions of the pad.
+  final List<List<(double, double)>> signature;
+
+  /// Why the WO is On Hold (null otherwise).
+  final String? holdReason;
+
+  /// The task being worked on: the one in progress, else the first unfinished one.
+  String? get openTaskId {
+    for (final t in tasks) {
+      if (t.status == TaskStatus.inProgress) return t.id;
+    }
+    for (final t in tasks) {
+      if (!t.isDone) return t.id;
+    }
+    return null;
+  }
+
   bool get isActive => WoStatus.isActive(status);
   bool get isPreventive => category == 'Preventive Maintenance';
   int get tasksDone => tasks.where((t) => t.isDone).length;
@@ -178,6 +183,9 @@ class WorkOrder {
     String? resolution,
     double? labourHours,
     bool? savedOffline,
+    List<List<(double, double)>>? signature,
+    String? holdReason,
+    bool clearHold = false,
   }) {
     return WorkOrder(
       id: id,
@@ -205,6 +213,8 @@ class WorkOrder {
       resolution: resolution ?? this.resolution,
       labourHours: labourHours ?? this.labourHours,
       savedOffline: savedOffline ?? this.savedOffline,
+      signature: signature ?? this.signature,
+      holdReason: clearHold ? null : holdReason ?? this.holdReason,
     );
   }
 }

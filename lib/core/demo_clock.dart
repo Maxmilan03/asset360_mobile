@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 /// (Asia/Dubai) and then runs forward in real time, so countdowns such as
 /// "1h 20m remaining" tick. Never use DateTime.now() for business logic.
 abstract final class DemoClock {
-  static final DateTime start = DateTime(2026, 9, 29, 14, 30);
+  static final DateTime start = DateTime(2026, 9, 25, 10, 30);
   static final Stopwatch _elapsed = Stopwatch()..start();
 
   /// When true (tests, Data check), [now] stays at [start].
@@ -59,6 +59,9 @@ abstract final class DemoClock {
 
   /// "29 Sep 2026 10:24 AM".
   static String formatDateTime(DateTime d) => '${formatDate(d)} ${formatTime(d)}';
+
+  /// "25 Sep 2026 10:24:36 AM" (live "Last Updated" bars).
+  static String formatStamp(DateTime d) => DateFormat('d MMM yyyy hh:mm:ss a').format(d);
 
   /// "29 Sep".
   static String formatShort(DateTime d) => DateFormat('d MMM').format(d);

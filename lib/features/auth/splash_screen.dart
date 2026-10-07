@@ -51,7 +51,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.brandText),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Asset360',
                 style: TextStyle(fontSize: 16, color: AppColors.primary, fontWeight: FontWeight.w500),
               ),

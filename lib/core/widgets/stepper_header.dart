@@ -69,7 +69,7 @@ class StepperHeader extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: done || active ? AppColors.primary : Colors.white,
+        color: done || active ? AppColors.primary : AppColors.surface,
         border: Border.all(color: done || active ? AppColors.primary : AppColors.border, width: 1.5),
       ),
       child: done

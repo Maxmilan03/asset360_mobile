@@ -20,7 +20,7 @@ class ProgressRing extends StatelessWidget {
     this.size = 120,
     this.strokeWidth = 12,
     this.color = AppColors.green,
-    this.trackColor = AppColors.divider,
+    this.trackColor,
     this.center,
   }) : _value = value,
        segments = null;
@@ -30,17 +30,18 @@ class ProgressRing extends StatelessWidget {
     required List<RingSegment> this.segments,
     this.size = 120,
     this.strokeWidth = 14,
-    this.trackColor = AppColors.divider,
+    this.trackColor,
     this.center,
   }) : _value = 0,
-       color = AppColors.primary;
+       color = AppColors.green;
 
   final double _value;
   final List<RingSegment>? segments;
   final double size;
   final double strokeWidth;
   final Color color;
-  final Color trackColor;
+  final Color? trackColor;
+  Color get _track => trackColor ?? AppColors.divider;
   final Widget? center;
 
   @override
@@ -59,7 +60,7 @@ class ProgressRing extends StatelessWidget {
             progress: t,
             strokeWidth: strokeWidth,
             color: color,
-            trackColor: trackColor,
+            trackColor: _track,
           ),
           child: child,
         ),

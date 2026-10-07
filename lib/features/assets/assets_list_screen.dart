@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -120,119 +122,137 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
         onPressed: () => context.push(Routes.registration),
         child: const Icon(Icons.add_rounded, size: 30),
       ),
-      body: ListView(
-        padding: context.pagePadding.copyWith(bottom: context.pagePadding.bottom + 64),
-        children: [
-          const PageTitle(title: 'Assets', subtitle: 'Search, scan or filter assets'),
-          const SizedBox(height: 14),
-          SearchFilterBar(
-            controller: _search,
-            hint: 'Search by Asset ID, Name, Serial No...',
-            onChanged: (v) => setState(() => _query = v),
-            onScan: _scan,
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+      body: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: context.pagePadding.copyWith(bottom: 10),
+            sliver: SliverList.list(
               children: [
-                for (final (scope, label, icon) in const [
-                  (_Scope.all, 'All', Icons.grid_view_rounded),
-                  (_Scope.mine, 'My Assets', Icons.person_outline_rounded),
-                  (_Scope.nearby, 'Nearby', Icons.location_on_outlined),
-                  (_Scope.favorites, 'Favorites', Icons.favorite_border_rounded),
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: IconFilterChip(
-                      label: label,
-                      icon: icon,
-                      selected: _scope == scope,
-                      onTap: () => setState(() => _scope = scope),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(child: Text('Total Assets (${formatCount(total)})', style: AppText.bodyStrong)),
-              InkWell(
-                onTap: () => _openFilters(all),
-                borderRadius: BorderRadius.circular(6),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
+                const PageTitle(title: 'Assets', subtitle: 'Search, scan or filter assets'),
+                const SizedBox(height: 14),
+                SearchFilterBar(
+                  controller: _search,
+                  hint: 'Search by Asset ID, Name, Serial No...',
+                  onChanged: (v) => setState(() => _query = v),
+                  onScan: _scan,
+                ),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      Text(activeFilters.isEmpty ? 'Filter' : 'Filter (${activeFilters.length})', style: AppText.link),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.filter_alt_outlined, size: 18, color: AppColors.primary),
+                      for (final (scope, label, icon) in const [
+                        (_Scope.all, 'All', Icons.grid_view_rounded),
+                        (_Scope.mine, 'My Assets', Icons.person_outline_rounded),
+                        (_Scope.nearby, 'Nearby', Icons.location_on_outlined),
+                        (_Scope.favorites, 'Favorites', Icons.favorite_border_rounded),
+                      ])
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: IconFilterChip(
+                            label: label,
+                            icon: icon,
+                            selected: _scope == scope,
+                            onTap: () => setState(() => _scope = scope),
+                          ),
+                        ),
                     ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          if (activeFilters.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final (group, value) in activeFilters)
-                  InputChip(
-                    label: Text(value),
-                    labelStyle: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w500),
-                    backgroundColor: AppColors.primarySoft,
-                    side: BorderSide.none,
-                    visualDensity: VisualDensity.compact,
-                    deleteIconColor: AppColors.primary,
-                    tooltip: group,
-                    onDeleted: () => _removeFilter(group, value),
-                    onPressed: () => _openFilters(all),
-                  ),
-                ActionChip(
-                  label: const Text('Clear all'),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => setState(() => _filters = {}),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 10),
-          if (shown.isEmpty)
-            EmptyState(
-              icon: Icons.search_off_rounded,
-              title: 'No assets found',
-              message: _scope == _Scope.favorites && _query.isEmpty && _filters.isEmpty
-                  ? 'Tap the ☆ on an asset to add it to Favorites.'
-                  : 'Try another search or clear the filters.',
-              actionLabel: 'Clear search & filters',
-              onAction: () => setState(() {
-                _search.clear();
-                _query = '';
-                _filters = {};
-                _scope = _Scope.all;
-              }),
-            )
-          else
-            AppCard(
-              padding: EdgeInsets.zero,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Column(
+                const SizedBox(height: 14),
+                Row(
                   children: [
-                    for (var i = 0; i < shown.length; i++) ...[
-                      if (i > 0) const Divider(indent: 90),
-                      _AssetRow(asset: shown[i]),
-                    ],
+                    Expanded(
+                      child: Text(
+                        'Total Assets (${formatCount(total)})',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.bodyStrong,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => _openFilters(all),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Row(
+                          children: [
+                            Text(
+                              activeFilters.isEmpty ? 'Filter' : 'Filter (${activeFilters.length})',
+                              style: AppText.link,
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(Icons.filter_alt_outlined, size: 18, color: AppColors.primary),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-              ),
+                if (activeFilters.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final (group, value) in activeFilters)
+                        InputChip(
+                          label: Text(value),
+                          labelStyle: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w500),
+                          backgroundColor: AppColors.primarySoft,
+                          side: BorderSide.none,
+                          visualDensity: VisualDensity.compact,
+                          deleteIconColor: AppColors.primary,
+                          tooltip: group,
+                          onDeleted: () => _removeFilter(group, value),
+                          onPressed: () => _openFilters(all),
+                        ),
+                      ActionChip(
+                        label: const Text('Clear all'),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => setState(() => _filters = {}),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
             ),
-          const SizedBox(height: 14),
-          Center(child: Text('Showing ${shown.length} of ${formatCount(total)}', style: AppText.secondary)),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverLoadingGate(
+              rows: 6,
+              sliver: shown.isEmpty
+                  ? SliverToBoxAdapter(
+                      child: EmptyState(
+                        icon: Icons.search_off_rounded,
+                        title: 'No assets found',
+                        message: _scope == _Scope.favorites && _query.isEmpty && _filters.isEmpty
+                            ? 'Tap the ☆ on an asset to add it to Favorites.'
+                            : 'Try another search or clear the filters.',
+                        actionLabel: 'Clear search & filters',
+                        onAction: () => setState(() {
+                          _search.clear();
+                          _query = '';
+                          _filters = {};
+                          _scope = _Scope.all;
+                        }),
+                      ),
+                    )
+                  // Lazy: only the visible rows are built.
+                  : SliverCardList(
+                      itemCount: shown.length,
+                      indent: 90,
+                      itemBuilder: (_, i) => _AssetRow(asset: shown[i]),
+                    ),
+            ),
+          ),
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(16, 14, 16, context.pagePadding.bottom + 64),
+            sliver: SliverToBoxAdapter(
+              child: Center(child: Text('Showing ${shown.length} of ${formatCount(total)}', style: AppText.secondary)),
+            ),
+          ),
         ],
       ),
     );

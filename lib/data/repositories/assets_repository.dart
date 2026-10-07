@@ -5,9 +5,13 @@ import '../mock/assets_mock.dart';
 import '../mock/registration_mock.dart';
 import '../models/asset.dart';
 import '../models/common.dart';
+import 'alerts_repository.dart';
+import 'issues_repository.dart';
 import 'maintenance_repository.dart';
 import 'repo_utils.dart';
 import 'session_repository.dart';
+import 'sync_repository.dart';
+import '../models/sync_item.dart';
 
 class AssetsNotifier extends Notifier<List<Asset>> {
   @override
@@ -19,6 +23,9 @@ class AssetsNotifier extends Notifier<List<Asset>> {
 
   void _update(String id, Asset Function(Asset) f) => state = replaceWhere(state, id, (a) => a.id, f);
 
+  /// Offline: the change also goes into the sync queue ("Asset Updates").
+  void _q(String id, String change) => ref.queueOffline(SyncKind.asset, id, change, refId: id);
+
   LogEntry _event(String title, [String? note]) => LogEntry(at: DemoClock.now, title: title, by: _me, note: note);
 
   /// Adds a registered asset (also counted in the org summary and in this session's registrations).
@@ -29,6 +36,7 @@ class AssetsNotifier extends Notifier<List<Asset>> {
     ];
     ref.read(orgSummaryProvider.notifier).addAsset(asset.status);
     ref.read(sessionRegistrationsProvider.notifier).record(asset.id);
+    _q(asset.id, 'Asset Registered');
   }
 
   /// The asset that already uses [value] as its ID, tag or barcode (case-insensitive), if any.
@@ -46,13 +54,17 @@ class AssetsNotifier extends Notifier<List<Asset>> {
 
   String nextAssetId(String prefix) => nextId('$prefix-', state.map((a) => a.id), width: 5);
 
-  void update(Asset updated) => _update(updated.id, (_) => updated);
+  void update(Asset updated) {
+    _update(updated.id, (_) => updated);
+    _q(updated.id, 'Asset Update');
+  }
 
   void setStatus(String id, String status, {String? note}) {
     final old = byId(id);
     if (old == null || old.status == status) return;
     _update(id, (a) => a.copyWith(status: status, events: [_event('Status changed to $status', note), ...a.events]));
     ref.read(orgSummaryProvider.notifier).move(old.status, status);
+    _q(id, 'Status Update');
   }
 
   /// Key Information "Edit → Save". Status and location go through [setStatus] / [setLocation]
@@ -87,6 +99,7 @@ class AssetsNotifier extends Notifier<List<Asset>> {
         events: [_event('Key information updated'), ...a.events],
       ),
     );
+    _q(id, 'Asset Details Update');
   }
 
   /// Copies the asset under the next free ID of its prefix (e.g. CNC-00124). Returns the new ID.
@@ -110,35 +123,83 @@ class AssetsNotifier extends Notifier<List<Asset>> {
     return newId;
   }
 
-  void linkIot(String id, IotDevice device) => _update(
-    id,
-    (a) => a.copyWith(
-      iot: device,
-      events: [_event('IoT device linked', '${device.model} · IMEI ${device.imei}'), ...a.events],
-    ),
-  );
+  void linkIot(String id, IotDevice device) {
+    _update(
+      id,
+      (a) => a.copyWith(
+        iot: device,
+        events: [_event('IoT device linked', '${device.model} · IMEI ${device.imei}'), ...a.events],
+      ),
+    );
+    _q(id, 'IoT Device Linked');
+  }
+
+  /// Contracts & Warranty → Renew (warranty).
+  void renewWarranty(String id, {required DateTime until, required double cost, required String vendor}) {
+    _update(
+      id,
+      (a) => a.copyWith(
+        warrantyExpiry: until,
+        events: [
+          _event('Warranty renewed until ${DemoClock.formatDate(until)}', '$vendor · AED ${cost.toStringAsFixed(0)}'),
+          ...a.events,
+        ],
+      ),
+    );
+    _q(id, 'Warranty Renewed');
+  }
+
+  /// Contracts & Warranty → Renew (AMC): new end date, yearly cost and vendor.
+  void renewAmc(String id, {required DateTime until, required double cost, required String vendor}) {
+    _update(
+      id,
+      (a) => a.copyWith(
+        amc: vendor,
+        amcCost: cost,
+        amcExpiry: until,
+        events: [
+          _event('AMC renewed until ${DemoClock.formatDate(until)}', '$vendor · AED ${cost.toStringAsFixed(0)}/yr'),
+          ...a.events,
+        ],
+      ),
+    );
+    _q(id, 'AMC Renewed');
+  }
 
   void toggleFavorite(String id) => _update(id, (a) => a.copyWith(favorite: !a.favorite));
 
-  void setCustodian(String id, String custodian) => _update(
-    id,
-    (a) => a.copyWith(custodian: custodian, events: [_event('Custodian changed to $custodian'), ...a.events]),
-  );
+  void setCustodian(String id, String custodian) {
+    _update(
+      id,
+      (a) => a.copyWith(custodian: custodian, events: [_event('Custodian changed to $custodian'), ...a.events]),
+    );
+    _q(id, 'Custodian Update');
+  }
 
-  void setLocation(String id, String location) => _update(
-    id,
-    (a) => a.copyWith(
-      location: location,
-      locationHistory: [
-        LocationRecord(at: DemoClock.now, location: location, by: _me),
-        ...a.locationHistory,
-      ],
-      events: [_event('Moved to $location'), ...a.events],
-    ),
-  );
+  void setLocation(String id, String location) {
+    final from = byId(id)?.location;
+    _update(
+      id,
+      (a) => a.copyWith(
+        location: location,
+        locationHistory: [
+          LocationRecord(at: DemoClock.now, location: location, by: _me),
+          ...a.locationHistory,
+        ],
+        events: [_event('Moved to $location'), ...a.events],
+      ),
+    );
+    _q(id, 'Asset Location Update');
+    if (from != null && from != location) {
+      ref.read(issuesProvider.notifier).followAsset(id, from, location);
+      ref.read(alertsProvider.notifier).followAsset(id, from, location);
+    }
+  }
 
-  void addPhoto(String id, String path) =>
-      _update(id, (a) => a.copyWith(photos: [...a.photos, path], events: [_event('Photo added'), ...a.events]));
+  void addPhoto(String id, String path) {
+    _update(id, (a) => a.copyWith(photos: [...a.photos, path], events: [_event('Photo added'), ...a.events]));
+    ref.queueOffline(SyncKind.photo, syncFileName(path), 'Asset Photo', refId: id);
+  }
 
   void addEvent(String id, String title, {String? note}) =>
       _update(id, (a) => a.copyWith(events: [_event(title, note), ...a.events]));
@@ -157,6 +218,7 @@ class AssetsNotifier extends Notifier<List<Asset>> {
     if (old == null) return;
     state = state.where((a) => a.id != id).toList();
     ref.read(orgSummaryProvider.notifier).removeAsset(old.status);
+    _q(id, 'Asset Deleted');
   }
 }
 
@@ -180,11 +242,67 @@ final unlinkedIotDevicesProvider = Provider<List<IotDevice>>((ref) {
   return seedSpareIotDevices().where((d) => !linked.contains(d.imei)).toList();
 });
 
-/// Asset types → category, from the register plus [extraAssetTypes].
+/// Administration → Master Data: categories, asset types (→ category) and manufacturers.
+/// Seeded from the register and [extraAssetTypes]; "+ Add" extends it in memory.
+class MasterData {
+  const MasterData({required this.categories, required this.types, required this.manufacturers});
+
+  final List<String> categories;
+  final Map<String, String> types;
+  final List<String> manufacturers;
+
+  MasterData copyWith({List<String>? categories, Map<String, String>? types, List<String>? manufacturers}) =>
+      MasterData(
+        categories: categories ?? this.categories,
+        types: types ?? this.types,
+        manufacturers: manufacturers ?? this.manufacturers,
+      );
+}
+
+class MasterDataNotifier extends Notifier<MasterData> {
+  @override
+  MasterData build() {
+    final assets = seedAssets();
+    final types = <String, String>{for (final a in assets) a.type: a.category};
+    for (final e in extraAssetTypes.entries) {
+      types.putIfAbsent(e.key, () => e.value.$2);
+    }
+    return MasterData(
+      categories: _sorted(types.values),
+      types: types,
+      manufacturers: _sorted(assets.map((a) => a.manufacturer).where((m) => m != '—')),
+    );
+  }
+
+  static List<String> _sorted(Iterable<String> v) => {...v}.toList()..sort();
+
+  /// Returns false when the name already exists.
+  bool addCategory(String name) {
+    if (state.categories.contains(name)) return false;
+    state = state.copyWith(categories: _sorted([...state.categories, name]));
+    return true;
+  }
+
+  bool addType(String name, String category) {
+    if (state.types.containsKey(name)) return false;
+    state = state.copyWith(types: {...state.types, name: category});
+    return true;
+  }
+
+  bool addManufacturer(String name) {
+    if (state.manufacturers.contains(name)) return false;
+    state = state.copyWith(manufacturers: _sorted([...state.manufacturers, name]));
+    return true;
+  }
+}
+
+final masterDataProvider = NotifierProvider<MasterDataNotifier, MasterData>(MasterDataNotifier.new);
+
+/// Asset types → category (master data plus any type registered since), sorted by type.
 final assetTypesProvider = Provider<Map<String, String>>((ref) {
-  final m = <String, String>{for (final a in ref.watch(assetsProvider)) a.type: a.category};
-  for (final e in extraAssetTypes.entries) {
-    m.putIfAbsent(e.key, () => e.value.$2);
+  final m = {...ref.watch(masterDataProvider).types};
+  for (final a in ref.watch(assetsProvider)) {
+    m.putIfAbsent(a.type, () => a.category);
   }
   return Map.fromEntries(m.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
 });

@@ -17,15 +17,23 @@ class PhotoStrip extends StatelessWidget {
   const PhotoStrip({
     super.key,
     required this.photos,
-    required this.onAdd,
+    this.onAdd,
     this.onRemove,
     this.title,
     this.thumbWidth = 112,
     this.thumbHeight = 84,
+    this.allowVideo = false,
+    this.addLabel = 'Add Photo',
   });
 
   final List<String> photos;
-  final ValueChanged<String> onAdd;
+
+  /// Also offer "Record video" in the add sheet.
+  final bool allowVideo;
+  final String addLabel;
+
+  /// Shows the "add photo" box when set; null = read-only strip.
+  final ValueChanged<String>? onAdd;
   final ValueChanged<int>? onRemove;
 
   /// e.g. "Photos" → rendered as "Photos (2)".
@@ -44,15 +52,16 @@ class PhotoStrip extends StatelessWidget {
           height: thumbHeight,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: photos.length + 1,
+            itemCount: photos.length + (onAdd == null ? 0 : 1),
             separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (context, i) {
               if (i == photos.length) {
                 return _AddPhotoBox(
                   width: thumbWidth,
+                  label: addLabel,
                   onTap: () async {
-                    final path = await pickPhoto(context);
-                    if (path != null) onAdd(path);
+                    final path = await pickPhoto(context, allowVideo: allowVideo);
+                    if (path != null) onAdd!(path);
                   },
                 );
               }
@@ -70,28 +79,38 @@ class PhotoStrip extends StatelessWidget {
   }
 }
 
-/// Lets the user choose Camera or Gallery, then returns the picked file path.
-Future<String?> pickPhoto(BuildContext context) async {
+/// Lets the user choose Camera or Gallery (or a video when [allowVideo]), then returns the picked file path.
+Future<String?> pickPhoto(BuildContext context, {bool allowVideo = false}) async {
+  var video = false;
   final source = await showModalBottomSheet<ImageSource>(
     context: context,
     builder: (context) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
             child: Text('Add Photo', style: AppText.sectionTitle),
           ),
           ListTile(
-            leading: const Icon(Icons.photo_camera_outlined, color: AppColors.primary),
+            leading: Icon(Icons.photo_camera_outlined, color: AppColors.primary),
             title: const Text('Take photo'),
             onTap: () => Navigator.pop(context, ImageSource.camera),
           ),
           ListTile(
-            leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
+            leading: Icon(Icons.photo_library_outlined, color: AppColors.primary),
             title: const Text('Choose from gallery'),
             onTap: () => Navigator.pop(context, ImageSource.gallery),
           ),
+          if (allowVideo)
+            ListTile(
+              leading: Icon(Icons.videocam_outlined, color: AppColors.primary),
+              title: const Text('Record video'),
+              onTap: () {
+                video = true;
+                Navigator.pop(context, ImageSource.camera);
+              },
+            ),
           const SizedBox(height: 8),
         ],
       ),
@@ -99,7 +118,10 @@ Future<String?> pickPhoto(BuildContext context) async {
   );
   if (source == null) return null;
   try {
-    final file = await ImagePicker().pickImage(source: source, imageQuality: 80, maxWidth: 1600);
+    final picker = ImagePicker();
+    final file = video
+        ? await picker.pickVideo(source: source, maxDuration: const Duration(minutes: 2))
+        : await picker.pickImage(source: source, imageQuality: 80, maxWidth: 1600);
     return file?.path;
   } catch (_) {
     if (context.mounted) {
@@ -115,7 +137,8 @@ Future<String?> pickPhoto(BuildContext context) async {
 
 /// Full-screen, pinch-zoomable photo viewer with swipe between photos.
 void openPhotoViewer(BuildContext context, List<String> photos, {int initialIndex = 0}) {
-  Navigator.of(context, rootNavigator: true).push(
+  // Pushed on the current tab's navigator so the bottom bar stays visible.
+  Navigator.of(context).push(
     MaterialPageRoute<void>(
       fullscreenDialog: true,
       builder: (_) => _PhotoViewer(photos: photos, initialIndex: initialIndex),
@@ -195,7 +218,7 @@ class _Thumb extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(2),
                 decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: const Icon(Icons.close_rounded, size: 16, color: AppColors.text),
+                child: Icon(Icons.close_rounded, size: 16, color: AppColors.text),
               ),
             ),
           ),
@@ -205,10 +228,11 @@ class _Thumb extends StatelessWidget {
 }
 
 class _AddPhotoBox extends StatelessWidget {
-  const _AddPhotoBox({required this.width, required this.onTap});
+  const _AddPhotoBox({required this.width, required this.onTap, this.label = 'Add Photo'});
 
   final double width;
   final VoidCallback onTap;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -219,14 +243,19 @@ class _AddPhotoBox extends StatelessWidget {
         painter: DashedBorderPainter(color: AppColors.primary.withValues(alpha: .5), radius: 10),
         child: SizedBox(
           width: width,
-          child: const Column(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.photo_camera_rounded, color: AppColors.primary, size: 24),
-              SizedBox(height: 6),
-              Text(
-                'Add Photo',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.primary),
+              const SizedBox(height: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.primary),
+                ),
               ),
             ],
           ),

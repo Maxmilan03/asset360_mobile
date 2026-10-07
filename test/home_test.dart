@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:asset360_mobile/app/app.dart';
+import 'package:asset360_mobile/app/router/app_router.dart';
+import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
@@ -25,6 +29,24 @@ Future<ProviderContainer> _pumpHome(WidgetTester tester) async {
   await tester.pump(SplashScreen.duration);
   await tester.pumpAndSettle();
   return ProviderScope.containerOf(tester.element(find.byType(Asset360App)));
+}
+
+const _phones = {'small 360x640': Size(1080, 1920), 'large 430x932': Size(1290, 2796)};
+
+/// Scrolls the page's vertical scrollable to the end, checking for layout errors (overflow) at each step.
+Future<void> _scrollThrough(WidgetTester tester, String reason) async {
+  await tester.pumpAndSettle();
+  expect(tester.takeException(), isNull, reason: reason);
+  final f = find.byWidgetPredicate((w) => w is Scrollable && axisDirectionToAxis(w.axisDirection) == Axis.vertical);
+  if (f.evaluate().isEmpty) return;
+  final pos = tester.state<ScrollableState>(f.first).position;
+  for (var i = 0; i < 60 && pos.pixels < pos.maxScrollExtent; i++) {
+    pos.jumpTo(math.min(pos.pixels + 300, pos.maxScrollExtent));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: '$reason @ ${pos.pixels.round()}');
+  }
+  pos.jumpTo(0);
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -131,4 +153,24 @@ void main() {
     expect(find.textContaining('Fri, 25 Sep 2026 ('), findsOneWidget);
     expect(find.text('WO-2026-0045'), findsOneWidget);
   });
+
+  for (final MapEntry(key: name, value: size) in _phones.entries) {
+    testWidgets('no overflow on a $name phone: Home, My Tasks (all tabs), My Approvals', (tester) async {
+      final c = await _pumpHome(tester);
+      tester.view.physicalSize = size;
+      await _scrollThrough(tester, 'Home');
+
+      c.read(routerProvider).push(Routes.myTasks);
+      await _scrollThrough(tester, 'My Tasks');
+      for (final tab in ['Work Orders', 'Inspections', 'Approvals', 'All']) {
+        await tester.tap(find.textContaining(tab).first);
+        await _scrollThrough(tester, 'My Tasks · $tab');
+      }
+      c.read(routerProvider).pop();
+      await tester.pumpAndSettle();
+
+      c.read(routerProvider).push(Routes.approvals);
+      await _scrollThrough(tester, 'My Approvals');
+    });
+  }
 }

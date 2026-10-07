@@ -8,6 +8,11 @@ SyncState seedSyncState() => SyncState(
   lastSyncCount: 25,
   wifiAutoSync: true,
   mobileDataSync: false,
+  history: [
+    SyncRun(at: sep(22, 16, 18), total: 25, synced: 25),
+    SyncRun(at: sep(21, 17, 42), total: 14, synced: 13, failed: 1),
+    SyncRun(at: sep(20, 9, 5), total: 9, synced: 9),
+  ],
   items: [
     SyncItem(
       id: 'SYN-01',

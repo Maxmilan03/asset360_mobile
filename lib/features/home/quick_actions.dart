@@ -19,26 +19,21 @@ class QuickActionDef {
 }
 
 final quickActionDefs = <String, QuickActionDef>{
-  'scan': const QuickActionDef('Scan Asset', Icons.qr_code_scanner_rounded, TileTone.lavender, Routes.scan),
-  'reportIssue': const QuickActionDef('Report Issue', Icons.build_rounded, TileTone.sky, Routes.reportIssue),
-  'moveAsset': const QuickActionDef('Move Asset', Icons.swap_horiz_rounded, TileTone.mint, Routes.transferAsset),
+  'scan': QuickActionDef('Scan Asset', Icons.qr_code_scanner_rounded, TileTone.lavender, Routes.scan),
+  'reportIssue': QuickActionDef('Report Issue', Icons.build_rounded, TileTone.sky, Routes.reportIssue),
+  'moveAsset': QuickActionDef('Move Asset', Icons.swap_horiz_rounded, TileTone.mint, Routes.transferAsset),
   'createWorkOrder': QuickActionDef('Create Work Order', Icons.edit_document, TileTone.peach, Routes.createWorkOrder()),
-  'startInspection': const QuickActionDef(
-    'Start Inspection',
-    Icons.check_box_rounded,
-    TileTone.pink,
-    Routes.inspection,
-  ),
-  'assetAudit': const QuickActionDef('Asset Audit', Icons.view_in_ar_rounded, TileTone.lavender, Routes.audit),
-  'inventoryIssue': const QuickActionDef('Inventory Issue', Icons.inventory_2_rounded, TileTone.cyan, Routes.inventory),
-  'registerAsset': const QuickActionDef('Register Asset', Icons.add_box_outlined, TileTone.mint, Routes.registration),
-  'trackAsset': const QuickActionDef('Track Asset', Icons.location_on_outlined, TileTone.sky, Routes.tracking),
-  'documents': const QuickActionDef('Documents', Icons.description_outlined, TileTone.lavender, Routes.documents),
-  'offlineSync': const QuickActionDef('Offline Sync', Icons.cloud_sync_outlined, TileTone.cyan, Routes.offlineSync),
+  'startInspection': QuickActionDef('Start Inspection', Icons.check_box_rounded, TileTone.pink, Routes.inspection),
+  'assetAudit': QuickActionDef('Asset Audit', Icons.view_in_ar_rounded, TileTone.lavender, Routes.audit),
+  'inventoryIssue': QuickActionDef('Inventory Issue', Icons.inventory_2_rounded, TileTone.cyan, Routes.inventory),
+  'registerAsset': QuickActionDef('Register Asset', Icons.add_box_outlined, TileTone.mint, Routes.registration),
+  'trackAsset': QuickActionDef('Track Asset', Icons.location_on_outlined, TileTone.sky, Routes.tracking),
+  'documents': QuickActionDef('Documents', Icons.description_outlined, TileTone.lavender, Routes.documents),
+  'offlineSync': QuickActionDef('Offline Sync', Icons.cloud_sync_outlined, TileTone.cyan, Routes.offlineSync),
 };
 
 /// The rest of the modules, shown by "More Actions".
-const _moreModules = [
+List<(String, IconData, TileTone, String)> get _moreModules => [
   ('Maintenance', Icons.build_circle_outlined, TileTone.lavender, Routes.maintenance),
   ('Inspection', Icons.fact_check_outlined, TileTone.mint, Routes.inspection),
   ('Issues', Icons.warning_amber_rounded, TileTone.pink, Routes.issues),
@@ -53,7 +48,17 @@ const _moreModules = [
   ('Scan History', Icons.history_rounded, TileTone.grey, Routes.scanHistory),
 ];
 
-void openRoute(BuildContext context, String route) => context.go(route);
+/// Opens a quick-action / module route. Scan opens on top of the current screen.
+void openRoute(BuildContext context, String route) {
+  final here = GoRouterState.of(context).uri.path;
+  if (route == Routes.scan) {
+    context.push(Routes.scanFrom(here));
+  } else if (route == Routes.scanHistory) {
+    context.push(Routes.scanHistoryFrom(here));
+  } else {
+    context.go(route);
+  }
+}
 
 Future<void> showMoreActionsSheet(BuildContext context) {
   return showModalBottomSheet<void>(
@@ -66,7 +71,7 @@ Future<void> showMoreActionsSheet(BuildContext context) {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('More Actions', style: AppText.sectionTitle),
+            Text('More Actions', style: AppText.sectionTitle),
             const SizedBox(height: 12),
             GridView.count(
               padding: EdgeInsets.zero,
@@ -122,7 +127,7 @@ class _CustomizeSheet extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(20, 0, 12, 4),
               child: Row(
                 children: [
-                  const Expanded(child: Text('Customize Quick Actions', style: AppText.sectionTitle)),
+                  Expanded(child: Text('Customize Quick Actions', style: AppText.sectionTitle)),
                   TextButton(onPressed: notifier.reset, child: const Text('Reset')),
                 ],
               ),
@@ -157,8 +162,8 @@ class _CustomizeSheet extends ConsumerWidget {
                         ),
                         ReorderableDragStartListener(
                           index: i,
-                          child: const Padding(
-                            padding: EdgeInsets.all(8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
                             child: Icon(Icons.drag_handle_rounded, color: AppColors.textMuted),
                           ),
                         ),

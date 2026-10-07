@@ -57,19 +57,19 @@ class RegistrationReview extends ConsumerWidget {
             borderRadius: BorderRadius.circular(AppRadius.tile),
             border: Border.all(color: AppColors.green.withValues(alpha: .25)),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.check_circle_rounded, color: AppColors.green, size: 32),
-              SizedBox(width: 10),
+              const Icon(Icons.check_circle_rounded, color: AppColors.green, size: 32),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Asset details are ready to be registered',
                       style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.green),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text('Please review the information below and click Register.', style: AppText.caption),
                   ],
                 ),
@@ -90,20 +90,37 @@ class RegistrationReview extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        Expanded(child: Text(d.id, style: AppText.cardTitle.copyWith(fontSize: 16))),
+                        Expanded(
+                          child: Text(
+                            d.id,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.cardTitle.copyWith(fontSize: 16),
+                          ),
+                        ),
                         StatusChip(d.status),
                       ],
                     ),
                     const SizedBox(height: 3),
-                    Text(d.name, style: AppText.body.copyWith(fontSize: 13)),
+                    Text(
+                      d.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body.copyWith(fontSize: 13),
+                    ),
                     const SizedBox(height: 3),
-                    Text('${d.type} | ${d.category}', style: AppText.caption),
+                    Text(
+                      '${d.type} | ${d.category}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.caption,
+                    ),
                     const SizedBox(height: 4),
                     IconLine(icon: Icons.location_on_outlined, text: '${d.location}, ${d.site}'),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+              Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
             ],
           ),
         ),
@@ -170,7 +187,7 @@ class _Grid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontSize: 10.5, color: AppColors.text, height: 1.3);
+    final style = TextStyle(fontSize: 10.5, color: AppColors.text, height: 1.3);
     return Column(
       children: [
         for (final (label, value) in rows)
@@ -183,7 +200,7 @@ class _Grid extends StatelessWidget {
                   width: 82,
                   child: Text(label, style: style.copyWith(color: AppColors.textSecondary)),
                 ),
-                const Text(': ', style: style),
+                Text(': ', style: style),
                 Expanded(child: Text(value, style: style)),
               ],
             ),
@@ -225,7 +242,9 @@ class _CollapsibleState extends State<_Collapsible> {
                 children: [
                   Icon(widget.icon, size: 20, color: AppColors.text),
                   const SizedBox(width: 10),
-                  Expanded(child: Text(widget.title, style: AppText.bodyStrong)),
+                  Expanded(
+                    child: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.bodyStrong),
+                  ),
                   TextButton.icon(
                     onPressed: widget.onEdit,
                     iconAlignment: IconAlignment.end,
@@ -265,7 +284,7 @@ Future<RegisteredAction?> showRegisteredSheet(BuildContext context, Asset asset)
     isDismissible: false,
     enableDrag: false,
     builder: (context) => SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -311,7 +330,10 @@ Future<RegisteredAction?> showRegisteredSheet(BuildContext context, Asset asset)
                     onPressed: () => ScaffoldMessenger.of(context)
                       ..hideCurrentSnackBar()
                       ..showSnackBar(
-                        SnackBar(content: Text('QR tag for ${asset.id} sent to Zebra ZD421 – Store (demo)')),
+                        SnackBar(
+                          margin: context.snackMargin,
+                          content: Text('QR tag for ${asset.id} sent to Zebra ZD421 – Store (demo)'),
+                        ),
                       ),
                     icon: const Icon(Icons.print_outlined, size: 20),
                     label: const Text('Print Tag'),

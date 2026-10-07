@@ -1,78 +1,23 @@
+import '../../core/checklist/checklist.dart';
 import 'common.dart';
-
-enum QuestionType { choice, number, yesNo, text }
 
 abstract final class InspectionStatus {
   static const scheduled = 'Scheduled';
   static const inProgress = 'In Progress';
   static const completed = 'Completed';
+
+  static const all = [scheduled, inProgress, completed];
 }
 
-/// One checklist question. "Answered" = [answer] is not empty.
-class ChecklistQuestion {
-  const ChecklistQuestion({
-    required this.code,
-    required this.text,
-    required this.type,
-    this.options = const [],
-    this.unit,
-    this.min,
-    this.max,
-    this.answer,
-    this.note,
-  });
+abstract final class FindingStatus {
+  static const open = 'Open';
+  static const actionTaken = 'Action Taken';
+  static const closed = 'Closed';
 
-  final String code;
-  final String text;
-  final QuestionType type;
-
-  /// For choice / yesNo, the first option is the "good" answer.
-  final List<String> options;
-  final String? unit;
-  final double? min;
-  final double? max;
-  final String? answer;
-  final String? note;
-
-  bool get answered => answer != null && answer!.trim().isNotEmpty;
-
-  /// For number answers: true when inside the normal range.
-  bool? get inRange {
-    if (type != QuestionType.number || !answered || min == null || max == null) return null;
-    final v = double.tryParse(answer!);
-    return v != null && v >= min! && v <= max!;
-  }
-
-  String? get rangeLabel =>
-      min == null || max == null ? null : 'Normal Range: ${_n(min!)} – ${_n(max!)} ${unit ?? ''}'.trim();
-
-  static String _n(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toString();
-
-  ChecklistQuestion copyWith({String? answer, String? note}) => ChecklistQuestion(
-    code: code,
-    text: text,
-    type: type,
-    options: options,
-    unit: unit,
-    min: min,
-    max: max,
-    answer: answer ?? this.answer,
-    note: note ?? this.note,
-  );
+  static const all = [open, actionTaken, closed];
 }
 
-class ChecklistSection {
-  const ChecklistSection({required this.title, required this.questions});
-
-  final String title;
-  final List<ChecklistQuestion> questions;
-
-  int get answered => questions.where((q) => q.answered).length;
-  bool get complete => answered == questions.length;
-
-  ChecklistSection copyWith({List<ChecklistQuestion>? questions}) =>
-      ChecklistSection(title: title, questions: questions ?? this.questions);
-}
+const findingSeverities = ['Low', 'Medium', 'High', 'Critical'];
 
 class Finding {
   const Finding({
@@ -82,6 +27,10 @@ class Finding {
     required this.createdAt,
     this.description = '',
     this.questionCode,
+    this.status = FindingStatus.open,
+    this.photos = const [],
+    this.workOrderId,
+    this.closedAt,
   });
 
   final String id;
@@ -89,7 +38,30 @@ class Finding {
   final String severity;
   final DateTime createdAt;
   final String description;
+
+  /// The checklist item that raised it ("1.1").
   final String? questionCode;
+
+  /// Open / Action Taken (a work order was created) / Closed.
+  final String status;
+  final List<String> photos;
+  final String? workOrderId;
+  final DateTime? closedAt;
+
+  bool get isOpen => status != FindingStatus.closed;
+
+  Finding copyWith({String? status, String? workOrderId, DateTime? closedAt}) => Finding(
+    id: id,
+    title: title,
+    severity: severity,
+    createdAt: createdAt,
+    description: description,
+    questionCode: questionCode,
+    status: status ?? this.status,
+    photos: photos,
+    workOrderId: workOrderId ?? this.workOrderId,
+    closedAt: closedAt ?? this.closedAt,
+  );
 }
 
 class Inspection {
@@ -109,6 +81,8 @@ class Inspection {
     this.documentIds = const [],
     this.completedAt,
     this.savedOffline = false,
+    this.template,
+    this.signature = const [],
   });
 
   final String id;
@@ -120,7 +94,7 @@ class Inspection {
   final String status;
   final DateTime dueAt;
   final String inspectorId;
-  final List<ChecklistSection> sections;
+  final List<CheckSection> sections;
   final List<Finding> findings;
   final List<String> photos;
   final String notes;
@@ -129,22 +103,32 @@ class Inspection {
   final DateTime? completedAt;
   final bool savedOffline;
 
+  /// Template it was created from ("Fire Pump Routine").
+  final String? template;
+
+  /// Inspector signature given at Submit.
+  final List<List<SignaturePoint>> signature;
+
   bool get isCompleted => status == InspectionStatus.completed;
-  int get totalQuestions => sections.fold(0, (s, e) => s + e.questions.length);
-  int get answeredQuestions => sections.fold(0, (s, e) => s + e.answered);
+  int get totalQuestions => sections.totalItems;
+  int get answeredQuestions => sections.answeredItems;
+  int get passedQuestions => sections.passedItems;
   double get progress => totalQuestions == 0 ? 0 : answeredQuestions / totalQuestions;
+  List<Finding> get openFindings => findings.where((f) => f.isOpen).toList();
 
   Inspection copyWith({
     String? status,
     DateTime? dueAt,
     String? inspectorId,
-    List<ChecklistSection>? sections,
+    List<CheckSection>? sections,
     List<Finding>? findings,
     List<String>? photos,
     String? notes,
     List<LogEntry>? history,
     DateTime? completedAt,
     bool? savedOffline,
+    List<String>? documentIds,
+    List<List<SignaturePoint>>? signature,
   }) {
     return Inspection(
       id: id,
@@ -159,9 +143,11 @@ class Inspection {
       photos: photos ?? this.photos,
       notes: notes ?? this.notes,
       history: history ?? this.history,
-      documentIds: documentIds,
+      documentIds: documentIds ?? this.documentIds,
       completedAt: completedAt ?? this.completedAt,
       savedOffline: savedOffline ?? this.savedOffline,
+      template: template,
+      signature: signature ?? this.signature,
     );
   }
 }

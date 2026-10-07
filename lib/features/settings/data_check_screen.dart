@@ -89,29 +89,41 @@ class _DataCheckScreenState extends ConsumerState<DataCheckScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          for (final g in _groups)
-            if (!_failuresOnly || g.failures > 0)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: SectionCard(
-                  title: g.title,
-                  actionLabel: g.failures == 0 ? 'OK' : '${g.failures} differ',
-                  actionIcon: g.failures == 0 ? Icons.check_circle_rounded : Icons.error_rounded,
-                  onAction: () => context.showSnack(
-                    g.failures == 0
-                        ? '${g.title}: all ${g.checks.length} checks passed'
-                        : '${g.title}: ${g.failures} check(s) differ',
+          LoadingGate(
+            rows: 6,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final g in _groups)
+                  if (!_failuresOnly || g.failures > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: SectionCard(
+                        title: g.title,
+                        actionLabel: g.failures == 0 ? 'OK' : '${g.failures} differ',
+                        actionIcon: g.failures == 0 ? Icons.check_circle_rounded : Icons.error_rounded,
+                        onAction: () => context.showSnack(
+                          g.failures == 0
+                              ? '${g.title}: all ${g.checks.length} checks passed'
+                              : '${g.title}: ${g.failures} check(s) differ',
+                        ),
+                        child: Column(
+                          children: [
+                            for (final c in g.checks)
+                              if (!_failuresOnly || !c.ok) _CheckRow(check: c),
+                          ],
+                        ),
+                      ),
+                    ),
+                if (_failuresOnly && ok)
+                  const EmptyState(
+                    icon: Icons.verified_rounded,
+                    title: 'No differences',
+                    message: 'Every count matches.',
                   ),
-                  child: Column(
-                    children: [
-                      for (final c in g.checks)
-                        if (!_failuresOnly || !c.ok) _CheckRow(check: c),
-                    ],
-                  ),
-                ),
-              ),
-          if (_failuresOnly && ok)
-            const EmptyState(icon: Icons.verified_rounded, title: 'No differences', message: 'Every count matches.'),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -142,7 +154,14 @@ class _CheckRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Expanded(child: Text(c.label, style: AppText.body.copyWith(fontSize: 13))),
+          Expanded(
+            child: Text(
+              c.label,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.body.copyWith(fontSize: 13),
+            ),
+          ),
           const SizedBox(width: 8),
           Flexible(
             child: Column(

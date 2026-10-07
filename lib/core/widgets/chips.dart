@@ -5,17 +5,33 @@ import '../../app/theme/app_text.dart';
 import '../../app/theme/app_theme.dart';
 
 enum ChipTone {
-  green(AppColors.green, AppColors.greenBg),
-  amber(AppColors.amber, AppColors.amberBg),
-  orange(AppColors.orange, AppColors.orangeBg),
-  red(AppColors.red, AppColors.redBg),
-  blue(AppColors.blue, AppColors.blueBg),
-  purple(AppColors.purple, AppColors.purpleBg),
-  grey(AppColors.grey, AppColors.greyBg);
+  green,
+  amber,
+  orange,
+  red,
+  blue,
+  purple,
+  grey;
 
-  const ChipTone(this.foreground, this.background);
-  final Color foreground;
-  final Color background;
+  Color get foreground => switch (this) {
+    green => AppColors.green,
+    amber => AppColors.amber,
+    orange => AppColors.orange,
+    red => AppColors.red,
+    blue => AppColors.blue,
+    purple => AppColors.purple,
+    grey => AppColors.grey,
+  };
+
+  Color get background => switch (this) {
+    green => AppColors.greenBg,
+    amber => AppColors.amberBg,
+    orange => AppColors.orangeBg,
+    red => AppColors.redBg,
+    blue => AppColors.blueBg,
+    purple => AppColors.purpleBg,
+    grey => AppColors.greyBg,
+  };
 
   /// Tone for a status label, so every screen colors the same word the same way.
   static ChipTone forStatus(String status) {
@@ -52,7 +68,9 @@ enum ChipTone {
       'fair' ||
       'idle' ||
       'under repair' ||
-      'partial' => amber,
+      'partial' ||
+      'paused' ||
+      'wrong location' => amber,
       'high' || 'major' => orange,
       'critical' ||
       'overdue' ||
@@ -66,9 +84,11 @@ enum ChipTone {
       'poor' ||
       'stopped' ||
       'not starting' ||
+      'not found' ||
+      'damaged' ||
       'error' => red,
       'in progress' || 'in transit' || 'moving' || 'syncing' || 'info' || 'new' => blue,
-      'assigned' || 'checked out' || 'reserved' => purple,
+      'assigned' || 'checked out' || 'reserved' || 'unregistered' => purple,
       _ => grey,
     };
   }
@@ -78,7 +98,7 @@ enum ChipTone {
       'critical' => red,
       'high' => orange,
       'medium' => amber,
-      _ => grey, // Low: design shows a pale grey-lavender chip
+      _ => blue, // Low (prompt 10: Critical red / High orange / Medium amber / Low blue)
     };
   }
 }
@@ -105,7 +125,14 @@ class StatusChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[Icon(icon, size: 13, color: t.foreground), const SizedBox(width: 4)],
-          Text(label, style: AppText.chip.copyWith(color: t.foreground)),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.chip.copyWith(color: t.foreground),
+            ),
+          ),
           if (trailingIcon != null) ...[const SizedBox(width: 2), Icon(trailingIcon, size: 16, color: t.foreground)],
         ],
       ),
@@ -185,7 +212,7 @@ class IconFilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final fg = selected ? Colors.white : AppColors.text;
     return Material(
-      color: selected ? AppColors.primary : Colors.white,
+      color: selected ? AppColors.primary : AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.button),
         side: BorderSide(color: selected ? AppColors.primary : AppColors.border),

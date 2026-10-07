@@ -61,8 +61,13 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
     _amcVendor.text = a.amc ?? '';
   }
 
-  Future<DateTime?> _pickDate(DateTime initial) =>
-      showDatePicker(context: context, initialDate: initial, firstDate: DateTime(2000), lastDate: DateTime(2045));
+  Future<DateTime?> _pickDate(DateTime initial) => showDatePicker(
+    useRootNavigator: false,
+    context: context,
+    initialDate: initial,
+    firstDate: DateTime(2000),
+    lastDate: DateTime(2045),
+  );
 
   void _save() {
     if (_commissioned != null && _commissioned!.isBefore(_purchase)) {
@@ -124,7 +129,7 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
       child: Row(
         children: [
           Expanded(child: Text(value == null ? 'Select date' : DemoClock.formatDate(value), style: _valueStyle)),
-          const Icon(Icons.edit_calendar_rounded, size: 16, color: AppColors.primary),
+          Icon(Icons.edit_calendar_rounded, size: 16, color: AppColors.primary),
         ],
       ),
     );
@@ -265,16 +270,16 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
   }
 }
 
-const _valueStyle = TextStyle(fontSize: 12.5, color: AppColors.text);
+TextStyle get _valueStyle => TextStyle(fontSize: 12.5, color: AppColors.text);
 
 Widget _chip(String label) => Align(alignment: Alignment.centerLeft, child: StatusChip(label));
 
-Widget _iconValue(IconData icon, String text, {Color color = AppColors.text}) => Row(
+Widget _iconValue(IconData icon, String text, {Color? color}) => Row(
   crossAxisAlignment: CrossAxisAlignment.start,
   children: [
     Padding(
       padding: const EdgeInsets.only(top: 1),
-      child: Icon(icon, size: 14, color: color == AppColors.text ? AppColors.textSecondary : color),
+      child: Icon(icon, size: 14, color: color == null || color == AppColors.text ? AppColors.textSecondary : color),
     ),
     const SizedBox(width: 5),
     Expanded(

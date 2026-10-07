@@ -14,16 +14,41 @@ class AlertsNotifier extends Notifier<List<AlertItem>> {
   String get _me => ref.read(currentUserProvider).name;
   void _update(String id, AlertItem Function(AlertItem) f) => state = replaceWhere(state, id, (a) => a.id, f);
 
-  void acknowledge(String id) => _update(
+  void acknowledge(String id, {String? note}) => _update(
     id,
     (a) => a.copyWith(
       status: AlertStatus.acknowledged,
       history: [
         ...a.history,
-        LogEntry(at: DemoClock.now, title: 'Acknowledged', by: _me),
+        LogEntry(at: DemoClock.now, title: 'Acknowledged', by: _me, note: note),
       ],
     ),
   );
+
+  /// A work order was created from the alert.
+  void linkWorkOrder(String id, String woId) => _update(
+    id,
+    (a) => a.copyWith(
+      workOrderId: woId,
+      history: [
+        ...a.history,
+        LogEntry(at: DemoClock.now, title: 'Work order $woId created', by: _me),
+      ],
+    ),
+  );
+
+  int _live = 0;
+
+  /// The simulated "live" alert (every 60 s while Alerts is open), cycling through [liveAlertTemplates].
+  AlertItem raiseLive() {
+    final t = liveAlertTemplates[_live++ % liveAlertTemplates.length];
+    return raise(type: t.$1, severity: t.$2, assetId: t.$3, message: t.$4, location: t.$5);
+  }
+
+  /// The asset moved: unresolved alerts that showed its old location show the new one.
+  void followAsset(String assetId, String from, String to) => state = [
+    for (final a in state) a.assetId == assetId && !a.isResolved && a.location == from ? a.copyWith(location: to) : a,
+  ];
 
   void resolve(String id, {String? note}) => _update(
     id,
@@ -56,6 +81,7 @@ class AlertsNotifier extends Notifier<List<AlertItem>> {
   }) {
     final alert = AlertItem(
       id: nextId('ALT-2026-', state.map((a) => a.id)),
+      description: message,
       type: type,
       severity: severity,
       assetId: assetId,
@@ -66,7 +92,7 @@ class AlertsNotifier extends Notifier<List<AlertItem>> {
     state = [alert, ...state];
     ref
         .read(notificationsProvider.notifier)
-        .post(kind: 'alert', title: type, message: message, refType: 'alert', refId: alert.id);
+        .post(kind: 'alert', title: type, message: '$assetId: $message', refType: 'alert', refId: alert.id);
     return alert;
   }
 }
@@ -85,6 +111,22 @@ extension AlertQueries on List<AlertItem> {
       where((a) => a.severity == Severity.critical && a.requiresAction).toList();
   List<AlertItem> forAsset(String assetId) => where((a) => a.assetId == assetId).toList();
 
+  /// Search by asset ID, type, message or location.
+  List<AlertItem> search(String q) {
+    final s = q.trim().toLowerCase();
+    if (s.isEmpty) return this;
+    return where((a) => '${a.assetId} ${a.type} ${a.message} ${a.location}'.toLowerCase().contains(s)).toList();
+  }
+
+  /// Earlier occurrences of the same alert type on the same asset (Alert Details → History).
+  List<AlertItem> earlierOf(AlertItem a) =>
+      where((x) => x.id != a.id && x.assetId == a.assetId && x.type == a.type && x.at.isBefore(a.at)).toList()
+        ..sort((x, y) => y.at.compareTo(x.at));
+
+  /// Other assets in the same location with active (not resolved) alerts (Alert Details → Related Assets).
+  List<AlertItem> relatedTo(AlertItem a) =>
+      where((x) => x.assetId != a.assetId && x.location == a.location && !x.isResolved).toList();
+
   /// Newest first.
   List<AlertItem> get latest => [...this]..sort((a, b) => b.at.compareTo(a.at));
 }
@@ -97,6 +139,9 @@ class NotificationsNotifier extends Notifier<List<AppNotification>> {
   void markUnread(String id) => state = replaceWhere(state, id, (n) => n.id, (n) => n.copyWith(read: false));
   void markAllRead() => state = [for (final n in state) n.copyWith(read: true)];
   void remove(String id) => state = state.where((n) => n.id != id).toList();
+
+  /// Puts a removed notification back at its old position (SnackBar "Undo").
+  void restore(AppNotification n, int index) => state = [...state]..insert(index.clamp(0, state.length), n);
 
   void post({
     required String kind,
@@ -121,6 +166,20 @@ class NotificationsNotifier extends Notifier<List<AppNotification>> {
     ];
   }
 }
+
+class NotificationSettingsNotifier extends Notifier<NotificationSettings> {
+  @override
+  NotificationSettings build() => const NotificationSettings();
+
+  void setCategory(String key, bool on) => state = state.copyWith(categories: {...state.categories, key: on});
+  void setQuietHours(bool on) => state = state.copyWith(quietHours: on);
+  void setQuietFrom(({int h, int m}) t) => state = state.copyWith(quietFrom: t);
+  void setQuietTo(({int h, int m}) t) => state = state.copyWith(quietTo: t);
+}
+
+final notificationSettingsProvider = NotifierProvider<NotificationSettingsNotifier, NotificationSettings>(
+  NotificationSettingsNotifier.new,
+);
 
 final notificationsProvider = NotifierProvider<NotificationsNotifier, List<AppNotification>>(NotificationsNotifier.new);
 

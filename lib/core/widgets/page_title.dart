@@ -30,7 +30,7 @@ class PageTitle extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: AppText.pageTitle),
+              Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppText.pageTitle),
               if (subtitle != null) ...[const SizedBox(height: 4), Text(subtitle!, style: AppText.pageSubtitle)],
             ],
           ),
@@ -63,8 +63,8 @@ Future<void> showHelpSheet(BuildContext context, {required String title, require
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle),
-                  child: const Icon(Icons.lightbulb_outline_rounded, color: AppColors.primary, size: 20),
+                  decoration: BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle),
+                  child: Icon(Icons.lightbulb_outline_rounded, color: AppColors.primary, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: Text('About $title', style: AppText.sectionTitle)),

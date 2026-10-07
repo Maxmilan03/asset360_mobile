@@ -7,8 +7,29 @@ abstract final class DocType {
   static const serviceReport = 'Service Report';
   static const invoice = 'Invoice';
   static const drawing = 'Drawing';
+  static const contract = 'Contract / AMC';
+  static const insurance = 'Insurance';
+  static const other = 'Other';
 
-  static const all = [manual, warranty, certificate, maintenance, photo, serviceReport, invoice, drawing];
+  static const all = [
+    manual,
+    warranty,
+    certificate,
+    maintenance,
+    photo,
+    serviceReport,
+    invoice,
+    drawing,
+    contract,
+    insurance,
+    other,
+  ];
+
+  /// Add Document type dropdown.
+  static const uploadTypes = [manual, warranty, certificate, maintenance, photo, serviceReport, invoice, other];
+
+  /// Types that carry an expiry date.
+  static bool expires(String type) => type == warranty || type == certificate || type == contract || type == insurance;
 
   /// Tab bucket: Manuals, Warranty, Certificates or Others.
   static String bucket(String type) => switch (type) {
@@ -18,6 +39,44 @@ abstract final class DocType {
     _ => 'Others',
   };
 }
+
+/// One stored version of a document (Versions section).
+class DocVersion {
+  const DocVersion({
+    required this.version,
+    required this.at,
+    required this.by,
+    required this.sizeMb,
+    this.filePath,
+    this.note,
+  });
+
+  final String version;
+  final DateTime at;
+  final String by;
+  final double sizeMb;
+  final String? filePath;
+  final String? note;
+}
+
+/// Expiry state, from [DemoClock]: expiring within 30 days, expired, or valid beyond 30 days.
+enum ExpiryState { none, valid, expiring, expired }
+
+const expiringWithinDays = 30;
+
+/// Categories offered on Add Document / Edit.
+const docCategories = [
+  'Operation Manual',
+  'Service Manual',
+  'Warranty Certificate',
+  'Compliance Certificate',
+  'Calibration Certificate',
+  'Maintenance Plan',
+  'Service Report',
+  'Site Photo',
+  'Purchase Invoice',
+  'Other',
+];
 
 class AssetDocument {
   const AssetDocument({
@@ -33,6 +92,8 @@ class AssetDocument {
     this.description = '',
     this.expiry,
     this.filePath,
+    this.versions = const [],
+    this.pendingReview = false,
   });
 
   final String id;
@@ -52,7 +113,15 @@ class AssetDocument {
   /// Bundled asset ('assets/docs/…') or picked file path, used by "View".
   final String? filePath;
 
-  bool get isImage => name.toLowerCase().endsWith('.jpg') || name.toLowerCase().endsWith('.png');
+  /// Every stored version, newest first; the current one is [version].
+  final List<DocVersion> versions;
+
+  /// Waiting for review (Pending tile).
+  final bool pendingReview;
+
+  String get extension => name.contains('.') ? name.split('.').last.toLowerCase() : '';
+
+  bool get isImage => ['jpg', 'jpeg', 'png'].contains(extension);
   bool get isPdf => name.toLowerCase().endsWith('.pdf');
   String get sizeLabel => '${sizeMb.toStringAsFixed(1)} MB';
 
@@ -63,23 +132,33 @@ class AssetDocument {
     String? version,
     String? description,
     DateTime? expiry,
+    bool clearExpiry = false,
+    double? sizeMb,
+    String? filePath,
+    DateTime? uploadedAt,
+    String? uploadedBy,
+    List<DocVersion>? versions,
+    bool? pendingReview,
   }) => AssetDocument(
     id: id,
     name: name ?? this.name,
     type: type ?? this.type,
     assetId: assetId,
-    sizeMb: sizeMb,
-    uploadedAt: uploadedAt,
-    uploadedBy: uploadedBy,
+    sizeMb: sizeMb ?? this.sizeMb,
+    uploadedAt: uploadedAt ?? this.uploadedAt,
+    uploadedBy: uploadedBy ?? this.uploadedBy,
     category: category ?? this.category,
     version: version ?? this.version,
     description: description ?? this.description,
-    expiry: expiry ?? this.expiry,
-    filePath: filePath,
+    expiry: clearExpiry ? null : expiry ?? this.expiry,
+    filePath: filePath ?? this.filePath,
+    versions: versions ?? this.versions,
+    pendingReview: pendingReview ?? this.pendingReview,
   );
 }
 
-/// Org-wide document figures (summary).
+/// Org-wide document figures (summary). Expiring / compliant / pending are the counts for documents
+/// that have no detailed record here; the state adds the detailed documents (see DocumentsState).
 class DocumentSummary {
   const DocumentSummary({
     required this.byBucket,
@@ -90,6 +169,8 @@ class DocumentSummary {
 
   /// Manuals, Warranty, Certificates, Others.
   final Map<String, int> byBucket;
+
+  /// Undetailed documents only.
   final int expiringSoon;
   final int compliant;
   final int pending;

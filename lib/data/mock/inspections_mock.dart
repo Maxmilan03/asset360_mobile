@@ -1,113 +1,156 @@
+import '../../core/checklist/checklist.dart';
 import '../models/common.dart';
 import '../models/inspection.dart';
 import 'people_mock.dart';
 import 'seed_utils.dart';
 
+CheckItem _choice(String code, String label, List<String> options, [String? value]) => CheckItem(
+  code: code,
+  label: label,
+  type: options.length == 2 ? CheckType.yesNo : CheckType.choice,
+  options: options,
+  value: value,
+);
+
+CheckItem _number(String code, String label, String unit, double min, double max, [String? value]) =>
+    CheckItem(code: code, label: label, type: CheckType.number, unit: unit, min: min, max: max, value: value);
+
 /// The 12-item checklist of design/09_inspection.jpg, answered 4/4, 3/4, 1/3, 0/1.
-List<ChecklistSection> fireAndPumpChecklist() => const [
-  ChecklistSection(
+List<CheckSection> fireAndPumpChecklist() => [
+  CheckSection(
     title: 'Visual Inspection',
-    questions: [
-      ChecklistQuestion(
-        code: '1.1',
-        text: 'Check for physical damage',
-        type: QuestionType.choice,
-        options: ['Good', 'Minor Issue', 'Major Issue'],
-        answer: 'Good',
-      ),
-      ChecklistQuestion(
-        code: '1.2',
-        text: 'Check for leakage',
-        type: QuestionType.yesNo,
-        options: ['No', 'Yes'],
-        answer: 'No',
-      ),
-      ChecklistQuestion(
-        code: '1.3',
-        text: 'Check foundation bolts',
-        type: QuestionType.choice,
-        options: ['Good', 'Loose', 'Damaged'],
-        answer: 'Good',
-      ),
-      ChecklistQuestion(
-        code: '1.4',
-        text: 'Cleanliness around equipment',
-        type: QuestionType.choice,
-        options: ['Clean', 'Needs Cleaning', 'Not Acceptable'],
-        answer: 'Clean',
-      ),
+    items: [
+      _choice('1.1', 'Check for physical damage', ['Good', 'Minor Issue', 'Major Issue'], 'Good'),
+      _choice('1.2', 'Check for leakage', ['No', 'Yes'], 'No'),
+      _choice('1.3', 'Check foundation bolts', ['Good', 'Loose', 'Damaged'], 'Good'),
+      _choice('1.4', 'Cleanliness around equipment', ['Clean', 'Needs Cleaning', 'Not Acceptable'], 'Clean'),
     ],
   ),
-  ChecklistSection(
+  CheckSection(
     title: 'Performance Check',
-    questions: [
-      ChecklistQuestion(
-        code: '2.1',
-        text: 'Check discharge pressure',
-        type: QuestionType.number,
-        unit: 'bar',
-        min: 6,
-        max: 9,
-        answer: '7.5',
-      ),
-      ChecklistQuestion(code: '2.2', text: 'Check flow rate', type: QuestionType.number, unit: 'LPM'),
-      ChecklistQuestion(
-        code: '2.3',
-        text: 'Check motor current',
-        type: QuestionType.number,
-        unit: 'A',
-        min: 10,
-        max: 14,
-        answer: '12.8',
-      ),
-      ChecklistQuestion(
-        code: '2.4',
-        text: 'Check vibration',
-        type: QuestionType.choice,
-        options: ['Normal', 'High', 'Excessive'],
-        answer: 'Normal',
-      ),
+    items: [
+      _number('2.1', 'Check discharge pressure', 'bar', 6, 9, '7.5'),
+      _number('2.2', 'Check flow rate', 'LPM', 400, 600),
+      _number('2.3', 'Check motor current', 'A', 10, 14, '12.8'),
+      _choice('2.4', 'Check vibration', ['Normal', 'High', 'Excessive'], 'Normal'),
     ],
+    photos: const ['assets/images/fire_pump.jpg', 'assets/images/pump_unit.jpg'],
   ),
-  ChecklistSection(
+  CheckSection(
     title: 'Electrical Check',
-    questions: [
-      ChecklistQuestion(
-        code: '3.1',
-        text: 'Check control panel indicators',
-        type: QuestionType.choice,
-        options: ['OK', 'Faulty'],
-        answer: 'OK',
-      ),
-      ChecklistQuestion(
-        code: '3.2',
-        text: 'Check cable condition and terminations',
-        type: QuestionType.choice,
-        options: ['Good', 'Worn', 'Damaged'],
-      ),
-      ChecklistQuestion(
-        code: '3.3',
-        text: 'Earthing / grounding intact',
-        type: QuestionType.yesNo,
-        options: ['Yes', 'No'],
-      ),
+    items: [
+      _choice('3.1', 'Check control panel indicators', ['OK', 'Faulty'], 'OK'),
+      _choice('3.2', 'Check cable condition and terminations', ['Good', 'Worn', 'Damaged']),
+      _choice('3.3', 'Earthing / grounding intact', ['Yes', 'No']),
     ],
   ),
-  ChecklistSection(
+  CheckSection(
     title: 'Safety & Compliance',
-    questions: [
-      ChecklistQuestion(
-        code: '4.1',
-        text: 'Safety signage and guards in place',
-        type: QuestionType.yesNo,
-        options: ['Yes', 'No'],
-      ),
+    items: [
+      _choice('4.1', 'Safety signage and guards in place', ['Yes', 'No']),
     ],
   ),
 ];
 
-/// A short generic checklist; [answered] questions get their "good" answer.
-List<ChecklistSection> _generic(String type, {int answered = 0}) {
+/// Create Inspection templates: name → (type, title suffix, blank checklist).
+final inspectionTemplates = <String, (String, String, List<CheckSection> Function())>{
+  'Fire Pump Routine': ('Routine', 'Routine Inspection', () => [for (final s in fireAndPumpChecklist()) s.blank]),
+  'HVAC': (
+    'HVAC',
+    'HVAC Inspection',
+    () => [
+      CheckSection(
+        title: 'Filters & Coils',
+        items: [
+          _choice('1.1', 'Filter condition', ['Clean', 'Dirty', 'Clogged']),
+          _choice('1.2', 'Coil condition', ['Clean', 'Needs Cleaning', 'Damaged']),
+          _choice('1.3', 'Drain pan leakage', ['No', 'Yes']),
+        ],
+      ),
+      CheckSection(
+        title: 'Performance',
+        items: [
+          _number('2.1', 'Supply air temperature', '°C', 12, 16),
+          _number('2.2', 'Fan motor current', 'A', 4, 7),
+          _choice('2.3', 'Fan vibration', ['Normal', 'High', 'Excessive']),
+        ],
+      ),
+      const CheckSection(
+        title: 'Photos & Remarks',
+        items: [
+          CheckItem(code: '3.1', label: 'Photo of the unit', type: CheckType.photo),
+          CheckItem(code: '3.2', label: 'Remarks', type: CheckType.text, required: false),
+        ],
+      ),
+    ],
+  ),
+  'Generator Safety': (
+    'Safety',
+    'Safety Inspection',
+    () => [
+      CheckSection(
+        title: 'Engine',
+        items: [
+          _choice('1.1', 'Engine oil level', ['OK', 'Low']),
+          _choice('1.2', 'Coolant level', ['OK', 'Low']),
+          _choice('1.3', 'Exhaust leakage', ['No', 'Yes']),
+        ],
+      ),
+      CheckSection(
+        title: 'Electrical',
+        items: [
+          _number('2.1', 'Starter battery voltage', 'V', 12.4, 13.2),
+          _choice('2.2', 'Emergency stop test', ['Pass', 'Fail']),
+        ],
+      ),
+      const CheckSection(
+        title: 'Sign-off',
+        items: [CheckItem(code: '3.1', label: 'Remarks', type: CheckType.text, required: false)],
+      ),
+    ],
+  ),
+  'Forklift Safety': (
+    'Safety',
+    'Safety & Compliance',
+    () => [
+      CheckSection(
+        title: 'Pre-use Check',
+        items: [
+          _choice('1.1', 'Horn and lights', ['Working', 'Not Working']),
+          _choice('1.2', 'Brakes', ['Good', 'Weak', 'Failed']),
+          _choice('1.3', 'Forks and chains', ['Good', 'Worn', 'Damaged']),
+          _number('1.4', 'Battery charge', '%', 20, 100),
+        ],
+      ),
+      CheckSection(
+        title: 'Operator',
+        items: [
+          _choice('2.1', 'Seat belt fitted and working', ['Yes', 'No']),
+          const CheckItem(code: '2.2', label: 'Operator acknowledgement', type: CheckType.signature),
+        ],
+      ),
+    ],
+  ),
+  'Fire Extinguisher Monthly': (
+    'Monthly',
+    'Monthly Check',
+    () => [
+      CheckSection(
+        title: 'Extinguisher',
+        items: [
+          _choice('1.1', 'Pressure gauge in green zone', ['Yes', 'No']),
+          _choice('1.2', 'Safety pin and seal intact', ['Yes', 'No']),
+          _choice('1.3', 'Hose and nozzle condition', ['Good', 'Cracked', 'Blocked']),
+          _number('1.4', 'Gross weight', 'kg', 9.5, 10.5),
+          const CheckItem(code: '1.5', label: 'Photo of the inspection tag', type: CheckType.photo),
+        ],
+      ),
+    ],
+  ),
+};
+
+/// A short generic checklist; [answered] items get their "good" answer.
+List<CheckSection> _generic(String type, {int answered = 0}) {
   const texts = [
     (
       'General Condition',
@@ -135,18 +178,9 @@ List<ChecklistSection> _generic(String type, {int answered = 0}) {
   var n = 0;
   return [
     for (final s in texts)
-      ChecklistSection(
+      CheckSection(
         title: s.$1,
-        questions: [
-          for (final q in s.$2)
-            ChecklistQuestion(
-              code: q.$1,
-              text: q.$2,
-              type: q.$3.length == 2 ? QuestionType.yesNo : QuestionType.choice,
-              options: q.$3,
-              answer: n++ < answered ? q.$3.first : null,
-            ),
-        ],
+        items: [for (final q in s.$2) _choice(q.$1, q.$2, q.$3, n++ < answered ? q.$3.first : null)],
       ),
   ];
 }
@@ -195,7 +229,7 @@ List<Inspection> seedInspections() => [
     dueAt: sep(25, 9, 0),
     inspectorId: PersonIds.rex,
     sections: fireAndPumpChecklist(),
-    photos: const ['assets/images/fire_pump.jpg', 'assets/images/pump_unit.jpg'],
+    template: 'Fire Pump Routine',
     findings: [
       Finding(
         id: 'FND-2026-0101',

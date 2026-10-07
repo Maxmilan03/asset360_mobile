@@ -10,6 +10,7 @@ import '../../core/widgets/widgets.dart';
 import '../../data/models/movement.dart';
 import '../../data/repositories/assets_repository.dart';
 import '../../data/repositories/movements_repository.dart';
+import '../movement/movement_widgets.dart';
 import '../../data/repositories/session_repository.dart';
 
 /// Movement requests waiting for the signed-in user's approval.
@@ -45,11 +46,18 @@ class MyApprovalsScreen extends ConsumerWidget {
               ),
             )
           else
-            for (final m in pending)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ApprovalCard(request: m),
+            LoadingGate(
+              rows: 2,
+              child: Column(
+                children: [
+                  for (final m in pending)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _ApprovalCard(request: m),
+                    ),
+                ],
               ),
+            ),
         ],
       ),
     );
@@ -61,58 +69,12 @@ class _ApprovalCard extends ConsumerWidget {
 
   final MovementRequest request;
 
-  Future<void> _reject(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController();
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        String? error;
-        return StatefulBuilder(
-          builder: (ctx, setD) => AlertDialog(
-            title: Text('Reject ${request.id}?'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Tell the requester why this request is rejected.'),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  maxLines: 3,
-                  decoration: InputDecoration(hintText: 'Reason (required)', errorText: error),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-              FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: AppColors.red, minimumSize: const Size(96, 44)),
-                onPressed: () {
-                  final r = controller.text.trim();
-                  if (r.isEmpty) {
-                    setD(() => error = 'Please enter a reason');
-                  } else {
-                    Navigator.pop(ctx, r);
-                  }
-                },
-                child: const Text('Reject'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-    controller.dispose();
-    if (reason == null || !context.mounted) return;
-    ref.read(movementsProvider.notifier).reject(request.id, reason);
-    context.showSnack('${request.id} rejected');
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asset = ref.watch(assetByIdProvider(request.assetId));
     final requester = ref.watch(personByIdProvider(request.requesterId));
     return AppCard(
+      onTap: () => context.push(Routes.movementRequest(request.id)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -124,7 +86,7 @@ class _ApprovalCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(request.id, style: AppText.cardTitle),
+                    Text(request.id, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.cardTitle),
                     const SizedBox(height: 2),
                     Text(
                       '${request.assetId} – ${asset?.name ?? ''}',
@@ -154,7 +116,7 @@ class _ApprovalCard extends ConsumerWidget {
                     foregroundColor: AppColors.red,
                     side: const BorderSide(color: AppColors.red),
                   ),
-                  onPressed: () => _reject(context, ref),
+                  onPressed: () => rejectMovement(context, ref, request),
                   child: const Text('Reject'),
                 ),
               ),

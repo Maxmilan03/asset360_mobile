@@ -35,6 +35,20 @@ AssetCosts _estimatedCosts(Asset a) {
   return AssetCosts(maintenance: part(.035), spares: part(.025), labor: part(.015), energy: powered ? part(.04) : 0);
 }
 
+/// AMCs run a year at a time from commissioning; the current period ends on the next anniversary
+/// after 25 Sep 2026 (so some contracts come up for renewal soon).
+DateTime _amcRenewal(Asset a) {
+  final start = a.commissionedDate ?? a.purchaseDate;
+  var end = DateTime(2026, start.month, start.day);
+  if (end.isBefore(sep(25))) end = DateTime(2027, start.month, start.day);
+  return end;
+}
+
+/// Seed location of an asset. Issues and alerts copy it, so every screen shows the same location.
+String seedLocationOf(String assetId) =>
+    (_seedLocations ??= {for (final a in seedAssets()) a.id: a.location})[assetId] ?? '—';
+Map<String, String>? _seedLocations;
+
 List<Asset> seedAssets() {
   final assets = <Asset>[
     Asset(
@@ -578,6 +592,7 @@ List<Asset> seedAssets() {
     for (final a in assets)
       a.copyWith(
         costs: a.costs.total == 0 ? _estimatedCosts(a) : a.costs,
+        amcExpiry: a.amc == null ? null : _amcRenewal(a),
         events: a.events.isEmpty ? _events(a) : a.events,
         locationHistory: a.locationHistory.isEmpty
             ? [LocationRecord(at: a.commissionedDate ?? a.purchaseDate, location: a.location, by: 'Rex Kumar')]

@@ -13,6 +13,11 @@ abstract final class AlertStatus {
   static const newAlert = 'New';
   static const acknowledged = 'Acknowledged';
   static const resolved = 'Resolved';
+
+  static const all = [newAlert, acknowledged, resolved];
+
+  /// "New" is shown as "Active".
+  static String label(String s) => s == newAlert ? 'Active' : s;
 }
 
 class AlertItem {
@@ -32,6 +37,7 @@ class AlertItem {
     this.trend = const [],
     this.trendLabel,
     this.history = const [],
+    this.workOrderId,
   });
 
   final String id;
@@ -54,16 +60,20 @@ class AlertItem {
   final String? trendLabel;
   final List<LogEntry> history;
 
-  bool get requiresAction => status == AlertStatus.newAlert;
+  /// Work order created from this alert.
+  final String? workOrderId;
 
-  AlertItem copyWith({String? status, List<LogEntry>? history}) => AlertItem(
+  bool get requiresAction => status == AlertStatus.newAlert;
+  bool get isResolved => status == AlertStatus.resolved;
+
+  AlertItem copyWith({String? status, List<LogEntry>? history, String? workOrderId, String? location}) => AlertItem(
     id: id,
     type: type,
     severity: severity,
     assetId: assetId,
     message: message,
     at: at,
-    location: location,
+    location: location ?? this.location,
     status: status ?? this.status,
     threshold: threshold,
     value: value,
@@ -72,6 +82,7 @@ class AlertItem {
     trend: trend,
     trendLabel: trendLabel,
     history: history ?? this.history,
+    workOrderId: workOrderId ?? this.workOrderId,
   );
 }
 
@@ -122,3 +133,43 @@ class AppNotification {
     refId: refId,
   );
 }
+
+/// Notification settings (⋮ → Notification settings).
+class NotificationSettings {
+  const NotificationSettings({
+    this.categories = const {},
+    this.quietHours = false,
+    this.quietFrom = (h: 22, m: 0),
+    this.quietTo = (h: 7, m: 0),
+  });
+
+  /// Category → on/off (missing = on).
+  final Map<String, bool> categories;
+  final bool quietHours;
+  final ({int h, int m}) quietFrom;
+  final ({int h, int m}) quietTo;
+
+  bool isOn(String category) => categories[category] ?? true;
+
+  NotificationSettings copyWith({
+    Map<String, bool>? categories,
+    bool? quietHours,
+    ({int h, int m})? quietFrom,
+    ({int h, int m})? quietTo,
+  }) => NotificationSettings(
+    categories: categories ?? this.categories,
+    quietHours: quietHours ?? this.quietHours,
+    quietFrom: quietFrom ?? this.quietFrom,
+    quietTo: quietTo ?? this.quietTo,
+  );
+}
+
+/// Settings toggles: (key, label, description).
+const notificationSettingCategories = [
+  ('alerts', 'Critical & high alerts', 'IoT sensors, geofences and thresholds'),
+  ('workOrders', 'Work orders', 'Assigned, started, completed and overdue'),
+  ('approvals', 'Approvals', 'Movement requests waiting for you'),
+  ('inspections', 'Inspections', 'Due today and overdue inspections'),
+  ('stock', 'Stock levels', 'Parts below their reorder point'),
+  ('system', 'System', 'Sync, documents and app updates'),
+];

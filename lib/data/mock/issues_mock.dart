@@ -1,5 +1,6 @@
 import '../models/common.dart';
 import '../models/issue.dart';
+import 'assets_mock.dart';
 import 'people_mock.dart';
 import 'seed_utils.dart';
 
@@ -97,7 +98,7 @@ List<Issue> seedIssues() {
       IssueStatus.open,
       PersonIds.fatima,
       sep(23, 11, 10),
-      'IT Store / Dubai Office',
+      seedLocationOf('LAP-0098'),
       assignee: PersonIds.fatima,
     ),
     _issue(
@@ -193,7 +194,7 @@ List<Issue> seedIssues() {
         IssueStatus.resolved,
         r.$6,
         sep(r.$7, 10, 0),
-        '—',
+        seedLocationOf(r.$2),
         resolvedAt: sep(r.$7 + 1, 15, 0),
       ),
   ];

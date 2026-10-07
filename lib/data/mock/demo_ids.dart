@@ -10,6 +10,9 @@ abstract final class DemoIds {
   static const wipUnit = 'PCB-A-4587';
   static const productionOrder = 'MO-2026-0018';
   static const audit = 'AUD-2026-001';
+
+  /// The asset scanned in the audit design (not audited yet in the seed).
+  static const auditedAsset = 'GEN-00045';
   static const part = 'BR-6205';
   static const document = 'DOC-2026-0045';
   static const alert = 'ALT-2026-0245';

@@ -125,12 +125,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Language', style: AppText.sectionTitle),
+            Text('Language', style: AppText.sectionTitle),
             const SizedBox(height: 8),
             ListTile(
               leading: const Text('🇬🇧', style: TextStyle(fontSize: 22)),
               title: const Text('English'),
-              trailing: const Icon(Icons.check_circle_rounded, color: AppColors.primary),
+              trailing: Icon(Icons.check_circle_rounded, color: AppColors.primary),
               onTap: () => Navigator.pop(ctx),
             ),
             ListTile(
@@ -172,12 +172,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text('Contact your administrator', style: AppText.sectionTitle),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 6, 16, 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
                 child: Text(
                   'Your Asset360 administrator can create your account and reset access.',
                   style: AppText.secondary,
@@ -238,10 +238,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ],
                         ),
                         const SizedBox(height: 18),
-                        const Text.rich(
+                        Text.rich(
                           TextSpan(
                             children: [
-                              TextSpan(
+                              const TextSpan(
                                 text: 'Asset',
                                 style: TextStyle(color: AppColors.heroNavy, fontWeight: FontWeight.w800),
                               ),
@@ -251,10 +251,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             ],
                           ),
-                          style: TextStyle(fontSize: 46, height: 1.05, letterSpacing: -1),
+                          style: const TextStyle(fontSize: 46, height: 1.05, letterSpacing: -1),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
+                        Text(
                           'Track   |   Manage   |   Optimize',
                           style: TextStyle(fontSize: 17, color: AppColors.primary, fontWeight: FontWeight.w500),
                         ),
@@ -285,20 +285,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text.rich(
+                    Text.rich(
                       TextSpan(
                         children: [
-                          TextSpan(text: 'Sign in to Asset'),
+                          const TextSpan(text: 'Sign in to Asset'),
                           TextSpan(
                             text: '360',
                             style: TextStyle(color: AppColors.primary),
                           ),
                         ],
                       ),
-                      style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: AppColors.heroNavy),
+                      style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: AppColors.heroNavy),
                     ),
                     const SizedBox(height: 4),
-                    const Text('Access your assets, operations and insights', style: AppText.pageSubtitle),
+                    Text('Access your assets, operations and insights', style: AppText.pageSubtitle),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: _user,
@@ -307,11 +307,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       keyboardType: TextInputType.emailAddress,
                       onFieldSubmitted: (_) => _passFocus.requestFocus(),
                       validator: (v) => (v ?? '').trim().isEmpty ? 'Enter your username or email' : null,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Username',
                         contentPadding: _fieldPadding,
-                        prefixIconConstraints: BoxConstraints(minWidth: 44, minHeight: 42),
-                        suffixIconConstraints: BoxConstraints(minWidth: 44, minHeight: 42),
+                        prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 42),
+                        suffixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 42),
                         prefixIcon: Icon(Icons.person_outline_rounded, color: AppColors.textSecondary),
                       ),
                     ),
@@ -329,7 +329,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         contentPadding: _fieldPadding,
                         prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 42),
                         suffixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 42),
-                        prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textSecondary),
+                        prefixIcon: Icon(Icons.lock_outline_rounded, color: AppColors.textSecondary),
                         suffixIcon: IconButton(
                           tooltip: _obscure ? 'Show password' : 'Hide password',
                           onPressed: () => setState(() => _obscure = !_obscure),
@@ -353,7 +353,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                         GestureDetector(
                           onTap: () => setState(() => _remember = !_remember),
-                          child: const Text('Remember me', style: TextStyle(fontSize: 12.5, color: AppColors.text)),
+                          child: Text('Remember me', style: TextStyle(fontSize: 12.5, color: AppColors.text)),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -400,8 +400,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             : ArrowLabel('Sign In', loading: _loading),
                       ),
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 6),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Text('or', textAlign: TextAlign.center, style: AppText.caption),
                     ),
                     Row(
@@ -428,8 +428,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: InkWell(
                         onTap: _contactAdmin,
                         borderRadius: BorderRadius.circular(6),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                           child: Text(
                             'New to Asset360?  Contact your administrator.',
                             style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
@@ -489,13 +489,13 @@ class _LanguagePill extends StatelessWidget {
       child: InkWell(
         customBorder: const StadiumBorder(),
         onTap: onTap,
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.language_rounded, size: 18, color: AppColors.text),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Text(
                 'English',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.text),
@@ -522,7 +522,7 @@ class _SocialButton extends StatelessWidget {
       onPressed: onTap,
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.text,
-        side: const BorderSide(color: AppColors.border),
+        side: BorderSide(color: AppColors.border),
         padding: const EdgeInsets.symmetric(horizontal: 6),
         minimumSize: const Size(0, 40),
       ),

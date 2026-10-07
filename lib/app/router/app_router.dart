@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../data/mock/demo_ids.dart';
 import '../../data/repositories/session_repository.dart';
 import '../../features/assets/asset_detail_screen.dart';
 import '../../features/assets/assets_list_screen.dart';
@@ -10,19 +9,70 @@ import '../../features/auth/authenticator_screen.dart';
 import '../../features/auth/forgot_password_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/splash_screen.dart';
-import '../../features/common/coming_soon_screen.dart';
+import '../../features/documents/add_document_screen.dart';
+import '../../features/documents/document_detail_screen.dart';
+import '../../features/documents/document_viewer_screen.dart';
+import '../../features/documents/documents_screen.dart';
+import '../../features/help/help_screen.dart';
 import '../../features/home/home_screen.dart';
+import '../../features/profile/profile_screen.dart';
+import '../../features/inspection/create_inspection_screen.dart';
+import '../../features/inspection/inspection_hub_screen.dart';
+import '../../features/inspection/inspection_screen.dart';
+import '../../features/issues/issue_detail_screen.dart';
+import '../../features/issues/issues_screen.dart';
+import '../../features/issues/report_issue_screen.dart';
+import '../../features/inventory/inventory_screen.dart';
+import '../../features/inventory/part_detail_screen.dart';
+import '../../features/inventory/procurement_screens.dart';
+import '../../features/inventory/stock_movement_screen.dart';
 import '../../features/home/my_approvals_screen.dart';
 import '../../features/home/my_tasks_screen.dart';
 import '../../features/maintenance/create_work_order_screen.dart';
 import '../../features/maintenance/maintenance_calendar_screen.dart';
-import '../../features/more/more_screen.dart';
+import '../../features/maintenance/maintenance_hub_screen.dart';
+import '../../features/maintenance/maintenance_lists.dart';
+import '../../features/maintenance/work_order_screen.dart';
+import '../../features/admin/admin_screen.dart';
+import '../../features/alerts/alert_detail_screen.dart';
+import '../../features/alerts/alerts_screen.dart';
+import '../../features/alerts/notifications_screen.dart';
+import '../../data/models/audit.dart';
+import '../../features/audit/asset_audit_screen.dart';
+import '../../features/audit/audit_asset_screen.dart';
+import '../../features/audit/audit_pages.dart';
+import '../../features/audit/audit_session_screen.dart';
+import '../../features/audit/compliance_screen.dart';
+import '../../features/contracts/contracts_warranty_screen.dart';
+import '../../features/financial/financial_screen.dart';
+import '../../features/more/all_modules.dart';
+import '../../features/movement/custody_screen.dart';
+import '../../features/movement/movement_hub_screen.dart';
+import '../../features/movement/movement_pages.dart';
+import '../../features/movement/transfer_asset_screen.dart';
+import '../../features/reports/reports_screen.dart';
 import '../../features/registration/register_asset_screen.dart';
 import '../../features/registration/registration_hub_screen.dart';
 import '../../features/registration/registration_widgets.dart';
+import '../../features/sync/offline_sync_screen.dart';
+import '../../features/sync/pending_sync_screen.dart';
+import '../../features/sync/syncing_screen.dart';
 import '../../features/settings/data_check_screen.dart';
+import '../../features/tracking/asset_tracking_screen.dart';
+import '../../features/tracking/telemetry_view.dart';
+import '../../features/tracking/tracking_hub_screen.dart';
+import '../../features/tracking/tracking_pages.dart';
+import '../../features/settings/demo_tags_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/scan/demo_scan_screen.dart';
+import '../../features/scan/scan_history_screen.dart';
+import '../../features/scan/scan_result_screen.dart';
+import '../../features/scan/scan_screen.dart';
+import '../../features/wip/production_order_screen.dart';
+import '../../features/wip/wip_hub_screen.dart';
+import '../../features/wip/wip_unit_screen.dart';
 import '../../features/work/work_hub_screen.dart';
+import '../feature_flags.dart';
 import 'main_shell.dart';
 import 'routes.dart';
 
@@ -31,6 +81,11 @@ final _rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 final routerProvider = Provider<GoRouter>((ref) {
   // Re-run the redirect whenever the session changes (sign-in, logout).
   final refresh = ValueNotifier<int>(0);
+  // One navigator per tab. Every signed-in screen, sheet and dialog lives on these,
+  // under the bottom bar, so the bar and the Scan button are always visible.
+  final branchKeys = [
+    for (final name in ['home', 'assets', 'work', 'more']) GlobalKey<NavigatorState>(debugLabel: name),
+  ];
   ref.listen(sessionProvider, (_, _) => refresh.value++);
   ref.onDispose(refresh.dispose);
 
@@ -46,6 +101,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (loc == Routes.authenticator && !session.passwordVerified) return Routes.login;
         return onAuth ? null : Routes.login;
       }
+      // Bare /scan… (no tab) opens Scan on the Home tab.
+      if (loc == Routes.scan || loc.startsWith('${Routes.scan}/')) return '${Routes.home}$loc';
       // Signed in: the sign-in screens are no longer reachable.
       if (onAuth && loc != Routes.splash) return Routes.home;
       return null;
@@ -56,13 +113,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.forgotPassword, builder: (_, _) => const ForgotPasswordScreen()),
       GoRoute(path: Routes.authenticator, builder: (_, _) => const AuthenticatorScreen()),
       StatefulShellRoute.indexedStack(
-        pageBuilder: (_, state, shell) => _fade(state, MainShell(navigationShell: shell)),
+        pageBuilder: (_, state, shell) =>
+            _fade(state, MainShell(navigationShell: shell, location: state.uri.path, branchKeys: branchKeys)),
         branches: [
-          _branch(_homeRoute()),
-          _branch(_assetsRoute()),
-          _branch(_scanRoute()),
-          _branch(_workRoute()),
-          _branch(_moreRoute()),
+          // Client demo: only the Home branch exists (Assets / Work in the bar are inert).
+          for (final (i, root) in [
+            _homeRoute(),
+            if (!kClientDemo) ...[_assetsRoute(), _workRoute(), _moreRoute()],
+          ].indexed)
+            StatefulShellBranch(navigatorKey: branchKeys[i], routes: [root]),
         ],
       ),
     ],
@@ -80,56 +139,24 @@ CustomTransitionPage<void> _fade(GoRouterState state, Widget child) => CustomTra
   ),
 );
 
-StatefulShellBranch _branch(GoRoute root) => StatefulShellBranch(routes: [root]);
-
-/// Placeholder route; later prompts swap the builder for the real screen.
-GoRoute _soon(
-  String path,
-  String title,
-  String subtitle,
-  int prompt, {
-  List<ScreenLink> links = const [],
-  List<RouteBase> routes = const [],
-}) {
-  return GoRoute(
-    path: path,
-    builder: (_, state) => ComingSoonScreen(
-      title: title,
-      subtitle: subtitle,
-      prompt: prompt,
-      links: links,
-      filter: state.uri.query.isEmpty ? null : Uri.decodeComponent(state.uri.query),
-    ),
-    routes: routes,
-  );
-}
-
-/// Placeholder for a detail route whose title is the ID in the path.
-GoRoute _soonDetail(String path, String param, String subtitle, int prompt) {
-  return GoRoute(
-    path: path,
-    builder: (_, state) => ComingSoonScreen(title: state.pathParameters[param]!, subtitle: subtitle, prompt: prompt),
-  );
-}
-
-/// Notifications and Profile exist under every tab, so the header bell and
-/// avatar open them without switching tabs.
+/// Notifications, Profile and Scan exist under every tab, so the header bell,
+/// avatar and the centre Scan button open them without switching tabs.
 List<RouteBase> _shared() => [
-  _soon(
-    Routes.notificationsSegment,
-    'Notifications',
-    'Stay updated with alerts and messages',
-    13,
-    links: [const ScreenLink('Alerts & Notifications', Routes.alerts, icon: Icons.notifications_active_outlined)],
+  GoRoute(
+    path: Routes.notificationsSegment,
+    builder: (_, _) => const NotificationsScreen(),
+    routes: [GoRoute(path: 'settings', builder: (_, _) => const NotificationSettingsScreen())],
   ),
-  _soon(
-    Routes.profileSegment,
-    'Profile',
-    'Your details, role and password',
-    19,
-    links: const [
-      ScreenLink('Settings', Routes.settings, icon: Icons.settings_outlined),
-      ScreenLink('Help & Support', Routes.help, icon: Icons.help_outline_rounded),
+  GoRoute(path: Routes.profileSegment, builder: (_, _) => const ProfileScreen()),
+  GoRoute(
+    path: Routes.scanSegment,
+    builder: (_, _) => const ScanScreen(),
+    routes: [
+      GoRoute(
+        path: 'result/:assetId',
+        builder: (_, state) => ScanResultScreen(assetId: state.pathParameters['assetId']!),
+      ),
+      GoRoute(path: 'history', builder: (_, _) => const ScanHistoryScreen()),
     ],
   ),
 ];
@@ -138,12 +165,16 @@ GoRoute _homeRoute() => GoRoute(
   path: Routes.home,
   builder: (_, _) => const HomeScreen(),
   routes: [
-    GoRoute(path: 'approvals', builder: (_, _) => const MyApprovalsScreen()),
-    GoRoute(
-      path: 'tasks',
-      builder: (_, state) => MyTasksScreen(initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0),
-    ),
-    ..._shared(),
+    // Client demo: Home's only child is the simple camera Scan screen.
+    if (kClientDemo) GoRoute(path: Routes.scanSegment, builder: (_, _) => const DemoScanScreen()),
+    if (!kClientDemo) ...[
+      GoRoute(path: 'approvals', builder: (_, _) => const MyApprovalsScreen()),
+      GoRoute(
+        path: 'tasks',
+        builder: (_, state) => MyTasksScreen(initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0),
+      ),
+      ..._shared(),
+    ],
   ],
 );
 
@@ -153,28 +184,9 @@ GoRoute _assetsRoute() => GoRoute(
   routes: [
     GoRoute(
       path: 'detail/:assetId',
-      builder: (_, state) => AssetDetailScreen(assetId: state.pathParameters['assetId']!),
+      builder: (_, state) =>
+          AssetDetailScreen(assetId: state.pathParameters['assetId']!, initialTab: state.uri.queryParameters['tab']),
     ),
-    ..._shared(),
-  ],
-);
-
-GoRoute _scanRoute() => _soon(
-  Routes.scan,
-  'Scan & Identify',
-  'Scan QR code, barcode, NFC / RFID or BLE',
-  7,
-  links: [
-    ScreenLink(
-      'Asset Identified (${DemoIds.scannedAsset})',
-      Routes.scanResult(DemoIds.scannedAsset),
-      icon: Icons.qr_code_2_rounded,
-    ),
-    const ScreenLink('Scan History', Routes.scanHistory, icon: Icons.history_rounded),
-  ],
-  routes: [
-    _soonDetail('result/:assetId', 'assetId', 'Asset Identified', 7),
-    _soon('history', 'Scan History', 'Your recent scans', 7),
     ..._shared(),
   ],
 );
@@ -183,108 +195,142 @@ GoRoute _workRoute() => GoRoute(
   path: Routes.work,
   builder: (_, _) => const WorkHubScreen(),
   routes: [
-    _soon(
-      'maintenance',
-      'Maintenance',
-      'Manage work orders, preventive maintenance and asset service',
-      10,
-      links: [
-        ScreenLink(
-          'Work order ${DemoIds.workOrder}',
-          Routes.workOrder(DemoIds.workOrder),
-          icon: Icons.assignment_outlined,
-        ),
-        const ScreenLink('Maintenance Calendar', Routes.maintenanceCalendar, icon: Icons.calendar_month_outlined),
-      ],
+    GoRoute(
+      path: 'maintenance',
+      builder: (_, state) => MaintenanceHubScreen(initialTab: state.uri.queryParameters['tab']),
       routes: [
-        _soonDetail('orders/:woId', 'woId', 'Work order detail', 10),
+        GoRoute(
+          path: 'orders/:woId',
+          builder: (_, state) =>
+              WorkOrderScreen(woId: state.pathParameters['woId']!, initialTab: state.uri.queryParameters['tab']),
+        ),
         GoRoute(path: 'calendar', builder: (_, _) => const MaintenanceCalendarScreen()),
         GoRoute(
           path: 'new',
-          builder: (_, state) => CreateWorkOrderScreen(assetId: state.uri.queryParameters['asset']),
+          builder: (_, state) =>
+              CreateWorkOrderScreen(assetId: state.uri.queryParameters['asset'], prefill: state.extra as WoPrefill?),
         ),
+        GoRoute(path: 'pm', builder: (_, _) => const PmSchedulesScreen()),
+        GoRoute(path: 'breakdowns', builder: (_, _) => const WoListScreen.breakdowns()),
+        GoRoute(path: 'service-history', builder: (_, _) => const WoListScreen.history()),
       ],
     ),
-    _soon(
-      'inspection',
-      'Inspection',
-      'Conduct inspections, checklists and compliance',
-      11,
-      links: [
-        ScreenLink(
-          'Inspection ${DemoIds.inspection}',
-          Routes.inspectionDetail(DemoIds.inspection),
-          icon: Icons.fact_check_outlined,
-        ),
-      ],
+    GoRoute(
+      path: 'inspection',
+      builder: (_, state) => InspectionHubScreen(initialView: state.uri.queryParameters['tab']),
       routes: [
-        _soonDetail('detail/:id', 'id', 'Inspection checklist', 11),
-        _soon('new', 'Create Inspection', 'Pick a checklist, inspector and due date', 11),
-      ],
-    ),
-    _soon(
-      'issues',
-      'Issues / Defects',
-      'Report, track and resolve asset issues',
-      12,
-      links: [
-        const ScreenLink('Report Issue / Defect', Routes.reportIssue, icon: Icons.add_alert_outlined),
-        ScreenLink('Issue ${DemoIds.issue}', Routes.issueDetail(DemoIds.issue), icon: Icons.report_outlined),
-      ],
-      routes: [
-        _soon('report', 'Report Issue / Defect', 'Describe the problem and attach evidence', 12),
-        _soonDetail('detail/:id', 'id', 'Issue detail', 12),
-      ],
-    ),
-    _soon(
-      'wip',
-      'WIP / Operations',
-      'Track production orders and units through each station',
-      15,
-      links: [
-        ScreenLink(
-          'WIP unit ${DemoIds.wipUnit}',
-          Routes.wipUnit(DemoIds.wipUnit),
-          icon: Icons.precision_manufacturing_outlined,
+        GoRoute(
+          path: 'detail/:id',
+          builder: (_, state) =>
+              InspectionScreen(id: state.pathParameters['id']!, initialTab: state.uri.queryParameters['tab']),
         ),
-        ScreenLink(
-          'Production order ${DemoIds.productionOrder}',
-          Routes.productionOrder(DemoIds.productionOrder),
-          icon: Icons.receipt_long_outlined,
+        GoRoute(
+          path: 'new',
+          builder: (_, state) => CreateInspectionScreen(assetId: state.uri.queryParameters['asset']),
+        ),
+        GoRoute(
+          path: 'findings',
+          builder: (_, _) => const FindingsScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) => FindingDetailScreen(id: state.pathParameters['id']!),
+            ),
+          ],
         ),
       ],
-      routes: [
-        _soonDetail('unit/:unitId', 'unitId', 'WIP Tracking', 15),
-        _soonDetail('order/:moId', 'moId', 'Production Order', 15),
-      ],
     ),
-    _soon(
-      'movement',
-      'Movement & Custody',
-      'Transfer, assign and track asset movement',
-      9,
-      links: const [
-        ScreenLink('Transfer Asset', Routes.transferAsset, icon: Icons.swap_horiz_rounded),
-        ScreenLink('Movement History', Routes.movementHistory, icon: Icons.history_rounded),
-      ],
+    GoRoute(
+      path: 'issues',
+      builder: (_, state) => IssuesScreen(initialTab: state.uri.queryParameters['tab']),
       routes: [
-        _soon('transfer', 'Transfer Asset', 'Move asset from one location or custodian to another', 9),
-        _soon('history', 'Movement History', 'All transfers, check-outs and check-ins', 9),
-      ],
-    ),
-    _soon(
-      'audit',
-      'Asset Audit',
-      'Verify assets physically against the register',
-      17,
-      links: [
-        ScreenLink(
-          'Audit session ${DemoIds.audit}',
-          Routes.auditSession(DemoIds.audit),
-          icon: Icons.view_in_ar_rounded,
+        GoRoute(
+          path: 'report',
+          builder: (_, state) => ReportIssueScreen(assetId: state.uri.queryParameters['asset']),
+        ),
+        GoRoute(
+          path: 'detail/:id',
+          builder: (_, state) =>
+              IssueDetailScreen(id: state.pathParameters['id']!, initialTab: state.uri.queryParameters['tab']),
         ),
       ],
-      routes: [_soonDetail('session/:id', 'id', 'Audit session', 17)],
+    ),
+    GoRoute(
+      path: 'wip',
+      builder: (_, state) => WipHubScreen(initialView: state.uri.queryParameters['tab']),
+      routes: [
+        GoRoute(
+          path: 'unit/:unitId',
+          builder: (_, state) => WipUnitScreen(serial: state.pathParameters['unitId']!),
+        ),
+        GoRoute(
+          path: 'order/:moId',
+          builder: (_, state) => ProductionOrderScreen(id: state.pathParameters['moId']!),
+        ),
+      ],
+    ),
+    GoRoute(
+      path: 'movement',
+      builder: (_, state) => MovementHubScreen(initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '')),
+      routes: [
+        GoRoute(
+          path: 'transfer',
+          builder: (_, state) => TransferAssetScreen(
+            assetIds: [
+              ?state.uri.queryParameters['asset'],
+              ...?state.uri.queryParameters['assets']?.split(',').where((s) => s.isNotEmpty),
+            ],
+          ),
+        ),
+        GoRoute(path: 'history', builder: (_, _) => const MovementHistoryScreen()),
+        GoRoute(
+          path: 'request/:id',
+          builder: (_, state) => MovementRequestScreen(id: state.pathParameters['id']!),
+        ),
+        for (final (path, action) in [
+          ('check-out', CustodyAction.checkOut),
+          ('check-in', CustodyAction.checkIn),
+          ('assign', CustodyAction.assign),
+          ('return', CustodyAction.returnAsset),
+        ])
+          GoRoute(
+            path: path,
+            builder: (_, state) => CustodyScreen(action: action, assetId: state.uri.queryParameters['asset']),
+          ),
+      ],
+    ),
+    GoRoute(
+      path: 'audit',
+      builder: (_, state) => AssetAuditScreen(initialTab: state.uri.queryParameters['tab']),
+      routes: [
+        GoRoute(path: 'new', builder: (_, _) => const CreateAuditScreen()),
+        GoRoute(path: 'compliance', builder: (_, _) => const ComplianceScreen()),
+        GoRoute(
+          path: 'session/:id',
+          builder: (_, state) => AuditSessionScreen(id: state.pathParameters['id']!),
+          routes: [
+            GoRoute(
+              path: 'asset/:assetId',
+              builder: (_, state) => AuditAssetScreen(
+                auditId: state.pathParameters['id']!,
+                assetId: state.pathParameters['assetId']!,
+                method: state.uri.queryParameters['method'],
+              ),
+            ),
+            GoRoute(
+              path: 'results',
+              builder: (_, state) => AuditResultsScreen(
+                id: state.pathParameters['id']!,
+                result: state.uri.queryParameters['result'] ?? AuditResult.verified,
+              ),
+            ),
+            GoRoute(
+              path: 'report',
+              builder: (_, state) => AuditReportScreen(id: state.pathParameters['id']!),
+            ),
+          ],
+        ),
+      ],
     ),
     ..._shared(),
   ],
@@ -292,52 +338,119 @@ GoRoute _workRoute() => GoRoute(
 
 GoRoute _moreRoute() => GoRoute(
   path: Routes.more,
-  builder: (_, _) => const MoreScreen(),
+  builder: (_, _) => const AllModulesScreen(),
   routes: [
-    _soon(
-      'tracking',
-      'Tracking & IoT',
-      'Real-time location, sensors and telemetry',
-      8,
-      links: [
-        ScreenLink(
-          'Asset Tracking (${DemoIds.trackedAsset})',
-          Routes.trackAsset(DemoIds.trackedAsset),
-          icon: Icons.location_on_outlined,
+    GoRoute(path: 'contracts', builder: (_, _) => const ContractsWarrantyScreen()),
+    GoRoute(path: 'financial', builder: (_, _) => const FinancialScreen()),
+    GoRoute(
+      path: 'reports',
+      builder: (_, _) => const ReportsScreen(),
+      routes: [
+        GoRoute(
+          path: ':id',
+          builder: (_, state) => ReportChartScreen(reportId: state.pathParameters['id']!),
         ),
       ],
-      routes: [_soonDetail('asset/:assetId', 'assetId', 'Asset Tracking', 8)],
     ),
-    _soon(
-      'inventory',
-      'Inventory / Spare Parts',
-      'Manage stock, spare parts and consumables',
-      14,
-      links: [
-        ScreenLink('Part ${DemoIds.part}', Routes.partDetail(DemoIds.part), icon: Icons.settings_outlined),
-        const ScreenLink('Stock Movement', Routes.stockMovement, icon: Icons.sync_alt_rounded),
-      ],
+    GoRoute(
+      path: 'admin',
+      builder: (_, state) => AdminScreen(initialTab: state.uri.queryParameters['tab']),
       routes: [
-        _soonDetail('part/:partId', 'partId', 'Part Details', 14),
-        _soon('stock-movement', 'Stock Movement', 'Receipts, issues and transfers', 14),
-      ],
-    ),
-    _soon(
-      'documents',
-      'Documents',
-      'Manuals, certificates, warranties and reports',
-      16,
-      links: [
-        const ScreenLink('Add Document', Routes.addDocument, icon: Icons.upload_file_outlined),
-        ScreenLink(
-          'Document ${DemoIds.document}',
-          Routes.documentDetail(DemoIds.document),
-          icon: Icons.description_outlined,
+        GoRoute(
+          path: 'users/:id',
+          builder: (_, state) => AdminUserScreen(personId: state.pathParameters['id']!),
         ),
       ],
+    ),
+    GoRoute(
+      path: 'tracking',
+      builder: (_, state) => TrackingHubScreen(initialTab: state.uri.queryParameters['tab']),
       routes: [
-        _soon('add', 'Add Document', 'Upload and link a document to an asset', 16),
-        _soonDetail('detail/:id', 'id', 'Document Details', 16),
+        GoRoute(
+          path: 'asset/:assetId',
+          builder: (_, state) => AssetTrackingScreen(
+            assetId: state.pathParameters['assetId']!,
+            initialTab: state.uri.queryParameters['tab'],
+          ),
+          routes: [
+            GoRoute(
+              path: 'chart',
+              builder: (_, state) => TelemetryChartScreen(
+                assetId: state.pathParameters['assetId']!,
+                metric: state.uri.queryParameters['metric'] ?? 'battery',
+                range: state.uri.queryParameters['range'],
+              ),
+            ),
+          ],
+        ),
+        GoRoute(path: 'activity', builder: (_, _) => const TrackingActivityScreen()),
+        GoRoute(path: 'zones/new', builder: (_, _) => const AddGeofenceScreen()),
+      ],
+    ),
+    GoRoute(
+      path: 'inventory',
+      builder: (_, state) => InventoryScreen(initialTab: state.uri.queryParameters['tab']),
+      routes: [
+        GoRoute(
+          path: 'part/:partId',
+          builder: (_, state) => PartDetailScreen(partId: state.pathParameters['partId']!),
+          routes: [
+            GoRoute(
+              path: 'movement',
+              builder: (_, state) => StockMovementScreen(
+                partId: state.pathParameters['partId'],
+                initialTab: state.uri.queryParameters['tab'],
+              ),
+            ),
+          ],
+        ),
+        GoRoute(path: 'stock-movement', builder: (_, _) => const StockMovementScreen()),
+        GoRoute(
+          path: 'requests',
+          builder: (_, _) => const PartRequestsScreen(),
+          routes: [
+            GoRoute(
+              path: 'new',
+              builder: (_, state) => RequestPartScreen(partId: state.uri.queryParameters['part']),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: 'po',
+          builder: (_, _) => const PurchaseOrdersScreen(),
+          routes: [
+            GoRoute(
+              path: 'new',
+              builder: (_, state) => PurchaseOrderFormScreen(partId: state.uri.queryParameters['part']),
+            ),
+            GoRoute(
+              path: 'detail/:id',
+              builder: (_, state) => PurchaseOrderScreen(id: state.pathParameters['id']!),
+            ),
+          ],
+        ),
+        GoRoute(path: 'reports', builder: (_, _) => const StockReportsScreen()),
+      ],
+    ),
+    GoRoute(
+      path: 'documents',
+      builder: (_, state) => DocumentsScreen(initialTab: state.uri.queryParameters['tab']),
+      routes: [
+        GoRoute(
+          path: 'add',
+          builder: (_, state) => AddDocumentScreen(assetId: state.uri.queryParameters['asset']),
+        ),
+        GoRoute(
+          path: 'detail/:id',
+          builder: (_, state) => DocumentDetailScreen(id: state.pathParameters['id']!),
+          routes: [
+            GoRoute(
+              path: 'view',
+              builder: (_, state) =>
+                  DocumentViewerScreen(id: state.pathParameters['id']!, version: state.uri.queryParameters['version']),
+            ),
+          ],
+        ),
       ],
     ),
     GoRoute(
@@ -351,37 +464,40 @@ GoRoute _moreRoute() => GoRoute(
         GoRoute(path: 'bulk', builder: (_, _) => const RegistrationHubScreen(bulk: true)),
       ],
     ),
-    _soon(
-      'alerts',
-      'Alerts & Notifications',
-      'Monitor alarms, thresholds and messages',
-      13,
-      links: [
-        ScreenLink('Alert ${DemoIds.alert}', Routes.alertDetail(DemoIds.alert), icon: Icons.battery_alert_rounded),
-        ScreenLink('Notifications', Routes.notificationsFrom(Routes.more), icon: Icons.notifications_none_rounded),
-      ],
-      routes: [_soonDetail('detail/:id', 'id', 'Alert Details', 13)],
-    ),
-    _soon(
-      'sync',
-      'Offline Sync',
-      'Work offline and sync your changes later',
-      18,
-      links: const [
-        ScreenLink('Pending Sync', Routes.pendingSync, icon: Icons.pending_actions_outlined),
-        ScreenLink('Syncing Data', Routes.syncProgress, icon: Icons.cloud_sync_outlined),
-      ],
+    GoRoute(
+      path: 'alerts',
+      builder: (_, state) => AlertsScreen(initialTab: state.uri.queryParameters['tab']),
       routes: [
-        _soon('pending', 'Pending Sync', 'Changes waiting to be uploaded', 18),
-        _soon('progress', 'Syncing Data', 'Uploading your offline changes', 18),
+        GoRoute(
+          path: 'detail/:id',
+          builder: (_, state) => AlertDetailScreen(id: state.pathParameters['id']!),
+        ),
+      ],
+    ),
+    GoRoute(
+      path: 'sync',
+      builder: (_, _) => const OfflineSyncScreen(),
+      routes: [
+        GoRoute(
+          path: 'pending',
+          builder: (_, state) => PendingSyncScreen(initialTab: state.uri.queryParameters['tab']),
+        ),
+        GoRoute(path: 'progress', builder: (_, _) => const SyncingScreen()),
       ],
     ),
     GoRoute(
       path: 'settings',
       builder: (_, _) => const SettingsScreen(),
-      routes: [GoRoute(path: 'data-check', builder: (_, _) => const DataCheckScreen())],
+      routes: [
+        GoRoute(path: 'data-check', builder: (_, _) => const DataCheckScreen()),
+        GoRoute(path: 'demo-tags', builder: (_, _) => const DemoTagsScreen()),
+      ],
     ),
-    _soon('help', 'Help & Support', 'FAQs, contact support and report a bug', 19),
+    GoRoute(
+      path: 'help',
+      builder: (_, _) => const HelpScreen(),
+      routes: [GoRoute(path: 'report-bug', builder: (_, _) => const ReportBugScreen())],
+    ),
     ..._shared(),
   ],
 );

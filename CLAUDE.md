@@ -23,6 +23,10 @@
    lib/core/widgets/. Don't duplicate UI code.
 9. After finishing each prompt: run `flutter analyze`, fix everything, then give me a short summary
    of what was built and a checklist of every button on the new screens and what it does.
+10. The bottom bar with the centre Scan button is visible on every screen after login. Never create a screen
+   or route that hides it. Every route is a child of the StatefulShellRoute (never push onto the root
+   navigator); dialogs and pickers pass `useRootNavigator: false` so they open on the tab's navigator, under
+   the bar. Only Splash, Login, Forgot Password and Authenticator are outside the shell.
 
 ## Project map (kept up to date)
 - `prompts/` — the build prompts, run in order (01 … 19). `design/` — the 16 design images.
@@ -30,6 +34,13 @@
 - `lib/app/router/` — `app_router.dart` (go_router + StatefulShellRoute), `routes.dart` (all path constants).
 - `lib/core/widgets/` — shared widgets (AppHeader, PageTitle, chips, tiles, cards, sheets …).
 - `lib/features/<module>/` — one folder per module screen set.
+- Shell: 4 branches (Home, Assets, Work, More) with `branchKeys` in `app_router.dart`. The bar's Scan button
+  pushes `Routes.scanFrom(location)` (scan routes exist under every tab, like notifications/profile, so Back
+  returns to the origin); `Routes.scan` / `Routes.scanHistory` are markers resolved by `openRoute`. More opens
+  the All Modules sheet (`features/more/all_modules.dart`: `allModules`, `moreModules`, `openModule`) on the
+  current branch navigator; `/more` itself is the All Modules page. New modules: Audit & Compliance
+  (`/work/audit`), Contracts & Warranty, Financial, Reports & Analytics, Administration (`/more/...`).
+  `test/shell_test.dart` visits every route and checks the bar + Scan button.
 - Design notes: the bottom bar is WHITE with a raised violet Scan button (the designs win over prompt
   text that says "purple bottom bar"). Screens are a white rounded sheet overlapping the purple header.
 - `lib/data/` — models/, mock/ (seed per module), repositories/ (one Notifier each). Counts come from the
@@ -51,4 +62,117 @@
   spare IoT devices and the sample CSV are in `data/mock/registration_mock.dart`; `unlinkedIotDevicesProvider`,
   `sessionRegistrationsProvider`, `assetTypesProvider` in `assets_repository.dart`. Shared: `QrCode` (real,
   scannable encoder, tested in `test/qr_code_test.dart`), `core/csv.dart`.
+- Scan (prompt 07): `features/scan/` — `scan_screen.dart` (QR camera + simulated NFC/RFID/BLE, Manual Entry, Multi Scan,
+  debug "Simulate scan" chip), `scan_result_screen.dart` (Asset Identified), `scan_history_screen.dart`. Every scan goes
+  through `openScannedCode` (`scan_flow.dart`), which records history and routes. Code matching = `ScanHistoryNotifier.resolve`
+  (asset ID/tag/barcode/serial, part number, `LOC:` location). Beacons/demo tags in `scans_mock.dart`. Shared action grid =
+  `assetActions()` in `asset_actions.dart`. Developer → Print demo tags = `settings/demo_tags_screen.dart`.
+  Shared: `PulseRings`, `SheetTitle`/`sheetFrame` (dialogs.dart), `AppLauncher.openAppSettings`.
+- Tracking (prompt 08): `features/tracking/` — hub (`tracking_hub_screen.dart`: Live Map / Asset List / Sensors /
+  Geofencing), `asset_tracking_screen.dart` (5 tabs + route playback sheet), `telemetry_view.dart` (Telemetry tab +
+  full-screen zoomable chart), `tracking_pages.dart` (activity log, Add Zone drawing), `tracking_map.dart` (`TrackingMap`:
+  badge pins, callout, trail, geofences, 2D/3D, zoom). Data: `trackingProvider` (geofences, allowed zones, zone events),
+  `trackingLiveProvider` (watch it to run the 3 s FL-012 simulation), `sensorsProvider`, `metricsFor` +
+  `telemetryHistory` (deterministic per asset/metric/range), `routePlayback`. Shared: `TrendChart`, `Sparkline`
+  (core/widgets/trend_chart.dart), `SignalBars` (tracking_widgets.dart). Home's floor-plan legend keeps the design-02
+  colours (`trackedKindColor`); the tracking module uses `pinLook` (design 06).
+- Movement (prompt 09): `features/movement/` — hub (`movement_hub_screen.dart`), 5-step `transfer_asset_screen.dart`
+  (`?asset=` / `?assets=` → one request per asset), `custody_screen.dart` (Check Out / Check In / Assign Custodian /
+  Return, enum `CustodyAction`), `movement_pages.dart` (request detail with Approve/Reject/Cancel/In Transit/Received,
+  Movement History). Shared: `MovementSummary` (Review layout, read-only in detail), `MoveStatusTimeline`,
+  `rejectMovement` (also used by My Approvals), `AssetChooser`, `SelectedAssetCard`. `MovePlace.party` = department /
+  person destination (asset location unchanged); `MovePlace.assetLocation` = location written on completion.
+  Core: `AttachmentTile` + `showAttachmentPreview`, `DateBox(firstDate:)`, read-only `PhotoStrip` (no `onAdd`).
+- Maintenance (prompt 10): `features/maintenance/` — hub (`maintenance_hub_screen.dart`, `?tab=mine|pm|overdue|all`),
+  `work_order_screen.dart` (Overview / Parts / History / Documents, `?tab=`), `wo_tasks_tab.dart`, `wo_actions.dart`
+  (`changeWoStatus` = the status rules: On Hold asks a reason, Completed/Closed need every task done, Closed runs the
+  close-out with resolution, labour, parts used and signature), `maintenance_lists.dart` (PM schedules, Breakdowns,
+  Service History). The editable task is `WorkOrder.openTaskId` (in progress, else first unfinished). Shared:
+  `SignaturePad` / `SignaturePainter` (eager pan: wins over scroll views), `DueCountdownChip`, `PersonLine`, `WoRow`.
+  `ChipTone.forPriority`: Low is blue (prompt 10).
+- Checklist engine (prompt 11): `lib/core/checklist/` — `checklist.dart` (`CheckItem` types tick / choice / yesNo /
+  number (unit + range) / text / photo / signature; first option = good answer, others negative; `CheckSection`,
+  `ChecklistX.updateItem`) and `checklist_widgets.dart` (`CheckItemView`, `CheckSectionHeader`, `ChecklistProgress`,
+  `RadioChip`). Used by inspections and by WO tasks (`WoTask.checklist` is `List<CheckItem>` of tick items).
+- Inspection (prompt 11): `features/inspection/` — hub (`InsView` mine/due/overdue/all + dueToday/completed tiles),
+  `inspection_screen.dart` (Details / Checklist with auto "Add Finding" on negative answers, Summary & Submit with
+  score + signature / Findings / Documents), `create_inspection_screen.dart` (templates = `inspectionTemplates` in
+  inspections_mock.dart), Findings list + Finding detail (Create Work Order via `WoPrefill` route extra → finding
+  becomes Action Taken / Close Finding). Home "Inspections Due Today" opens `?tab=dueToday`.
+- Issues (prompt 12): `features/issues/` — `issues_screen.dart` (`?tab=all|mine|open|resolved`, In Progress tile list,
+  swipe right = Mark Resolved on your own open issues, `IssueRow`), `report_issue_screen.dart` (`?asset=`; Critical
+  issues raise an alert + notification in `IssuesNotifier.report`), `issue_detail_screen.dart` (Details with inline edit
+  / Work Orders / Timeline with comments / Attachments; Close Issue needs resolution notes). Open = Open + In Progress
+  + On Hold. Create Work Order uses `WoPrefill(issueId:, photos:)` → the WO links back to the issue.
+  `PhotoStrip(allowVideo:, addLabel:)` / `pickPhoto(allowVideo:)` add "Record video".
+- Alerts (prompt 13): `features/alerts/` — `alerts_screen.dart` (severity tiles → tabs, swipe left = acknowledge,
+  long-press multi-select with bulk Acknowledge / Resolve, a live alert every `liveAlertEvery` (60 s) while on screen via
+  `AlertsNotifier.raiseLive` + MaterialBanner), `alert_detail_screen.dart` (Details with trend to the alert time /
+  History = `earlierOf` / Actions log / Related Assets = `relatedTo`; Acknowledge → Resolve; Create Work Order with
+  `WoPrefill(alertId:)`), `notifications_screen.dart` (bell target under every tab; `notificationRoute` deep links,
+  swipe delete + Undo, ⋮ Mark all as read / settings → `NotificationSettingsScreen`, `notificationSettingsProvider`).
+  `AlertsNotifier.raise` always posts a notification, so other modules (critical issues) feed the bell.
+- Inventory (prompt 14): `features/inventory/` — hub (`?tab=all|low|reorder|reserved`, "Showing 20 of 124"),
+  `part_detail_screen.dart` (+ `inventory_actions.dart`: edit levels, manage bin / transfer, ⋮ Issue to Work Order,
+  Stock Count Adjustment, spec sheet), `stock_movement_screen.dart` (per part or all parts; History / Usage / Reserved
+  / Purchase Orders), `procurement_screens.dart` (PO list / detail with Receive (GRN) / PO form, My Requests + Request
+  Part form, Stock Reports, `showPartPicker`). Ledger rule: `StockTxn.balanceAfter` = stock on hand; reservations
+  carry `reservedChange` and leave the balance unchanged (BR-6205: reserved 6 = WO-0138 4 + WO-0045 2, available 30,
+  opening balance 1). Every change goes through `InventoryNotifier._updatePart`, which posts "Stock Level Low" when
+  available drops to the reorder level. `WorkOrdersNotifier.issuePart` = Issue to Work Order. Shared:
+  `BarSeriesChart` (trend_chart.dart).
+- WIP (prompt 15): `features/wip/` — hub (`wip_hub_screen.dart`: KPI tiles → tabs, Scan to Move / Start / End
+  Operation / Report Issue, `showEndOperationSheet`), `wip_unit_screen.dart` (WIP Tracking for a unit serial),
+  `production_order_screen.dart` (titled "Production Order"; MO- numbers). `ProductionOrder.currentStation` is derived
+  from the running / failed / next operation's `location`, so list and detail always agree; `locationPath` likewise.
+  `WipNotifier`: `startOperation` (next in sequence only), `pause/resumeOperation`, `endOperation` (good/scrap, QC;
+  a failed QC = red step + `QualityCheck` finding + Delayed), `moveToNext`, `rework`, `completeOrder` (all ops done),
+  `issueComponent` (Inventory `TxnType.issuedToProduction`). `liveMinutes` = live actual duration (capped 2×).
+  Report Issue accepts `IssuePrefill(reference:)` (route extra) for non-asset issues; issue type "Production".
+- Documents (prompt 16): `features/documents/` — `documents_screen.dart` (`?tab=all|manuals|warranty|certificates|
+  others` or a tile `expiring|compliant|pending`; tiles filter, tabs = `summary.byBucket`), `document_detail_screen.dart`
+  (inline edit, Related Documents = other docs of the asset, Versions with Restore), `add_document_screen.dart`
+  (`?asset=`; `AddDocumentScreen.debugPickFile` replaces file_picker in tests), `document_viewer_screen.dart` (pdfx for
+  PDFs, zoomable images; `/view?version=`), `document_widgets.dart` (`DocRow`, `DocMenuButton` ⋮ actions, download via
+  `FilePicker.saveFile`, `pickDocumentFile` 10 MB limit). Counts: `DocumentsState.expiringSoon/compliant/pending` =
+  summary figures (undetailed docs) + `expiryState` of listed docs (Expiring Soon = expiry within 30 days of DemoClock).
+  `DocType.expires` (Warranty, Certificate, Contract / AMC, Insurance) decides whether an expiry date is asked.
+- Asset Audit (prompt 17): `features/audit/` — `asset_audit_screen.dart` (`/work/audit?tab=mine|assigned|completed`
+  or tile `inProgress|pending`; tabs = tiles, all from `AuditQueries` on the user's audits), `audit_session_screen.dart`
+  (mobile_scanner card, Search / Manual Entry, unknown code → `_UnregisteredSheet` → Register now, ⋮ Complete / Export
+  Report / Pause), `audit_asset_screen.dart` (Asset Found; pops the saved result; Tag ID label = scan method),
+  `audit_pages.dart` (Create Audit Campaign, result lists, report), `compliance_screen.dart` (`/work/audit/compliance`,
+  linked from the audit list). Counts: `Audit.verified/…` are summary figures that include the sample `entries`;
+  `AuditsNotifier.record` moves them (re-audit replaces), `updateLocation` adds a completed `MoveType.auditCorrection`
+  movement; `complete` turns `remaining` into Not Found. Scope = `auditScope` (site + buildings + categories).
+  Shared: `showLocationPicker` (features/common/location_picker.dart, "Building / Floor – Zone").
+- Offline Sync (prompt 18): `networkProvider` (network_repository.dart: connectivity_plus + Developer "Simulate offline";
+  `isOfflineProvider`). Every module's create / update calls `ref.queueOffline(kind, title, subtitle, refId:)`
+  (sync_repository.dart) — offline only; changes to the same record collapse into one item, photos / files stay separate;
+  WOs and inspections get `savedOffline` until synced. The upload engine lives in `SyncNotifier` (`startRun`,
+  `cancelRun` = stop after the current item, `retry`, `dismissRun`; Timer-driven, 0.6–1.0 s per item, attachments
+  1.2–1.5 s, 10% failures with Developer "Simulate sync failures"); going back online starts it when Automatic Sync
+  allows the connection. `OfflineBanner` (core/widgets, inside `AppScaffold`) shows offline / background sync.
+  Screens: `features/sync/` — `offline_sync_screen.dart`, `pending_sync_screen.dart` (`?tab=` = `SyncKind` name),
+  `syncing_screen.dart`; `sync_widgets.dart` (`startSync` = offline "Try anyway (demo)", `syncItemRoute` = View Item).
+- Profile / Settings / Help (prompt 19): `features/profile/profile_screen.dart` (Edit Profile, Change Password =
+  `passwordRules`, Switch Site, Logout via `confirmLogout` in core/session_actions.dart), `features/settings/` (Appearance =
+  `AppColors.dark`, Developer section only in `kDebugMode`, `resetDemoData`), `features/help/help_screen.dart` (`helpFaqs`,
+  `ReportBugScreen`). Tests: `test/profile_settings_test.dart`.
+- Lists (prompt 19 QA): every list shows a shimmer first and has an `EmptyState`. Shared in `core/widgets/loading_list.dart`:
+  `ListSkeleton`, `LoadingGate` (box lists; `LoadingGate.delay` = 350 ms), `SliverLoadingGate`, `SliverCardList` (rows of
+  one card, lazy), `GatedSliverList` (gate + empty state + lazy rows) and `LazyListPage` (header widgets + lazy sliver list).
+  Long or growing lists are lazy (`SliverList` / `ListView.builder`). `AssetListTile.titleTrailing` = chip after the title.
+  The const lints (`prefer_const_*`) are on in analysis_options.yaml.
+- Consistency: issues and alerts copy their asset's location (`seedLocationOf` in assets_mock.dart);
+  `AssetsNotifier.setLocation` carries open issues / active alerts along (`followAsset`). Data check has the rule; tests in
+  `test/data_check_test.dart`. Cross-module flows: `test/flows_test.dart`. QA report: `docs/QA_REPORT.md` + `docs/qa/`.
+- Transfer approver: the Transfer form's Details step has an Approver dropdown (Ahmed Ali by default; the signed-in user
+  can pick themselves, "self-approve (demo)", so the request appears in My Approvals). Multi-step forms jump to the top on
+  every step change (`_goTo`).
+- SnackBars are shown by the shell's root Scaffold; `AppScaffold` marks routes with sticky `bottomActions`
+  (`markStickyActions`) so `context.showSnack` lifts the SnackBar above them. Custom SnackBars should pass
+  `margin: context.snackMargin`. `SignaturePad` / `SignaturePainter` now live in core/widgets/signature_pad.dart.
+- Client demo mode: `kClientDemo` in `lib/app/feature_flags.dart` (see README). When true only Home + Scan
+  (`features/scan/demo_scan_screen.dart`) are routed; gated taps go through `DemoGate` (`core/widgets/demo_gate.dart`).
 - `DemoClock.now` starts at 25 Sep 2026 10:30 AM and runs forward; `DemoClock.frozen` pins it (tests).

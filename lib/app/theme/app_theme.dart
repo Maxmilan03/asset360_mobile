@@ -12,20 +12,22 @@ abstract final class AppRadius {
 }
 
 abstract final class AppShadows {
-  static const card = [BoxShadow(color: AppColors.shadow, blurRadius: 12, offset: Offset(0, 3))];
+  static List<BoxShadow> get card => [BoxShadow(color: AppColors.shadow, blurRadius: 12, offset: const Offset(0, 3))];
 }
 
 abstract final class AppTheme {
-  static const headerOverlay = SystemUiOverlayStyle(
+  static SystemUiOverlayStyle get headerOverlay => SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
     statusBarBrightness: Brightness.dark,
-    systemNavigationBarColor: Colors.white,
-    systemNavigationBarIconBrightness: Brightness.dark,
+    systemNavigationBarColor: AppColors.surface,
+    systemNavigationBarIconBrightness: AppColors.dark ? Brightness.light : Brightness.dark,
   );
 
-  static ThemeData get light {
+  /// The theme for the current [AppColors.dark] flag (light, or dark navy with the purple header kept).
+  static ThemeData get current {
     final scheme = ColorScheme.fromSeed(
+      brightness: AppColors.dark ? Brightness.dark : Brightness.light,
       seedColor: AppColors.primary,
       primary: AppColors.primary,
       onPrimary: Colors.white,
@@ -42,14 +44,15 @@ abstract final class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      brightness: AppColors.dark ? Brightness.dark : Brightness.light,
       colorScheme: scheme,
       fontFamily: 'Inter',
       scaffoldBackgroundColor: AppColors.background,
       dividerColor: AppColors.divider,
-      dividerTheme: const DividerThemeData(color: AppColors.divider, thickness: 1, space: 1),
-      appBarTheme: const AppBarTheme(systemOverlayStyle: headerOverlay),
+      dividerTheme: DividerThemeData(color: AppColors.divider, thickness: 1, space: 1),
+      appBarTheme: AppBarTheme(systemOverlayStyle: headerOverlay),
       textTheme: const TextTheme().apply(bodyColor: AppColors.text, displayColor: AppColors.text),
-      iconTheme: const IconThemeData(color: AppColors.text),
+      iconTheme: IconThemeData(color: AppColors.text),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.primary,
@@ -66,7 +69,7 @@ abstract final class AppTheme {
           foregroundColor: AppColors.primary,
           minimumSize: const Size(64, 48),
           shape: buttonShape,
-          side: const BorderSide(color: AppColors.primary, width: 1.2),
+          side: BorderSide(color: AppColors.primary, width: 1.2),
           textStyle: buttonText,
         ),
       ),
@@ -78,10 +81,10 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.surface,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13.5),
+        hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 13.5),
         border: inputBorder(AppColors.border),
         enabledBorder: inputBorder(AppColors.border),
         focusedBorder: inputBorder(AppColors.primary, 1.4),
@@ -90,31 +93,26 @@ abstract final class AppTheme {
       ),
       checkboxTheme: CheckboxThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        side: const BorderSide(color: AppColors.textMuted, width: 1.4),
+        side: BorderSide(color: AppColors.textMuted, width: 1.4),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Colors.white,
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         showDragHandle: true,
         dragHandleColor: AppColors.border,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.sheet))),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.sheet))),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        titleTextStyle: const TextStyle(
+        titleTextStyle: TextStyle(
           fontFamily: 'Inter',
           fontSize: 18,
           fontWeight: FontWeight.w700,
           color: AppColors.text,
         ),
-        contentTextStyle: const TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 14,
-          color: AppColors.textSecondary,
-          height: 1.4,
-        ),
+        contentTextStyle: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppColors.textSecondary, height: 1.4),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
@@ -123,15 +121,12 @@ abstract final class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: Colors.white,
+        color: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.tile)),
-        textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppColors.text),
+        textStyle: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppColors.text),
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: AppColors.primary,
-        linearTrackColor: AppColors.divider,
-      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: AppColors.primary, linearTrackColor: AppColors.divider),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),

@@ -122,11 +122,11 @@ class _BulkRegistrationPanelState extends ConsumerState<BulkRegistrationPanel> {
                     padding: const EdgeInsets.symmetric(vertical: 22),
                     child: Column(
                       children: [
-                        const Icon(Icons.upload_file_rounded, color: AppColors.primary, size: 34),
+                        Icon(Icons.upload_file_rounded, color: AppColors.primary, size: 34),
                         const SizedBox(height: 6),
                         Text(_fileName ?? 'Upload CSV', style: AppText.bodyStrong.copyWith(color: AppColors.primary)),
                         const SizedBox(height: 2),
-                        const Text('Tap to choose a .csv file', style: AppText.caption),
+                        Text('Tap to choose a .csv file', style: AppText.caption),
                       ],
                     ),
                   ),

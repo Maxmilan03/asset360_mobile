@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +11,6 @@ import '../../app/theme/app_text.dart';
 import '../../core/demo_clock.dart';
 import '../../core/widgets/widgets.dart';
 import '../../data/models/asset.dart';
-import '../../data/models/common.dart';
 import '../../data/repositories/assets_repository.dart';
 import 'asset_actions.dart';
 
@@ -133,7 +131,7 @@ class _AssetIotTabState extends ConsumerState<AssetIotTab> {
               children: [
                 Row(
                   children: [
-                    const Expanded(child: Text('Live Data Trend (Last 24 Hours)', style: AppText.bodyStrong)),
+                    Expanded(child: Text('Live Data Trend (Last 24 Hours)', style: AppText.bodyStrong)),
                     Container(
                       height: 32,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -165,7 +163,7 @@ class _AssetIotTabState extends ConsumerState<AssetIotTab> {
                 const SizedBox(height: 14),
                 SizedBox(
                   height: 160,
-                  child: _TrendChart(points: a.trends[_metric]!, unit: metric.unit),
+                  child: TrendChart(points: a.trends[_metric]!, unit: metric.unit),
                 ),
               ],
             ),
@@ -199,7 +197,7 @@ class _LiveTelemetry extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(child: Text('Live Telemetry', style: AppText.bodyStrong)),
+              Expanded(child: Text('Live Telemetry', style: AppText.bodyStrong)),
               _OnlineChip(online: iot.online),
             ],
           ),
@@ -213,8 +211,8 @@ class _LiveTelemetry extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           if (asset.telemetry.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
               child: Text(
                 'This device reports location and status only — no sensor readings.',
                 textAlign: TextAlign.center,
@@ -319,94 +317,6 @@ class _TelemetryTile extends StatelessWidget {
   }
 }
 
-class _TrendChart extends StatelessWidget {
-  const _TrendChart({required this.points, required this.unit});
-
-  final List<TrendPoint> points;
-  final String unit;
-
-  @override
-  Widget build(BuildContext context) {
-    final ys = points.map((p) => p.y);
-    final lo = ys.reduce(math.min), hi = ys.reduce(math.max);
-    final pad = (hi - lo) * .35 + (hi.abs() * .02) + .1;
-    String hour(double x) => '${x.toInt().toString().padLeft(2, '0')}:00';
-    return LineChart(
-      LineChartData(
-        minX: 0,
-        maxX: 24,
-        minY: lo - pad,
-        maxY: hi + pad,
-        gridData: FlGridData(
-          drawVerticalLine: false,
-          getDrawingHorizontalLine: (_) => const FlLine(color: AppColors.divider, strokeWidth: 1),
-        ),
-        borderData: FlBorderData(
-          show: true,
-          border: const Border(
-            left: BorderSide(color: AppColors.border),
-            bottom: BorderSide(color: AppColors.border),
-          ),
-        ),
-        titlesData: FlTitlesData(
-          topTitles: const AxisTitles(),
-          rightTitles: const AxisTitles(),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 38,
-              minIncluded: false,
-              maxIncluded: false,
-              getTitlesWidget: (v, meta) => Text(meta.formattedValue, style: AppText.caption.copyWith(fontSize: 10)),
-            ),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 4,
-              getTitlesWidget: (v, _) => Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(hour(v), style: AppText.caption.copyWith(fontSize: 10)),
-              ),
-            ),
-          ),
-        ),
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => AppColors.text,
-            getTooltipItems: (spots) => [
-              for (final s in spots)
-                LineTooltipItem(
-                  '${hour(s.x)}\n${s.y.toStringAsFixed(s.y.abs() >= 100 ? 0 : 1)} $unit',
-                  const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-            ],
-          ),
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: [for (final p in points) FlSpot(p.x, p.y)],
-            isCurved: true,
-            curveSmoothness: .25,
-            color: AppColors.purple,
-            barWidth: 2,
-            dotData: const FlDotData(show: false),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [AppColors.purple.withValues(alpha: .22), AppColors.purple.withValues(alpha: .02)],
-              ),
-            ),
-          ),
-        ],
-      ),
-      duration: const Duration(milliseconds: 350),
-    );
-  }
-}
-
 class _DeviceInfo extends StatelessWidget {
   const _DeviceInfo({required this.device});
 
@@ -439,7 +349,12 @@ class _DeviceInfo extends StatelessWidget {
         ),
       ),
     );
-    Widget text(String v) => Text(v, style: const TextStyle(fontSize: 12.5, color: AppColors.text));
+    Widget text(String v) => Text(
+      v,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(fontSize: 12.5, color: AppColors.text),
+    );
 
     return SectionCard(
       title: 'Device Information',
@@ -505,7 +420,7 @@ class _DeviceInfo extends StatelessWidget {
               children: [
                 Icon(Icons.circle, size: 9, color: device.online ? AppColors.green : AppColors.red),
                 const SizedBox(width: 6),
-                text(device.online ? 'Online' : 'Offline'),
+                Flexible(child: text(device.online ? 'Online' : 'Offline')),
               ],
             ),
           ),

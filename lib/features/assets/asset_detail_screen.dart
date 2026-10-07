@@ -29,16 +29,19 @@ enum _Menu { edit, print, share, duplicate, retire, delete }
 
 /// Asset 360° view: header, photo + specs, stats, actions and eight tabs.
 class AssetDetailScreen extends ConsumerStatefulWidget {
-  const AssetDetailScreen({super.key, required this.assetId});
+  const AssetDetailScreen({super.key, required this.assetId, this.initialTab});
 
   final String assetId;
+
+  /// Tab name from `?tab=` (e.g. "financial").
+  final String? initialTab;
 
   @override
   ConsumerState<AssetDetailScreen> createState() => _AssetDetailScreenState();
 }
 
 class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
-  AssetTab _tab = AssetTab.overview;
+  late AssetTab _tab = AssetTab.values.firstWhere((t) => t.name == widget.initialTab, orElse: () => AssetTab.overview);
   bool _editing = false;
 
   void _go(AssetTab t) => setState(() {
@@ -147,12 +150,12 @@ class _Header extends StatelessWidget {
                 runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Text(asset.id, style: AppText.pageTitle),
+                  Text(asset.id, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.pageTitle),
                   StatusChip(asset.status),
                 ],
               ),
               const SizedBox(height: 3),
-              Text(asset.name, style: AppText.pageSubtitle),
+              Text(asset.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppText.pageSubtitle),
             ],
           ),
         ),
@@ -167,7 +170,7 @@ class _Header extends StatelessWidget {
           tooltip: 'More',
           onSelected: onMenu,
           itemBuilder: (_) => [
-            for (final (m, icon, label) in const [
+            for (final (m, icon, label) in [
               (_Menu.edit, Icons.edit_outlined, 'Edit Asset'),
               (_Menu.print, Icons.print_outlined, 'Print Tag'),
               (_Menu.share, Icons.share_outlined, 'Share'),
@@ -195,12 +198,13 @@ class _Header extends StatelessWidget {
 
 /// 40×40 outlined square icon button (☆ and ⋮ in the header).
 class _SquareIcon extends StatelessWidget {
-  const _SquareIcon({required this.icon, this.onTap, this.tooltip, this.color = AppColors.text});
+  const _SquareIcon({required this.icon, this.onTap, this.tooltip, this.color});
 
   final IconData icon;
   final VoidCallback? onTap;
   final String? tooltip;
-  final Color color;
+  final Color? color;
+  Color get _color => color ?? AppColors.text;
 
   @override
   Widget build(BuildContext context) {
@@ -208,11 +212,11 @@ class _SquareIcon extends StatelessWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.button),
         border: Border.all(color: AppColors.border),
       ),
-      child: Icon(icon, color: color, size: 22),
+      child: Icon(icon, color: _color, size: 22),
     );
     if (onTap == null) return box;
     return Tooltip(
@@ -255,7 +259,7 @@ class _PhotoAndSpecs extends ConsumerWidget {
               onTap: gallery.isEmpty ? () => _addPhoto(context, ref) : () => openPhotoViewer(context, gallery),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(AppRadius.tile),
                   border: Border.all(color: AppColors.divider),
                 ),
@@ -269,7 +273,7 @@ class _PhotoAndSpecs extends ConsumerWidget {
                         children: [
                           Icon(assetIcon(asset), size: 44, color: AppColors.textMuted),
                           const SizedBox(height: 6),
-                          const Text('Add photo', style: AppText.link),
+                          Text('Add photo', style: AppText.link),
                         ],
                       )
                     else
@@ -302,7 +306,7 @@ class _PhotoAndSpecs extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(AppRadius.tile),
                 border: Border.all(color: AppColors.divider),
               ),
@@ -333,13 +337,13 @@ class _SpecRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontSize: 10.5, color: AppColors.text, height: 1.3);
+    final style = TextStyle(fontSize: 10.5, color: AppColors.text, height: 1.3);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.5),
       child: Row(
         children: [
           SizedBox(width: 70, child: Text(label, maxLines: 1, style: style)),
-          const Text(': ', style: style),
+          Text(': ', style: style),
           Expanded(
             child: FittedBox(
               fit: BoxFit.scaleDown,
@@ -461,43 +465,7 @@ class _ActionGrid extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const plain = TileTone(AppColors.tileGrey, AppColors.text);
-    final id = asset.id;
-    final actions = [
-      (Icons.build_rounded, 'Create Work Order', TileTone.sky, () => context.push(Routes.createWorkOrder(assetId: id))),
-      (
-        Icons.assignment_outlined,
-        'Create Inspection',
-        TileTone.lavender,
-        () => context.push(Routes.withAsset(Routes.createInspection, id)),
-      ),
-      (
-        Icons.swap_horiz_rounded,
-        'Move Asset',
-        TileTone.mint,
-        () => context.push(Routes.withAsset(Routes.transferAsset, id)),
-      ),
-      (
-        Icons.warning_rounded,
-        'Report Issue',
-        TileTone.peach,
-        () => context.push(Routes.withAsset(Routes.reportIssue, id)),
-      ),
-      (Icons.person_rounded, 'Check Out', plain, () => showCheckOutSheet(context, ref, asset)),
-      (Icons.location_on_rounded, 'View on Map', plain, () => context.push(Routes.trackAsset(id))),
-      (
-        Icons.photo_camera_rounded,
-        'Add Photo',
-        plain,
-        () async {
-          final path = await pickPhoto(context);
-          if (path == null || !context.mounted) return;
-          ref.read(assetsProvider.notifier).addPhoto(id, path);
-          context.showSnack('Photo added (${asset.gallery.length + 1} in gallery)');
-        },
-      ),
-      (Icons.more_horiz_rounded, 'More Actions', plain, () => showMoreActionsSheet(context, ref, asset)),
-    ];
+    final actions = assetActions(context, ref, asset);
     return GridView.count(
       crossAxisCount: 4,
       shrinkWrap: true,

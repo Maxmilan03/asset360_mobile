@@ -20,7 +20,8 @@ List<Part> seedParts() => [
     reorderQty: 50,
     warehouse: 'Main Warehouse',
     bin: 'A-12-03',
-    reserved: 4,
+    // WO-2026-0138 (4) + WO-2026-0045 (2)
+    reserved: 6,
     lastUpdate: sep(22, 10, 25),
     leadTimeDays: 7,
     unitCost: 18.50,
@@ -335,10 +336,22 @@ List<Part> seedParts() => [
 ];
 
 /// Opening balance of BR-6205 before 10 Sep (used to check the running balance).
-const br6205OpeningBalance = 5;
+const br6205OpeningBalance = 1;
 
-/// Stock history, newest first. Each balance = previous balance + change.
+/// Stock history, newest first. Each balance (stock on hand) = previous balance + change;
+/// reservations change the reserved quantity, not the balance.
 List<StockTxn> seedStockTxns() => [
+  StockTxn(
+    id: 'TXN-0106',
+    partId: 'BR-6205',
+    at: sep(25, 10, 24),
+    type: TxnType.reserved,
+    ref: 'WO-2026-0045',
+    qtyChange: 0,
+    reservedChange: 2,
+    balanceAfter: 36,
+    assetId: 'GEN-00045',
+  ),
   StockTxn(
     id: 'TXN-0105',
     partId: 'BR-6205',
@@ -378,7 +391,8 @@ List<StockTxn> seedStockTxns() => [
     at: sep(15, 9, 20),
     type: TxnType.reserved,
     ref: 'WO-2026-0138',
-    qtyChange: -4,
+    qtyChange: 0,
+    reservedChange: 4,
     balanceAfter: 21,
     assetId: 'CH-00021',
   ),
@@ -389,7 +403,7 @@ List<StockTxn> seedStockTxns() => [
     type: TxnType.received,
     ref: 'GRN-2026-0039',
     qtyChange: 20,
-    balanceAfter: 25,
+    balanceAfter: 21,
     from: 'Industrial Supplies',
     po: 'PO-2026-0107',
   ),
@@ -397,29 +411,75 @@ List<StockTxn> seedStockTxns() => [
 
 List<PartRequest> seedPartRequests() => [
   PartRequest(
-    id: 'PO-2026-0123',
-    partId: 'BR-6205',
-    qty: 22,
+    id: 'PO-2026-0134',
+    partId: 'SP-001',
+    qty: 40,
     kind: 'Purchase Order',
-    status: 'Received',
-    createdAt: sep(15, 10, 0),
-    supplier: 'SpareTech LLC',
+    status: RequestStatus.open,
+    createdAt: sep(25, 8, 30),
+    supplier: 'AutoParts Gulf',
+    unitCost: 9.5,
+    expectedAt: sep(30),
   ),
   PartRequest(
     id: 'PO-2026-0131',
     partId: 'VB-1120',
     qty: 20,
     kind: 'Purchase Order',
-    status: 'Ordered',
+    status: RequestStatus.open,
     createdAt: sep(25, 7, 0),
     supplier: 'SpareTech LLC',
+    unitCost: 12,
+    expectedAt: sep(29),
+  ),
+  PartRequest(
+    id: 'PO-2026-0123',
+    partId: 'BR-6205',
+    qty: 22,
+    kind: 'Purchase Order',
+    status: RequestStatus.received,
+    createdAt: sep(15, 10, 0),
+    supplier: 'SpareTech LLC',
+    unitCost: 18.5,
+    expectedAt: sep(22),
+    receivedAt: sep(22, 10, 25),
+    grn: 'GRN-2026-0045',
+  ),
+  PartRequest(
+    id: 'PO-2026-0107',
+    partId: 'BR-6205',
+    qty: 20,
+    kind: 'Purchase Order',
+    status: RequestStatus.received,
+    createdAt: sep(3, 9, 0),
+    supplier: 'Industrial Supplies',
+    unitCost: 17.9,
+    expectedAt: sep(10),
+    receivedAt: sep(10, 15, 10),
+    grn: 'GRN-2026-0039',
   ),
   PartRequest(
     id: 'PR-2026-0088',
     partId: 'SP-001',
     qty: 20,
     kind: 'Request',
-    status: 'Pending',
+    status: RequestStatus.pending,
     createdAt: sep(24, 11, 0),
+    neededBy: sep(28),
+    remarks: 'Stock replenishment',
+    requesterId: 'rex',
   ),
 ];
+
+/// Units issued per month, last 6 months (Apr … Sep 2026), for Stock Reports and the Usage tab.
+const usageMonths = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'];
+const seedMonthlyUsage = <String, List<int>>{
+  'BR-6205': [6, 8, 5, 9, 7, 2],
+  'AF-250-001': [10, 12, 9, 11, 14, 6],
+  'VB-1120': [4, 6, 5, 7, 6, 3],
+  'OIL-46': [18, 22, 20, 25, 24, 12],
+  'FU-10A': [8, 6, 9, 10, 12, 5],
+  'SP-001': [12, 14, 10, 16, 15, 8],
+  'LB-230': [5, 4, 6, 5, 7, 3],
+  'GR-EP2': [3, 4, 3, 5, 4, 2],
+};

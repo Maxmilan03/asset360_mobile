@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
@@ -85,28 +87,39 @@ class FloorPlanPainter extends CustomPainter {
       ..strokeWidth = .8;
     final zoneFill = Paint()..color = AppColors.primary.withValues(alpha: .07);
 
+    final rackFill = Paint()..color = const Color(0xFFE2E5EE);
+    final rackSide = Paint()..color = const Color(0xFFC9CEDA);
     for (final (name, f) in zones) {
       final rect = r(f);
+      canvas.drawRect(rect, Paint()..color = const Color(0xFFF8F9FC));
       if (name == 'Zone B' || name == 'Storage') canvas.drawRect(rect, zoneFill);
       canvas.drawRect(rect, wall);
-      // shelving: short parallel lines inside each room
+      // Racks: rows of blocks with a darker lower-right edge (flat isometric look).
       final vertical = rect.height > rect.width;
-      for (var i = 1; i < 6; i++) {
-        if (vertical) {
-          final x = rect.left + rect.width * i / 6;
-          canvas.drawLine(Offset(x, rect.top + 6), Offset(x, rect.top + rect.height * .45), rack);
-          canvas.drawLine(Offset(x, rect.top + rect.height * .55), Offset(x, rect.bottom - 6), rack);
-        } else {
-          final y = rect.top + rect.height * i / 6;
-          canvas.drawLine(Offset(rect.left + 6, y), Offset(rect.left + rect.width * .45, y), rack);
-          canvas.drawLine(Offset(rect.left + rect.width * .55, y), Offset(rect.right - 6, y), rack);
+      final inset = math.min(rect.width, rect.height) * .08;
+      final inner = rect.deflate(inset);
+      for (var i = 0; i < 4; i++) {
+        for (final half in [0, 1]) {
+          final Rect block;
+          if (vertical) {
+            final x = inner.left + inner.width * (i * 2 + .5) / 8;
+            final y0 = inner.top + inner.height * (half == 0 ? 0 : .58);
+            block = Rect.fromLTWH(x, y0, inner.width / 9, inner.height * .38);
+          } else {
+            final y = inner.top + inner.height * (i * 2 + .5) / 8;
+            final x0 = inner.left + inner.width * (half == 0 ? 0 : .58);
+            block = Rect.fromLTWH(x0, y, inner.width * .4, inner.height / 9);
+          }
+          canvas.drawRect(block.shift(const Offset(1.4, 1.4)), rackSide);
+          canvas.drawRect(block, rackFill);
+          canvas.drawRect(block, rack);
         }
       }
       if (showZoneLabels) {
         final tp = TextPainter(
           text: TextSpan(
             text: name,
-            style: const TextStyle(fontSize: 10, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 10, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
           ),
           textDirection: TextDirection.ltr,
         )..layout();

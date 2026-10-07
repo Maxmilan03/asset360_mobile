@@ -198,7 +198,12 @@ class _MaintenanceCalendarScreenState extends ConsumerState<MaintenanceCalendarS
                               borderRadius: BorderRadius.circular(3),
                             ),
                           ),
-                          title: Text(dayEvents[i].title, style: AppText.bodyStrong),
+                          title: Text(
+                            dayEvents[i].title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.bodyStrong,
+                          ),
                           subtitle: Text(
                             '${_kindLabels[dayEvents[i].kind]} · ${dayEvents[i].subtitle}',
                             maxLines: 1,

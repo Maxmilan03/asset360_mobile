@@ -4,15 +4,34 @@ import 'seed_utils.dart';
 const _pdf = 'assets/docs/sample_document.pdf';
 const _jpg = 'assets/docs/sample_photo.jpg';
 
+/// Org totals: Expiring Soon 8, Compliant 42, Pending 6. The figures below are the documents without a
+/// detailed record; the detailed ones add 1 expiring (FP-0021 fire certificate), 4 compliant and 1 pending.
 DocumentSummary seedDocumentSummary() => const DocumentSummary(
   byBucket: {'Manuals': 12, 'Warranty': 8, 'Certificates': 14, 'Others': 30},
-  expiringSoon: 8,
-  compliant: 42,
-  pending: 6,
+  expiringSoon: 7,
+  compliant: 38,
+  pending: 5,
 );
 
 /// Detailed documents (GEN-00045, CNC-00123, LAP-0098, FP-0021). Org totals are in [DocumentSummary].
 List<AssetDocument> seedDocuments() => [
+  for (final d in _documents)
+    d.versions.isNotEmpty
+        ? d
+        : d.copyWith(
+            versions: [
+              DocVersion(
+                version: d.version ?? 'v1.0',
+                at: d.uploadedAt,
+                by: d.uploadedBy,
+                sizeMb: d.sizeMb,
+                filePath: d.filePath,
+              ),
+            ],
+          ),
+];
+
+final _documents = <AssetDocument>[
   AssetDocument(
     id: 'DOC-2026-0045',
     name: 'GEN-00045_User_Manual.pdf',
@@ -25,6 +44,25 @@ List<AssetDocument> seedDocuments() => [
     uploadedBy: 'Rex Kumar',
     description: 'Manufacturer user manual with operation and safety guidelines.',
     filePath: _pdf,
+    versions: [
+      DocVersion(version: 'v2.1', at: sep(20, 10, 24), by: 'Rex Kumar', sizeMb: 3.2, filePath: _pdf),
+      DocVersion(
+        version: 'v2.0',
+        at: on(2025, 3, 12, 9),
+        by: 'Ahmed Ali',
+        sizeMb: 3.0,
+        filePath: _pdf,
+        note: 'Safety section updated',
+      ),
+      DocVersion(
+        version: 'v1.0',
+        at: on(2023, 4, 2, 11),
+        by: 'Ahmed Ali',
+        sizeMb: 2.6,
+        filePath: _pdf,
+        note: 'First issue',
+      ),
+    ],
   ),
   AssetDocument(
     id: 'DOC-2026-0046',
@@ -90,6 +128,7 @@ List<AssetDocument> seedDocuments() => [
     uploadedBy: 'Mohammed Rafi',
     description: 'Service report for the September service visit.',
     filePath: _pdf,
+    pendingReview: true,
   ),
   AssetDocument(
     id: 'DOC-2026-0051',
@@ -170,6 +209,34 @@ List<AssetDocument> seedDocuments() => [
     uploadedAt: sep(1, 9, 0),
     uploadedBy: 'Rex Kumar',
     description: 'NFPA 25 monthly fire pump checklist.',
+    filePath: _pdf,
+  ),
+  AssetDocument(
+    id: 'DOC-2026-0061',
+    name: 'FP-0021_Fire_Safety_Certificate.pdf',
+    type: DocType.certificate,
+    assetId: 'FP-0021',
+    category: 'Civil Defence Certificate',
+    version: 'v1.0',
+    sizeMb: .7,
+    uploadedAt: on(2025, 10, 20, 11),
+    uploadedBy: 'Rex Kumar',
+    description: 'Annual Dubai Civil Defence fire-system certificate.',
+    expiry: on(2026, 10, 20),
+    filePath: _pdf,
+  ),
+  AssetDocument(
+    id: 'DOC-2026-0062',
+    name: 'FE-0042_Service_Certificate.pdf',
+    type: DocType.certificate,
+    assetId: 'FE-0042',
+    category: 'Service Certificate',
+    version: 'v1.0',
+    sizeMb: .2,
+    uploadedAt: on(2025, 9, 15, 10),
+    uploadedBy: 'Rex Kumar',
+    description: 'Yearly extinguisher service and refill.',
+    expiry: sep(15),
     filePath: _pdf,
   ),
 ];

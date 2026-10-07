@@ -14,6 +14,7 @@ Future<bool> showConfirmDialog(
 }) async {
   final result = await showDialog<bool>(
     context: context,
+    useRootNavigator: false,
     builder: (context) => AlertDialog(
       title: Text(title),
       content: Text(message),
@@ -68,7 +69,7 @@ Future<bool> showSuccessSheet(
               child: Container(
                 width: 76,
                 height: 76,
-                decoration: const BoxDecoration(color: AppColors.greenBg, shape: BoxShape.circle),
+                decoration: BoxDecoration(color: AppColors.greenBg, shape: BoxShape.circle),
                 child: const Icon(Icons.check_circle_rounded, color: AppColors.green, size: 52),
               ),
             ),
@@ -97,3 +98,31 @@ Future<bool> showSuccessSheet(
   );
   return result ?? false;
 }
+
+/// Sheet header: bold title and a grey subtitle.
+class SheetTitle extends StatelessWidget {
+  const SheetTitle(this.title, {super.key, this.subtitle});
+
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(title, style: AppText.sectionTitle),
+      if (subtitle != null) ...[const SizedBox(height: 4), Text(subtitle!, style: AppText.secondary)],
+      const SizedBox(height: 14),
+    ],
+  );
+}
+
+/// Padded, scrollable bottom-sheet body that stays above the keyboard.
+Widget sheetFrame(BuildContext context, List<Widget> children) => SafeArea(
+  child: Padding(
+    padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
+    child: SingleChildScrollView(
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+    ),
+  ),
+);

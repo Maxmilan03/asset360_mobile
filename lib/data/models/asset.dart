@@ -106,6 +106,7 @@ class Asset {
     this.commissionedDate,
     this.amc,
     this.amcCost,
+    this.amcExpiry,
     this.usefulLifeYears = 10,
     this.salvageValue = 0,
     this.imagePath,
@@ -152,6 +153,9 @@ class Asset {
   /// "ABC Engineering" when under AMC, null otherwise.
   final String? amc;
   final double? amcCost;
+
+  /// End of the current AMC period (null when there is no AMC).
+  final DateTime? amcExpiry;
 
   /// AED.
   final double purchaseCost;
@@ -208,6 +212,7 @@ class Asset {
     String? amc,
     bool clearAmc = false,
     double? amcCost,
+    DateTime? amcExpiry,
     List<String>? photos,
     bool? favorite,
     IotDevice? iot,
@@ -239,6 +244,7 @@ class Asset {
       warrantyExpiry: warrantyExpiry ?? this.warrantyExpiry,
       amc: clearAmc ? null : amc ?? this.amc,
       amcCost: clearAmc ? null : amcCost ?? this.amcCost,
+      amcExpiry: clearAmc ? null : amcExpiry ?? this.amcExpiry,
       purchaseCost: purchaseCost,
       usefulLifeYears: usefulLifeYears,
       salvageValue: salvageValue,

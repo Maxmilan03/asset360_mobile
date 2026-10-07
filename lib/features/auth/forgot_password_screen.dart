@@ -55,11 +55,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               Container(
                 width: 76,
                 height: 76,
-                decoration: const BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle),
-                child: const Icon(Icons.mark_email_read_rounded, color: AppColors.primary, size: 40),
+                decoration: BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle),
+                child: Icon(Icons.mark_email_read_rounded, color: AppColors.primary, size: 40),
               ),
               const SizedBox(height: 16),
-              const Text('Check your inbox', style: AppText.pageTitle),
+              Text('Check your inbox', style: AppText.pageTitle),
               const SizedBox(height: 8),
               Text(
                 'We sent instructions to $masked to $what.',
@@ -67,7 +67,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 style: AppText.pageSubtitle.copyWith(fontSize: 14),
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 "Didn't get it? Check your spam folder or try again in a few minutes.",
                 textAlign: TextAlign.center,
                 style: AppText.caption,
@@ -107,7 +107,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         child: IconButton(
                           tooltip: 'Back',
                           onPressed: _backToLogin,
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.text, size: 20),
+                          icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.text, size: 20),
                         ),
                       ),
                       const Padding(
@@ -120,16 +120,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 const SizedBox(height: 18),
                 const Center(child: ForgotIllustration()),
                 const SizedBox(height: 26),
-                FittedBox(
+                const FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: const Text(
+                  child: Text(
                     'Forgot Username or Password?',
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heroNavy),
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Enter your registered email address and we will send you instructions to reset your username or password.',
                   style: TextStyle(fontSize: 14.5, color: AppColors.textSecondary, height: 1.4),
                 ),
@@ -146,13 +146,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     if (!_emailPattern.hasMatch(t)) return 'Enter a valid email address';
                     return null;
                   },
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Enter your email address',
                     prefixIcon: Icon(Icons.mail_outline_rounded, color: AppColors.textSecondary),
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Text('I need help with:', style: TextStyle(fontSize: 13, color: AppColors.text)),
+                Text('I need help with:', style: TextStyle(fontSize: 13, color: AppColors.text)),
                 const SizedBox(height: 8),
                 _RadioCard(
                   label: 'Reset my password',
@@ -222,7 +222,14 @@ class _RadioCard extends StatelessWidget {
                   size: 22,
                 ),
                 const SizedBox(width: 12),
-                Text(label, style: const TextStyle(fontSize: 14, color: AppColors.text)),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 14, color: AppColors.text),
+                  ),
+                ),
               ],
             ),
           ),

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:asset360_mobile/app/app.dart';
 import 'package:asset360_mobile/app/router/app_router.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
@@ -15,6 +17,31 @@ import 'package:flutter_test/flutter_test.dart';
 class _SignedIn extends SessionNotifier {
   @override
   SessionState build() => super.build().copyWith(loggedIn: true, rememberMe: true);
+}
+
+const _phones = {'small 360x640': Size(1080, 1920), 'large 430x932': Size(1290, 2796)};
+
+/// Scrolls the page's vertical scrollable to the end, checking for layout errors (overflow) at each step.
+Future<void> _scrollThrough(WidgetTester tester, String reason) async {
+  await tester.pumpAndSettle();
+  expect(tester.takeException(), isNull, reason: reason);
+  final f = find.byWidgetPredicate((w) => w is Scrollable && axisDirectionToAxis(w.axisDirection) == Axis.vertical);
+  if (f.evaluate().isEmpty) return;
+  final pos = tester.state<ScrollableState>(f.first).position;
+  for (var i = 0; i < 60 && pos.pixels < pos.maxScrollExtent; i++) {
+    pos.jumpTo(math.min(pos.pixels + 300, pos.maxScrollExtent));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: '$reason @ ${pos.pixels.round()}');
+  }
+  pos.jumpTo(0);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapVisible(WidgetTester tester, Finder f) async {
+  await tester.ensureVisible(f);
+  await tester.pumpAndSettle();
+  await tester.tap(f);
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -114,4 +141,59 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     c.dispose();
   });
+
+  for (final MapEntry(key: name, value: size) in _phones.entries) {
+    testWidgets('no overflow on a $name phone: hub, bulk preview and all 5 form steps', (tester) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final c = ProviderContainer(overrides: [sessionProvider.overrideWith(_SignedIn.new)]);
+      await tester.pumpWidget(UncontrolledProviderScope(container: c, child: const Asset360App()));
+      await tester.pump(SplashScreen.duration);
+      await tester.pumpAndSettle();
+
+      c.read(routerProvider).go(Routes.registration);
+      await _scrollThrough(tester, 'Hub · Single');
+      await _tapVisible(tester, find.text('Bulk Registration'));
+      await _tapVisible(tester, find.text('No file? Use the sample CSV'));
+      expect(find.textContaining('3. Preview'), findsOneWidget);
+      await _scrollThrough(tester, 'Hub · Bulk preview');
+
+      c.read(routerProvider).push(Routes.newRegistration);
+      await _scrollThrough(tester, 'Step 1');
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(1), 'Spare Motor – Line 3 with a very long descriptive name for testing');
+      await _tapVisible(tester, find.text('Suggest next ID'));
+      await tester.tap(find.textContaining('Electric Motor').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Next'));
+      await _scrollThrough(tester, 'Step 2');
+      await tester.tap(find.text('Next'));
+      await _scrollThrough(tester, 'Step 3');
+      for (final option in ['Dubai Factory', 'Main Plant', 'Floor 2']) {
+        await _tapVisible(tester, find.text('Select').first);
+        await tester.tap(find.text(option).last);
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.text('Next'));
+      await _scrollThrough(tester, 'Step 4');
+      await _tapVisible(tester, find.text('Select date'));
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(find.text('Asset details are ready to be registered'), findsOneWidget);
+      for (final section in ['Location & Custody', 'Financial Information', 'Documents (0)']) {
+        await _tapVisible(tester, find.text(section).last);
+      }
+      await _scrollThrough(tester, 'Step 5 Review');
+      await tester.tap(find.text('Register Asset'));
+      await tester.pumpAndSettle();
+      expect(find.text('Asset registered'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'Registered sheet');
+
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    });
+  }
 }

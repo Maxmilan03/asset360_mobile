@@ -15,4 +15,16 @@ abstract final class AppLauncher {
       return false;
     }
   }
+
+  /// Opens this app's page in the system Settings (e.g. to allow the camera).
+  /// Returns false when the platform can't open it.
+  static Future<bool> openAppSettings() async {
+    try {
+      return await _channel.invokeMethod<bool>('openAppSettings') ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
 }

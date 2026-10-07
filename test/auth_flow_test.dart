@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:asset360_mobile/app/app.dart';
 import 'package:asset360_mobile/features/auth/splash_screen.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +21,24 @@ Future<void> _frames(WidgetTester tester, [int ms = 1200]) async {
   for (var t = 0; t < ms; t += 100) {
     await tester.pump(const Duration(milliseconds: 100));
   }
+}
+
+const _phones = {'small 360x640': Size(1080, 1920), 'large 430x932': Size(1290, 2796)};
+
+/// Scrolls the page's vertical scrollable to the end, checking for layout errors (overflow) at each step.
+Future<void> _scrollThrough(WidgetTester tester, String reason, {bool settle = true}) async {
+  Future<void> pump() => settle ? tester.pumpAndSettle() : _frames(tester, 400);
+  expect(tester.takeException(), isNull, reason: reason);
+  final f = find.byWidgetPredicate((w) => w is Scrollable && axisDirectionToAxis(w.axisDirection) == Axis.vertical);
+  if (f.evaluate().isEmpty) return;
+  final pos = tester.state<ScrollableState>(f.first).position;
+  for (var i = 0; i < 40 && pos.pixels < pos.maxScrollExtent; i++) {
+    pos.jumpTo(math.min(pos.pixels + 300, pos.maxScrollExtent));
+    await pump();
+    expect(tester.takeException(), isNull, reason: '$reason @ ${pos.pixels.round()}');
+  }
+  pos.jumpTo(0);
+  await pump();
 }
 
 Finder _field(String hint) => find.widgetWithText(TextFormField, hint);
@@ -67,7 +87,7 @@ void main() {
     }
     await tester.pumpAndSettle();
     expect(find.text('Sign In'), findsOneWidget);
-    await _signIn(tester, 'REX.KUMAR@purpleiq.ae', 'Asset@360');
+    await _signIn(tester, 'RKUMAR@purpleiq.ai', 'Asset@360');
     expect(find.text('Enter Authenticator Code'), findsOneWidget);
   });
 
@@ -133,4 +153,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Arabic will be available in a later release'), findsOneWidget);
   });
+
+  for (final MapEntry(key: name, value: size) in _phones.entries) {
+    testWidgets('no overflow on a $name phone: Login, Forgot Password, Authenticator', (tester) async {
+      await _start(tester);
+      tester.view.physicalSize = size;
+      await tester.pumpAndSettle();
+      await _scrollThrough(tester, 'Login');
+
+      await tester.ensureVisible(find.text('Forgot Username or Password?'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Forgot Username or Password?'));
+      await tester.pumpAndSettle();
+      await _scrollThrough(tester, 'Forgot Password');
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.widgetWithText(TextFormField, 'Username'));
+      await _signIn(tester, 'rex.kumar', 'Asset@360');
+      expect(find.text('Enter Authenticator Code'), findsOneWidget);
+      await _scrollThrough(tester, 'Authenticator', settle: false);
+    });
+  }
 }

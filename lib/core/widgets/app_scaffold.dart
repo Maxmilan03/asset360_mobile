@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_theme.dart';
 import 'app_header.dart';
+import 'offline_banner.dart';
 import 'feedback.dart';
 
 /// Page frame used by every screen inside the shell: purple header on top and
@@ -18,14 +19,15 @@ class AppScaffold extends StatelessWidget {
     this.header,
     this.bottomActions,
     this.floatingActionButton,
-    this.backgroundColor = AppColors.background,
+    this.backgroundColor,
   });
 
   final Widget body;
   final Widget? header;
   final Widget? bottomActions;
   final Widget? floatingActionButton;
-  final Color backgroundColor;
+  final Color? backgroundColor;
+  Color get _backgroundColor => backgroundColor ?? AppColors.background;
 
   @override
   Widget build(BuildContext context) {
@@ -37,8 +39,8 @@ class AppScaffold extends StatelessWidget {
             child: MediaQuery.removePadding(context: context, removeBottom: true, child: body),
           ),
           DecoratedBox(
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
               border: Border(top: BorderSide(color: AppColors.divider)),
             ),
             child: Padding(padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + context.bottomInset), child: bottomActions),
@@ -46,6 +48,8 @@ class AppScaffold extends StatelessWidget {
         ],
       );
     }
+    // SnackBars shown from this page float above the sticky buttons, not on top of them.
+    markStickyActions(context, bottomActions != null);
 
     return Scaffold(
       backgroundColor: AppColors.headerBottom,
@@ -60,10 +64,11 @@ class AppScaffold extends StatelessWidget {
         child: Column(
           children: [
             header ?? const AppHeader(),
+            const OfflineBanner(),
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.sheet)),
-                child: ColoredBox(color: backgroundColor, child: content),
+                child: ColoredBox(color: _backgroundColor, child: content),
               ),
             ),
           ],

@@ -15,32 +15,51 @@ import '../../data/repositories/maintenance_repository.dart';
 import '../../data/repositories/movements_repository.dart';
 import 'asset_ui.dart';
 
-/// Sheet header: bold title and a grey subtitle.
-class _SheetTitle extends StatelessWidget {
-  const _SheetTitle(this.title, [this.subtitle]);
+// ---------------------------------------------------------------- Action grid
 
-  final String title;
-  final String? subtitle;
+/// One tile of an asset's action grid: icon, label, tone and what it opens.
+typedef AssetAction = (IconData icon, String label, TileTone tone, VoidCallback onTap);
 
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(title, style: AppText.sectionTitle),
-      if (subtitle != null) ...[const SizedBox(height: 4), Text(subtitle!, style: AppText.secondary)],
-      const SizedBox(height: 14),
-    ],
-  );
-}
-
-Widget _sheetFrame(BuildContext context, List<Widget> children) => SafeArea(
-  child: Padding(
-    padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
-    child: SingleChildScrollView(
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+/// The actions shared by the Asset 360° grid and Scan → Asset Identified, each prefilled with [asset].
+List<AssetAction> assetActions(BuildContext context, WidgetRef ref, Asset asset) {
+  final plain = TileTone(AppColors.tileGrey, AppColors.text);
+  final id = asset.id;
+  return [
+    (Icons.build_rounded, 'Create Work Order', TileTone.sky, () => context.push(Routes.createWorkOrder(assetId: id))),
+    (
+      Icons.assignment_outlined,
+      'Create Inspection',
+      TileTone.lavender,
+      () => context.push(Routes.withAsset(Routes.createInspection, id)),
     ),
-  ),
-);
+    (
+      Icons.swap_horiz_rounded,
+      'Move Asset',
+      TileTone.mint,
+      () => context.push(Routes.withAsset(Routes.transferAsset, id)),
+    ),
+    (
+      Icons.warning_rounded,
+      'Report Issue',
+      TileTone.peach,
+      () => context.push(Routes.withAsset(Routes.reportIssue, id)),
+    ),
+    (Icons.person_rounded, 'Check Out', plain, () => showCheckOutSheet(context, ref, asset)),
+    (Icons.location_on_rounded, 'View on Map', plain, () => context.push(Routes.trackAsset(id))),
+    (
+      Icons.photo_camera_rounded,
+      'Add Photo',
+      plain,
+      () async {
+        final path = await pickPhoto(context);
+        if (path == null || !context.mounted) return;
+        ref.read(assetsProvider.notifier).addPhoto(id, path);
+        context.showSnack('Photo added (${asset.gallery.length + 1} in gallery)');
+      },
+    ),
+    (Icons.more_horiz_rounded, 'More Actions', plain, () => showMoreActionsSheet(context, ref, asset)),
+  ];
+}
 
 // ---------------------------------------------------------------- Health score
 
@@ -57,7 +76,7 @@ Future<void> showHealthScoreSheet(BuildContext context, WidgetRef ref, Asset a) 
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => _sheetFrame(context, [
+    builder: (context) => sheetFrame(context, [
       Row(
         children: [
           ProgressRing(
@@ -72,7 +91,7 @@ Future<void> showHealthScoreSheet(BuildContext context, WidgetRef ref, Asset a) 
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Health Score', style: AppText.sectionTitle),
+                Text('Health Score', style: AppText.sectionTitle),
                 const SizedBox(height: 4),
                 StatusChip(band, tone: ChipTone.forStatus(band == 'Poor' ? 'critical' : band)),
               ],
@@ -153,8 +172,8 @@ class _CheckOutSheetState extends ConsumerState<_CheckOutSheet> {
   @override
   Widget build(BuildContext context) {
     final options = custodianOptions(ref).where((c) => c != widget.asset.custodian && c != 'Unassigned').toList();
-    return _sheetFrame(context, [
-      _SheetTitle('Check Out ${widget.asset.id}', 'Current custodian: ${widget.asset.custodian}'),
+    return sheetFrame(context, [
+      SheetTitle('Check Out ${widget.asset.id}', subtitle: 'Current custodian: ${widget.asset.custodian}'),
       DropdownButtonFormField<String>(
         initialValue: _custodian,
         isExpanded: true,
@@ -173,6 +192,7 @@ class _CheckOutSheetState extends ConsumerState<_CheckOutSheet> {
         borderRadius: BorderRadius.circular(10),
         onTap: () async {
           final d = await showDatePicker(
+            useRootNavigator: false,
             context: context,
             initialDate: _due,
             firstDate: DemoClock.today,
@@ -181,7 +201,7 @@ class _CheckOutSheetState extends ConsumerState<_CheckOutSheet> {
           if (d != null) setState(() => _due = d);
         },
         child: InputDecorator(
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Due back',
             suffixIcon: Icon(Icons.calendar_month_rounded, color: AppColors.primary),
           ),
@@ -227,19 +247,17 @@ Future<void> showTransferOwnershipSheet(BuildContext context, WidgetRef ref, Ass
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _SheetTitle('Transfer Ownership', 'Current custodian: ${a.custodian}'),
+              child: SheetTitle('Transfer Ownership', subtitle: 'Current custodian: ${a.custodian}'),
             ),
             Flexible(
-              child: ListView(
+              child: ListView.builder(
                 shrinkWrap: true,
-                children: [
-                  for (final c in options)
-                    ListTile(
-                      leading: const Icon(Icons.person_outline_rounded, color: AppColors.primary),
-                      title: Text(c, style: AppText.body),
-                      onTap: () => Navigator.pop(context, c),
-                    ),
-                ],
+                itemCount: options.length,
+                itemBuilder: (_, i) => ListTile(
+                  leading: Icon(Icons.person_outline_rounded, color: AppColors.primary),
+                  title: Text(options[i], maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.body),
+                  onTap: () => Navigator.pop(context, options[i]),
+                ),
               ),
             ),
           ],
@@ -271,8 +289,8 @@ Future<void> showPrintTagSheet(BuildContext context, Asset a) {
     context: context,
     isScrollControlled: true,
     builder: (context) => StatefulBuilder(
-      builder: (context, setState) => _sheetFrame(context, [
-        const _SheetTitle('Print Asset Tag', 'QR / barcode label for the asset'),
+      builder: (context, setState) => sheetFrame(context, [
+        const SheetTitle('Print Asset Tag', subtitle: 'QR / barcode label for the asset'),
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -309,7 +327,7 @@ Future<void> showPrintTagSheet(BuildContext context, Asset a) {
         const SizedBox(height: 10),
         Row(
           children: [
-            const Expanded(child: Text('Copies', style: AppText.bodyStrong)),
+            Expanded(child: Text('Copies', style: AppText.bodyStrong)),
             IconButton(
               tooltip: 'Fewer',
               onPressed: copies > 1 ? () => setState(() => copies--) : null,
@@ -343,6 +361,7 @@ Future<void> showLinkIotSheet(BuildContext context, WidgetRef ref, Asset a) asyn
   if (a.iot != null) {
     await showDialog<void>(
       context: context,
+      useRootNavigator: false,
       builder: (context) => AlertDialog(
         title: const Text('IoT device linked'),
         content: Text(
@@ -373,24 +392,38 @@ Future<IotDevice?> showIotDevicePicker(
 }) {
   return showModalBottomSheet<IotDevice>(
     context: context,
+    isScrollControlled: true,
     builder: (context) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _SheetTitle(title, '${devices.length} unlinked devices in the store'),
-          ),
-          for (final d in devices)
-            ListTile(
-              leading: const IconSquare(icon: Icons.sensors_rounded, tone: TileTone.sky, size: 38),
-              title: Text('${d.model} · ${d.type}', style: AppText.bodyStrong.copyWith(fontSize: 13.5)),
-              subtitle: Text('IMEI ${d.imei}', style: AppText.caption),
-              onTap: () => Navigator.pop(context, d),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .7),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SheetTitle(title, subtitle: '${devices.length} unlinked devices in the store'),
             ),
-          const SizedBox(height: 8),
-        ],
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: devices.length,
+                itemBuilder: (_, i) => ListTile(
+                  leading: IconSquare(icon: Icons.sensors_rounded, tone: TileTone.sky, size: 38),
+                  title: Text(
+                    '${devices[i].model} · ${devices[i].type}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.bodyStrong.copyWith(fontSize: 13.5),
+                  ),
+                  subtitle: Text('IMEI ${devices[i].imei}', style: AppText.caption),
+                  onTap: () => Navigator.pop(context, devices[i]),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     ),
   );
@@ -429,8 +462,8 @@ Future<void> showMoreActionsSheet(BuildContext context, WidgetRef ref, Asset a) 
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
             child: Text('More Actions', style: AppText.sectionTitle),
           ),
           for (final (key, icon, label) in const [

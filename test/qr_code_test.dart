@@ -13,7 +13,7 @@ int mul(int x, int y) {
 void main() {
   test('QR: format bits, Reed–Solomon syndromes and payload round-trip', () {
     // format string for L/mask0 must be 111011111000100
-    final data = 1 << 3 | 0;
+    const data = 1 << 3 | 0;
     var rem = data;
     for (var i = 0; i < 10; i++) {
       rem = (rem << 1) ^ ((rem >> 9) * 0x537);

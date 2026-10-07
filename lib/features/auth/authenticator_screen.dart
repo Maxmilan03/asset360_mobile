@@ -115,13 +115,13 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Text('Use a different method', style: AppText.sectionTitle),
             ),
             ListTile(
-              leading: const IconSquare(icon: Icons.mail_outline_rounded, tone: TileTone.lavender, size: 40),
-              title: const Text('Send code by email', style: AppText.bodyStrong),
+              leading: IconSquare(icon: Icons.mail_outline_rounded, tone: TileTone.lavender, size: 40),
+              title: Text('Send code by email', style: AppText.bodyStrong),
               subtitle: Text('We will email a one-time code to $email', style: AppText.caption),
               onTap: () {
                 Navigator.pop(ctx);
@@ -129,9 +129,9 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
               },
             ),
             ListTile(
-              leading: const IconSquare(icon: Icons.key_rounded, tone: TileTone.peach, size: 40),
-              title: const Text('Use a backup code', style: AppText.bodyStrong),
-              subtitle: const Text(
+              leading: IconSquare(icon: Icons.key_rounded, tone: TileTone.peach, size: 40),
+              title: Text('Use a backup code', style: AppText.bodyStrong),
+              subtitle: Text(
                 'One of the 8-digit codes you saved when you set up 2-step sign-in',
                 style: AppText.caption,
               ),
@@ -214,7 +214,7 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
                         child: IconButton(
                           tooltip: 'Back',
                           onPressed: _leave,
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.text, size: 20),
+                          icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.text, size: 20),
                         ),
                       ),
                       const Padding(
@@ -232,7 +232,7 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heroNavy),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Enter the 6-digit code from your Google Authenticator app to complete the sign in.',
                   style: TextStyle(fontSize: 14.5, color: AppColors.textSecondary, height: 1.4),
                 ),
@@ -241,7 +241,7 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
                   color: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(color: AppColors.border),
+                    side: BorderSide(color: AppColors.border),
                   ),
                   child: InkWell(
                     onTap: _openAuthenticator,
@@ -261,20 +261,20 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
                             child: const Center(child: AuthenticatorMark(size: 26)),
                           ),
                           const SizedBox(width: 12),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                const Text(
                                   'Open Google Authenticator',
                                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                                 ),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
                                 Text('Enter the 6-digit code for Purple IQ – Asset360', style: AppText.caption),
                               ],
                             ),
                           ),
-                          const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+                          Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
                         ],
                       ),
                     ),
@@ -323,7 +323,7 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
                   ),
                 ),
                 const SizedBox(height: 22),
-                const Center(
+                Center(
                   child: Text(
                     "Can't access your authenticator?",
                     style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
@@ -332,7 +332,7 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
                 Center(
                   child: TextButton(
                     onPressed: _otherMethod,
-                    child: const Text(
+                    child: Text(
                       'Use a different method',
                       style: TextStyle(
                         fontSize: 14,
@@ -448,7 +448,7 @@ class _Box extends StatelessWidget {
       child: digit != null
           ? Text(
               digit!,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: AppColors.text),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: AppColors.text),
             )
           : active
           ? const _BlinkingCursor()

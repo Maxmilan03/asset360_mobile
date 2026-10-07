@@ -51,10 +51,14 @@ class _RowList extends StatelessWidget {
         child: Text(empty, textAlign: TextAlign.center, style: AppText.secondary),
       );
     }
-    return Column(
-      children: [
-        for (var i = 0; i < children.length; i++) ...[if (i > 0) const Divider(), children[i]],
-      ],
+    return LoadingGate(
+      rows: children.length.clamp(1, 3),
+      card: false,
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[if (i > 0) const Divider(), children[i]],
+        ],
+      ),
     );
   }
 }
@@ -97,7 +101,7 @@ class _Row extends StatelessWidget {
               ),
             ),
             if (trailing != null) ...[const SizedBox(width: 8), trailing!],
-            if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary, size: 20),
+            if (onTap != null) Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary, size: 20),
           ],
         ),
       ),
@@ -143,7 +147,7 @@ class AssetLocationTab extends ConsumerWidget {
                 runSpacing: 6,
                 children: [
                   for (var i = 0; i < parts.length; i++) ...[
-                    if (i > 0) const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textMuted),
+                    if (i > 0) Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textMuted),
                     StatusChip(
                       parts[i],
                       tone: i == parts.length - 1 ? ChipTone.purple : ChipTone.grey,
@@ -202,6 +206,11 @@ class AssetLocationTab extends ConsumerWidget {
           title: 'Location History (${history.length})',
           child: Column(
             children: [
+              if (history.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Text('No location changes recorded yet.', style: AppText.secondary),
+                ),
               for (var i = 0; i < history.length; i++)
                 _TimelineRow(
                   icon: Icons.location_on_rounded,
@@ -256,8 +265,8 @@ class AssetMaintenanceTab extends ConsumerWidget {
         SectionCard(
           title: 'Next Preventive Maintenance',
           child: pm == null
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text('No PM schedule for this asset.', style: AppText.secondary),
                 )
               : Column(
@@ -265,15 +274,17 @@ class AssetMaintenanceTab extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        const IconSquare(icon: Icons.event_repeat_rounded, tone: TileTone.lavender),
+                        IconSquare(icon: Icons.event_repeat_rounded, tone: TileTone.lavender),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(pm.title, style: AppText.bodyStrong),
+                              Text(pm.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.bodyStrong),
                               Text(
                                 '${pm.frequency} · Last done ${DemoClock.formatDate(pm.lastDone)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: AppText.caption,
                               ),
                             ],
@@ -305,7 +316,7 @@ class AssetMaintenanceTab extends ConsumerWidget {
             children: [
               for (final w in wos)
                 _Row(
-                  leading: PriorityChip(w.priority),
+                  leading: SizedBox(width: 70, child: PriorityChip(w.priority)),
                   title: '${w.id} · ${w.title}',
                   subtitle: w.isActive
                       ? '${w.workType} · ${DemoClock.dueLabel(w.dueAt)}'
@@ -391,7 +402,7 @@ class AssetInspectionTab extends ConsumerWidget {
             children: [
               for (final i in list)
                 _Row(
-                  leading: const IconSquare(icon: Icons.fact_check_outlined, tone: TileTone.mint, size: 36),
+                  leading: IconSquare(icon: Icons.fact_check_outlined, tone: TileTone.mint, size: 36),
                   title: '${i.id} · ${i.title}',
                   subtitle: [
                     i.type,
@@ -513,7 +524,7 @@ class AssetFinancialTab extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(formatAed(a.tco), style: AppText.kpiNumber),
-              const Text('Acquisition + maintenance + spares + labour + energy − resale', style: AppText.caption),
+              Text('Acquisition + maintenance + spares + labour + energy − resale', style: AppText.caption),
               const SizedBox(height: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(6),
@@ -537,7 +548,7 @@ class AssetFinancialTab extends ConsumerWidget {
               const Divider(height: 18),
               Row(
                 children: [
-                  const Expanded(child: Text('TCO', style: AppText.bodyStrong)),
+                  Expanded(child: Text('TCO', style: AppText.bodyStrong)),
                   Text(formatAed(a.tco), style: AppText.bodyStrong.copyWith(color: AppColors.primary)),
                 ],
               ),
@@ -683,6 +694,7 @@ class AssetHistoryTab extends ConsumerWidget {
           [m.to.name, if (m.newCustodian != null) 'to ${m.newCustodian}'].join(' · '),
           Icons.swap_horiz_rounded,
           AppColors.iconOrange,
+          Routes.movementRequest(m.id),
         ),
       for (final i in ref.watch(issuesProvider).forAsset(id))
         _Event(
@@ -697,22 +709,31 @@ class AssetHistoryTab extends ConsumerWidget {
 
     return SectionCard(
       title: 'History (${events.length})',
-      child: Column(
-        children: [
-          for (var i = 0; i < events.length; i++)
-            _TimelineRow(
-              icon: events[i].icon,
-              color: events[i].color,
-              title: events[i].title,
-              subtitle: [
-                DemoClock.formatDateTime(events[i].at),
-                events[i].detail,
-              ].where((s) => s.isNotEmpty).join(' · '),
-              last: i == events.length - 1,
-              onTap: events[i].route == null ? null : () => context.push(events[i].route!),
+      child: events.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Text('No history recorded for $id yet.', textAlign: TextAlign.center, style: AppText.secondary),
+            )
+          : LoadingGate(
+              rows: 3,
+              card: false,
+              child: Column(
+                children: [
+                  for (var i = 0; i < events.length; i++)
+                    _TimelineRow(
+                      icon: events[i].icon,
+                      color: events[i].color,
+                      title: events[i].title,
+                      subtitle: [
+                        DemoClock.formatDateTime(events[i].at),
+                        events[i].detail,
+                      ].where((s) => s.isNotEmpty).join(' · '),
+                      last: i == events.length - 1,
+                      onTap: events[i].route == null ? null : () => context.push(events[i].route!),
+                    ),
+                ],
+              ),
             ),
-        ],
-      ),
     );
   }
 }
@@ -780,8 +801,8 @@ class _TimelineRow extends StatelessWidget {
               ),
             ),
             if (onTap != null)
-              const Padding(
-                padding: EdgeInsets.only(top: 4),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
                 child: Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary),
               ),
           ],

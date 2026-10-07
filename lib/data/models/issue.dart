@@ -3,12 +3,29 @@ import 'common.dart';
 abstract final class IssueStatus {
   static const open = 'Open';
   static const inProgress = 'In Progress';
+  static const onHold = 'On Hold';
   static const resolved = 'Resolved';
   static const closed = 'Closed';
 
-  static const all = [open, inProgress, resolved, closed];
-  static bool isOpen(String s) => s == open || s == inProgress;
+  static const all = [open, inProgress, onHold, resolved, closed];
+
+  /// "Open" tab: Open, In Progress and On Hold.
+  static bool isOpen(String s) => s == open || s == inProgress || s == onHold;
 }
+
+const issueTypes = [
+  'Breakdown',
+  'Malfunction',
+  'Damage',
+  'Leakage',
+  'Safety Hazard',
+  'Electrical',
+  'Production',
+  'Other',
+];
+
+/// Description length limit on Report Issue.
+const issueDescriptionMax = 500;
 
 class Issue {
   const Issue({
@@ -28,6 +45,8 @@ class Issue {
     this.workOrderIds = const [],
     this.timeline = const [],
     this.resolvedAt,
+    this.attachments = const [],
+    this.resolution,
   });
 
   final String id;
@@ -47,6 +66,12 @@ class Issue {
   final List<LogEntry> timeline;
   final DateTime? resolvedAt;
 
+  /// Files other than photos (reports, PDFs …).
+  final List<Attachment> attachments;
+
+  /// Resolution notes given when the issue is closed.
+  final String? resolution;
+
   bool get isOpen => IssueStatus.isOpen(status);
 
   Issue copyWith({
@@ -62,6 +87,9 @@ class Issue {
     List<String>? workOrderIds,
     List<LogEntry>? timeline,
     DateTime? resolvedAt,
+    bool clearResolved = false,
+    List<Attachment>? attachments,
+    String? resolution,
   }) {
     return Issue(
       id: id,
@@ -79,7 +107,9 @@ class Issue {
       photos: photos ?? this.photos,
       workOrderIds: workOrderIds ?? this.workOrderIds,
       timeline: timeline ?? this.timeline,
-      resolvedAt: resolvedAt ?? this.resolvedAt,
+      resolvedAt: clearResolved ? null : resolvedAt ?? this.resolvedAt,
+      attachments: attachments ?? this.attachments,
+      resolution: resolution ?? this.resolution,
     );
   }
 }

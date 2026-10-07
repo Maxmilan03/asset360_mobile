@@ -9,6 +9,7 @@ import '../../app/theme/app_theme.dart';
 import '../../data/repositories/alerts_repository.dart';
 import '../../data/repositories/session_repository.dart';
 import '../session_actions.dart';
+import 'demo_gate.dart';
 import 'feedback.dart';
 
 /// Purple top bar: back arrow, logo + "Purple IQ | Asset360", bell and "RK" avatar.
@@ -33,9 +34,9 @@ class AppHeader extends StatelessWidget {
         else
           const SizedBox(width: 12),
         const Expanded(child: _Brand(showProduct: true)),
-        const NotificationBell(),
+        const DemoGate(child: NotificationBell()),
         const SizedBox(width: 6),
-        const _InitialsAvatar(),
+        const DemoGate(child: _InitialsAvatar()),
         const SizedBox(width: 16),
       ],
     );
@@ -58,46 +59,48 @@ class HomeHeader extends ConsumerWidget {
       children: [
         const SizedBox(width: 16),
         Expanded(child: _Brand(showProduct: showProduct)),
-        const NotificationBell(),
+        const DemoGate(child: NotificationBell()),
         const SizedBox(width: 4),
-        PopupMenuButton<_UserMenu>(
-          tooltip: 'Account menu',
-          offset: const Offset(0, 48),
-          onSelected: (item) => switch (item) {
-            _UserMenu.profile => context.push(Routes.profileFrom(GoRouterState.of(context).uri.path)),
-            _UserMenu.settings => context.go(Routes.settings),
-            _UserMenu.site => showSwitchSiteSheet(context, ref),
-            _UserMenu.logout => confirmLogout(context, ref),
-          },
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: _UserMenu.profile, child: _MenuRow(Icons.person_outline_rounded, 'Profile')),
-            PopupMenuItem(value: _UserMenu.settings, child: _MenuRow(Icons.settings_outlined, 'Settings')),
-            PopupMenuItem(value: _UserMenu.site, child: _MenuRow(Icons.apartment_rounded, 'Switch Site')),
-            PopupMenuItem(
-              value: _UserMenu.logout,
-              child: _MenuRow(Icons.logout_rounded, 'Logout', color: AppColors.red),
-            ),
-          ],
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const _PhotoAvatar(),
-                const SizedBox(width: 8),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user.name,
-                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                    Text(user.role, style: const TextStyle(color: AppColors.onDarkMuted, fontSize: 11)),
-                  ],
-                ),
-                const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 20),
-              ],
+        DemoGate(
+          child: PopupMenuButton<_UserMenu>(
+            tooltip: 'Account menu',
+            offset: const Offset(0, 48),
+            onSelected: (item) => switch (item) {
+              _UserMenu.profile => context.push(Routes.profileFrom(GoRouterState.of(context).uri.path)),
+              _UserMenu.settings => context.go(Routes.settings),
+              _UserMenu.site => showSwitchSiteSheet(context, ref),
+              _UserMenu.logout => confirmLogout(context, ref),
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: _UserMenu.profile, child: _MenuRow(Icons.person_outline_rounded, 'Profile')),
+              const PopupMenuItem(value: _UserMenu.settings, child: _MenuRow(Icons.settings_outlined, 'Settings')),
+              const PopupMenuItem(value: _UserMenu.site, child: _MenuRow(Icons.apartment_rounded, 'Switch Site')),
+              const PopupMenuItem(
+                value: _UserMenu.logout,
+                child: _MenuRow(Icons.logout_rounded, 'Logout', color: AppColors.red),
+              ),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const _PhotoAvatar(),
+                  const SizedBox(width: 8),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.name,
+                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      Text(user.role, style: const TextStyle(color: AppColors.onDarkMuted, fontSize: 11)),
+                    ],
+                  ),
+                  const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 20),
+                ],
+              ),
             ),
           ),
         ),
@@ -110,19 +113,20 @@ class HomeHeader extends ConsumerWidget {
 enum _UserMenu { profile, settings, site, logout }
 
 class _MenuRow extends StatelessWidget {
-  const _MenuRow(this.icon, this.label, {this.color = AppColors.text});
+  const _MenuRow(this.icon, this.label, {this.color});
   final IconData icon;
   final String label;
-  final Color color;
+  final Color? color;
+  Color get _color => color ?? AppColors.text;
 
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Icon(icon, size: 20, color: color),
+      Icon(icon, size: 20, color: _color),
       const SizedBox(width: 12),
       Text(
         label,
-        style: TextStyle(color: color, fontWeight: FontWeight.w500),
+        style: TextStyle(color: _color, fontWeight: FontWeight.w500),
       ),
     ],
   );
@@ -241,7 +245,7 @@ class _InitialsAvatar extends ConsumerWidget {
           backgroundColor: Colors.white,
           child: Text(
             user.initials,
-            style: const TextStyle(color: AppColors.primary, fontSize: 14, fontWeight: FontWeight.w700),
+            style: TextStyle(color: AppColors.primary, fontSize: 14, fontWeight: FontWeight.w700),
           ),
         ),
       ),

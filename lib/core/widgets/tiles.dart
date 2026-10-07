@@ -66,7 +66,7 @@ class ActionTile extends StatelessWidget {
     required this.tone,
     required this.onTap,
     this.badge,
-    this.badgeColor = AppColors.primary,
+    this.badgeColor,
     this.subtitle,
     this.height,
     this.labelSize = 12.5,
@@ -80,7 +80,8 @@ class ActionTile extends StatelessWidget {
 
   /// Count shown in a small circle at the top-right (hidden when null or 0).
   final int? badge;
-  final Color badgeColor;
+  final Color? badgeColor;
+  Color get _badgeColor => badgeColor ?? AppColors.primary;
   final double? height;
   final double labelSize;
 
@@ -134,7 +135,7 @@ class ActionTile extends StatelessWidget {
                 height: 20,
                 padding: const EdgeInsets.symmetric(horizontal: 5),
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: _badgeColor, borderRadius: BorderRadius.circular(10)),
                 child: Text(
                   '$badge',
                   style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),

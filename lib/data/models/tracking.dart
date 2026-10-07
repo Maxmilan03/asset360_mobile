@@ -24,6 +24,12 @@ class TrackingSummary {
 
 enum TrackedKind { person, equipment, vehicle, alert }
 
+abstract final class TrackStatus {
+  static const moving = 'Moving';
+  static const offline = 'Offline';
+  static const lowBattery = 'Low Battery';
+}
+
 /// A pin on the indoor floor plan. [x] and [y] are 0–1 fractions of the plan.
 class TrackedEntity {
   const TrackedEntity({
@@ -35,6 +41,7 @@ class TrackedEntity {
     required this.zone,
     this.assetId,
     this.status = 'Online',
+    this.lastSeen,
   });
 
   final String id;
@@ -44,9 +51,14 @@ class TrackedEntity {
   final double y;
   final String zone;
   final String? assetId;
-  final String status;
 
-  TrackedEntity copyWith({double? x, double? y, String? zone, String? status}) => TrackedEntity(
+  /// Online, Moving, Idle, Offline, Low Battery, Alert, Unauthorized Area …
+  final String status;
+  final DateTime? lastSeen;
+
+  bool get online => status != TrackStatus.offline;
+
+  TrackedEntity copyWith({double? x, double? y, String? zone, String? status, DateTime? lastSeen}) => TrackedEntity(
     id: id,
     label: label,
     kind: kind,
@@ -55,6 +67,7 @@ class TrackedEntity {
     zone: zone ?? this.zone,
     assetId: assetId,
     status: status ?? this.status,
+    lastSeen: lastSeen ?? this.lastSeen,
   );
 }
 
@@ -93,13 +106,36 @@ class VehicleTelemetry {
   final String zone;
   final DateTime lastUpdated;
 
-  /// Route across the floor plan (0–1 fractions) and where the vehicle is on it.
+  /// Route across the floor plan (0–1 fractions). The vehicle drives it there and back:
+  /// [routeIndex] counts steps around that loop (0 … [loopLength] − 1).
   final List<TrendPoint> route;
   final int routeIndex;
   final List<TrendPoint> batteryTrend;
 
   String get loadStatus => loadTonnes > 0 ? 'Loaded' : 'No Load';
   String get motion => moving ? 'Moving' : 'Idle';
+
+  int get loopLength => route.length < 2 ? 1 : route.length * 2 - 2;
+
+  /// Index into [route] for a loop step.
+  int pointAt(int step) {
+    if (route.length < 2) return 0;
+    final s = step % loopLength;
+    return s < route.length ? s : loopLength - s;
+  }
+
+  /// Current position on the plan (null for vehicles without a route).
+  TrendPoint? get position => route.isEmpty ? null : route[pointAt(routeIndex)];
+
+  /// True while driving from the first route point towards the last.
+  bool get outbound => routeIndex % loopLength < route.length - 1;
+
+  /// The dotted trail: route points driven on the current leg, oldest first, ending at [position].
+  List<TrendPoint> get trail {
+    if (route.isEmpty) return const [];
+    final i = pointAt(routeIndex);
+    return outbound ? route.sublist(0, i + 1) : route.sublist(i).reversed.toList();
+  }
 
   VehicleTelemetry copyWith({int? routeIndex, String? zone, DateTime? lastUpdated, double? speedKmh, bool? moving}) =>
       VehicleTelemetry(
@@ -130,3 +166,134 @@ class TrackActivity {
   final DateTime at;
   final String? assetId;
 }
+
+/// A geofence drawn on the floor plan ([left], [top], [width], [height] are 0–1 fractions).
+class Geofence {
+  const Geofence({
+    required this.id,
+    required this.name,
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+    this.alertOnEntry = false,
+    this.alertOnExit = false,
+    this.restricted = false,
+  });
+
+  final String id;
+  final String name;
+  final double left;
+  final double top;
+  final double width;
+  final double height;
+  final bool alertOnEntry;
+  final bool alertOnExit;
+
+  /// Only listed assets may enter (shown red on the map).
+  final bool restricted;
+
+  bool contains(double x, double y) => x >= left && x <= left + width && y >= top && y <= top + height;
+
+  Geofence copyWith({bool? alertOnEntry, bool? alertOnExit}) => Geofence(
+    id: id,
+    name: name,
+    left: left,
+    top: top,
+    width: width,
+    height: height,
+    alertOnEntry: alertOnEntry ?? this.alertOnEntry,
+    alertOnExit: alertOnExit ?? this.alertOnExit,
+    restricted: restricted,
+  );
+}
+
+/// An asset entering or leaving a floor-plan zone (Asset Tracking → History).
+class ZoneEvent {
+  const ZoneEvent({required this.assetId, required this.zone, required this.entered, required this.at});
+
+  final String assetId;
+  final String zone;
+  final bool entered;
+  final DateTime at;
+}
+
+enum SensorKind { temperature, vibration, door, battery }
+
+/// A monitored sensor (Tracking → Sensors). Temperature / vibration values come from the
+/// asset's telemetry ([key]), battery from its IoT device; a door sensor has its own [doorOpen].
+class SensorDef {
+  const SensorDef({
+    required this.id,
+    required this.name,
+    required this.kind,
+    required this.assetId,
+    required this.threshold,
+    this.key,
+    this.doorOpen = false,
+    this.since,
+  });
+
+  final String id;
+  final String name;
+  final SensorKind kind;
+  final String assetId;
+
+  /// Telemetry key on the asset (temperature / vibration).
+  final String? key;
+
+  /// Alert above this value (temperature, vibration), below it (battery), or minutes open (door).
+  final double threshold;
+  final bool doorOpen;
+
+  /// Door: when it was opened.
+  final DateTime? since;
+}
+
+/// One metric of a tracked asset (Telemetry tab tile and chart). [spread] and [slope] shape the
+/// generated history: values wander by ±[spread] and change by [slope] per hour going back in time.
+class TrackMetric {
+  const TrackMetric({
+    required this.key,
+    required this.label,
+    required this.value,
+    required this.unit,
+    this.decimals = 1,
+    this.spread = 0,
+    this.slope = 0,
+    this.min,
+    this.max,
+    this.text,
+  });
+
+  final String key;
+  final String label;
+  final double value;
+  final String unit;
+  final int decimals;
+  final double spread;
+  final double slope;
+  final double? min;
+  final double? max;
+
+  /// Shown instead of a number (Location: "Main Warehouse / Zone B"); no chart.
+  final String? text;
+
+  bool get chartable => text == null;
+  String get display => text ?? '${value.toStringAsFixed(decimals)}${unit.isEmpty ? '' : ' $unit'}';
+}
+
+/// Time range of the telemetry charts. Changing it regenerates the history.
+enum TelemetryRange {
+  hour('Last 1 Hour', Duration(hours: 1), Duration(minutes: 5)),
+  day('Last 24 Hours', Duration(hours: 24), Duration(minutes: 30)),
+  week('Last 7 Days', Duration(days: 7), Duration(hours: 4));
+
+  const TelemetryRange(this.label, this.span, this.step);
+  final String label;
+  final Duration span;
+  final Duration step;
+}
+
+/// One point of a generated telemetry history.
+typedef TimedValue = ({DateTime at, double value});

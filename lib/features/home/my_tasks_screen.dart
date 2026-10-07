@@ -46,19 +46,22 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> {
             onChanged: (i) => setState(() => _tab = i),
           ),
           const SizedBox(height: 12),
-          AppCard(
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-            child: list.isEmpty
-                ? const EmptyState(
-                    icon: Icons.task_alt_rounded,
-                    title: 'Nothing here',
-                    message: 'You are all caught up.',
-                  )
-                : Column(
-                    children: [
-                      for (var i = 0; i < list.length; i++) ...[if (i > 0) const Divider(), TaskRow(task: list[i])],
-                    ],
-                  ),
+          LoadingGate(
+            rows: 5,
+            child: AppCard(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+              child: list.isEmpty
+                  ? const EmptyState(
+                      icon: Icons.task_alt_rounded,
+                      title: 'Nothing here',
+                      message: 'You are all caught up.',
+                    )
+                  : Column(
+                      children: [
+                        for (var i = 0; i < list.length; i++) ...[if (i > 0) const Divider(), TaskRow(task: list[i])],
+                      ],
+                    ),
+            ),
           ),
         ],
       ),

@@ -2,6 +2,108 @@ import '../models/audit.dart';
 import 'people_mock.dart';
 import 'seed_utils.dart';
 
+/// Building photo per audit site.
+const auditSiteImages = {
+  'Dubai Factory': 'assets/images/building_factory.jpg',
+  'Dubai Office': 'assets/images/building_office.jpg',
+  'Education City': 'assets/images/building_campus.jpg',
+};
+
+/// Sample results of the annual audit (part of its 850 / 25 / 15 / 10 summary figures).
+/// GEN-00045 is deliberately not audited yet: scanning it is the demo flow.
+final _annualEntries = [
+  AuditEntry(
+    assetId: 'CNC-00123',
+    result: AuditResult.verified,
+    at: sep(24, 10, 12),
+    location: 'Main Plant / Production Floor 1',
+    expectedLocation: 'Main Plant / Production Floor 1',
+    condition: 'Good',
+    method: AuditMethod.qr,
+    by: 'Rex Kumar',
+  ),
+  AuditEntry(
+    assetId: 'CNC-021',
+    result: AuditResult.verified,
+    at: sep(24, 10, 18),
+    location: 'Main Plant / Production Floor 1',
+    expectedLocation: 'Main Plant / Production Floor 1',
+    condition: 'Good',
+    method: AuditMethod.qr,
+    by: 'Rex Kumar',
+  ),
+  AuditEntry(
+    assetId: 'MTR-00123',
+    result: AuditResult.verified,
+    at: sep(24, 10, 26),
+    location: 'Main Plant / Production Floor 1, Dubai',
+    expectedLocation: 'Main Plant / Production Floor 1, Dubai',
+    condition: 'Fair',
+    method: AuditMethod.rfid,
+    by: 'Rex Kumar',
+  ),
+  AuditEntry(
+    assetId: 'AHU-02',
+    result: AuditResult.verified,
+    at: sep(24, 11, 5),
+    location: 'Main Plant / Floor 2',
+    expectedLocation: 'Main Plant / Floor 2',
+    condition: 'Good',
+    method: AuditMethod.qr,
+    by: 'Mohammed Rafi',
+  ),
+  AuditEntry(
+    assetId: 'CAB-011',
+    result: AuditResult.verified,
+    at: sep(24, 11, 40),
+    location: 'Utility Room',
+    expectedLocation: 'Utility Room',
+    condition: 'Good',
+    method: AuditMethod.qr,
+    by: 'Mohammed Rafi',
+  ),
+  AuditEntry(
+    assetId: 'FL-015',
+    result: AuditResult.wrongLocation,
+    at: sep(24, 14, 2),
+    location: 'Main Warehouse / Ground Floor – Zone A',
+    expectedLocation: 'Main Warehouse / Zone B',
+    condition: 'Good',
+    remarks: 'Parked in Zone A after the night shift',
+    method: AuditMethod.rfid,
+    by: 'Rex Kumar',
+  ),
+  AuditEntry(
+    assetId: 'AHU-03',
+    result: AuditResult.wrongLocation,
+    at: sep(24, 14, 30),
+    location: 'Building A / Roof – AHU Deck',
+    expectedLocation: 'Building A / Roof',
+    condition: 'Fair',
+    method: AuditMethod.qr,
+    by: 'Rex Kumar',
+  ),
+  AuditEntry(
+    assetId: 'MTR-007',
+    result: AuditResult.notFound,
+    at: sep(24, 15, 10),
+    expectedLocation: 'Production Line 2',
+    remarks: 'Not at Line 2; may be at the rewinding vendor',
+    method: AuditMethod.search,
+    by: 'Rex Kumar',
+  ),
+  AuditEntry(
+    assetId: 'UNREG-10021',
+    result: AuditResult.unregistered,
+    at: sep(24, 15, 45),
+    location: 'Building B / Ground Floor – Workshop',
+    description: 'Portable welding set (no tag)',
+    condition: 'Fair',
+    method: AuditMethod.manual,
+    by: 'Rex Kumar',
+  ),
+];
+
 /// My Audits 3 (all Rex's), Assigned 2 (not completed), Completed 1.
 List<Audit> seedAudits() => [
   Audit(
@@ -13,11 +115,13 @@ List<Audit> seedAudits() => [
     totalAssets: 1500,
     status: AuditStatus.inProgress,
     auditorId: PersonIds.rex,
+    auditorIds: const [PersonIds.rafi],
     verified: 850,
     wrongLocation: 25,
     notFound: 15,
     unregistered: 10,
-    imagePath: 'assets/images/building_factory.jpg',
+    entries: _annualEntries,
+    imagePath: auditSiteImages['Dubai Factory'],
   ),
   Audit(
     id: 'AUD-2026-002',
@@ -28,7 +132,9 @@ List<Audit> seedAudits() => [
     totalAssets: 450,
     status: AuditStatus.pending,
     auditorId: PersonIds.rex,
-    imagePath: 'assets/images/building_office.jpg',
+    scopeCategories: const ['IT Equipment'],
+    blindCount: true,
+    imagePath: auditSiteImages['Dubai Office'],
   ),
   Audit(
     id: 'AUD-2026-003',
@@ -42,6 +148,19 @@ List<Audit> seedAudits() => [
     verified: 312,
     wrongLocation: 5,
     notFound: 3,
-    imagePath: 'assets/images/building_campus.jpg',
+    entries: [
+      AuditEntry(
+        assetId: 'TL-034',
+        result: AuditResult.verified,
+        at: on(2026, 8, 21, 9, 40),
+        location: 'Admin Block – 2nd Floor',
+        expectedLocation: 'Admin Block – 2nd Floor',
+        condition: 'Good',
+        method: AuditMethod.qr,
+        by: 'Rex Kumar',
+      ),
+    ],
+    imagePath: auditSiteImages['Education City'],
+    completedAt: on(2026, 8, 31, 17),
   ),
 ];

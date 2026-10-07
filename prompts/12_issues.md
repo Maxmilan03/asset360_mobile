@@ -10,7 +10,7 @@ Follow `CLAUDE.md`. Build the 3 screens.
   - **Resolved** (badge)
 - Tabs: All Issues (22) / My Issues (6) / Open (10) / Resolved (12), all computed.
 - Search (issue no., asset, location, description) and filter sheet (priority, type, status, date).
-- Rows: photo, ISS number, priority chip, title, asset ID + location, reporter, date and time. Fix the overlapping text seen in the design ("Suresh Ku26(" …): use ellipsis and a proper row layout.
+- Rows: photo, ISS number, priority chip, title, asset ID + location, reporter, date and time. Fix the overlapping text seen in the design ("Suresh Ku26" …): use ellipsis and a proper row layout.
 - Tap → issue detail. Swipe right on your own open issue → "Mark Resolved" (confirm).
 
 ## Screen 2 (middle): Report Issue / Defect

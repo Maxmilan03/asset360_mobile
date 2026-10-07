@@ -77,7 +77,7 @@ List<Person> seedPeople() => const [
 const mockSites = ['All Sites', 'Dubai Factory', 'Dubai Office', 'Education City'];
 
 const mockUsername = 'rex.kumar';
-const mockEmail = 'rex.kumar@purpleiq.ae';
+const mockEmail = 'rkumar@purpleiq.ai';
 const mockPassword = 'Asset@360';
 const mockAuthenticatorCode = '123456';
 const mockBackupCode = '1234-5678';

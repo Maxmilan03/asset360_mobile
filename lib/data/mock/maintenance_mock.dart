@@ -1,3 +1,4 @@
+import '../../core/checklist/checklist.dart';
 import '../models/common.dart';
 import '../models/work_order.dart';
 import 'people_mock.dart';
@@ -6,8 +7,14 @@ import 'seed_utils.dart';
 const _corrective = 'Corrective Maintenance';
 const _preventive = 'Preventive Maintenance';
 
-List<ChecklistItem> _items(String prefix, List<String> labels, {int done = 0}) => [
-  for (var i = 0; i < labels.length; i++) ChecklistItem(id: '$prefix-${i + 1}', label: labels[i], done: i < done),
+List<CheckItem> _items(String prefix, List<String> labels, {int done = 0}) => [
+  for (var i = 0; i < labels.length; i++)
+    CheckItem(
+      code: '$prefix-${i + 1}',
+      label: labels[i],
+      type: CheckType.tick,
+      value: i < done ? CheckItem.done : null,
+    ),
 ];
 
 /// Short standard task list for WOs that aren't shown in detail in the designs.
@@ -70,24 +77,37 @@ List<WorkOrder> seedWorkOrders() {
             'Area barricaded',
           ], done: 3),
         ),
-        WoTask(
+        const WoTask(
           id: 'WO45-T2',
           title: 'Inspection & Diagnosis',
           status: TaskStatus.inProgress,
           notes: 'Vibration level higher than normal. No visible leakage.',
-          checklist: const [
-            ChecklistItem(id: 'WO45-T2-1', label: 'Visual inspection (leakage, damage)', done: true),
-            ChecklistItem(
-              id: 'WO45-T2-2',
-              label: 'Check vibration level (mm/s)',
-              done: true,
-              unit: 'mm/s',
-              value: '2.3',
+          checklist: [
+            CheckItem(
+              code: 'WO45-T2-1',
+              label: 'Visual inspection (leakage, damage)',
+              type: CheckType.tick,
+              value: CheckItem.done,
             ),
-            ChecklistItem(id: 'WO45-T2-3', label: 'Check temperature (°C)', done: true, unit: '°C', value: '68'),
-            ChecklistItem(id: 'WO45-T2-4', label: 'Check oil level', done: true),
-            ChecklistItem(id: 'WO45-T2-5', label: 'Check electrical connections'),
-            ChecklistItem(id: 'WO45-T2-6', label: 'Check exhaust system'),
+            CheckItem(
+              code: 'WO45-T2-2',
+              label: 'Check vibration level (mm/s)',
+              type: CheckType.tick,
+              value: CheckItem.done,
+              unit: 'mm/s',
+              reading: '2.3',
+            ),
+            CheckItem(
+              code: 'WO45-T2-3',
+              label: 'Check temperature (°C)',
+              type: CheckType.tick,
+              value: CheckItem.done,
+              unit: '°C',
+              reading: '68',
+            ),
+            CheckItem(code: 'WO45-T2-4', label: 'Check oil level', type: CheckType.tick, value: CheckItem.done),
+            CheckItem(code: 'WO45-T2-5', label: 'Check electrical connections', type: CheckType.tick),
+            CheckItem(code: 'WO45-T2-6', label: 'Check exhaust system', type: CheckType.tick),
           ],
         ),
         WoTask(

@@ -38,8 +38,8 @@ class InfoRow extends StatelessWidget {
             child: Text(label, style: AppText.secondary),
           ),
           if (showColon)
-            const Padding(
-              padding: EdgeInsets.only(right: 12),
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
               child: Text(':', style: AppText.secondary),
             ),
           Expanded(
@@ -72,24 +72,25 @@ class _StackedInfo extends InfoRow {
 
 /// Small grey icon + text line (location pin, "From:", calendar …).
 class IconLine extends StatelessWidget {
-  const IconLine({super.key, required this.icon, required this.text, this.color = AppColors.textSecondary});
+  const IconLine({super.key, required this.icon, required this.text, this.color});
 
   final IconData icon;
   final String text;
-  final Color color;
+  final Color? color;
+  Color get _color => color ?? AppColors.textSecondary;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 13, color: color),
+        Icon(icon, size: 13, color: _color),
         const SizedBox(width: 4),
         Expanded(
           child: Text(
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppText.caption.copyWith(color: color),
+            style: AppText.caption.copyWith(color: _color),
           ),
         ),
       ],

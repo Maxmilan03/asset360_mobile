@@ -1,5 +1,6 @@
 import '../models/alert.dart';
 import '../models/common.dart';
+import 'assets_mock.dart';
 import 'seed_utils.dart';
 import 'tracking_mock.dart';
 
@@ -27,7 +28,7 @@ List<AlertItem> seedAlerts() {
       assetId: 'GEN-00045',
       message: 'High temperature detected (85°C)',
       at: sep(25, 10, 24),
-      location: 'Main Plant / Building A',
+      location: seedLocationOf('GEN-00045'),
       threshold: '> 80°C',
       value: '85°C',
       description: 'Engine temperature is above the 80 °C limit.',
@@ -39,7 +40,7 @@ List<AlertItem> seedAlerts() {
       assetId: 'GEN-00045',
       message: 'GEN-00045 is due for scheduled maintenance on 28 Sep 2026',
       at: sep(25, 10, 0),
-      location: 'Main Plant / Building A',
+      location: seedLocationOf('GEN-00045'),
       reportedBy: 'System (PM Schedule)',
       description: 'Monthly scheduled maintenance is due on 28 Sep 2026.',
     ),
@@ -75,9 +76,9 @@ List<AlertItem> seedAlerts() {
       type: 'Asset Moved to Unauthorized Area',
       severity: Severity.medium,
       assetId: 'TL-034',
-      message: 'TL-034 moved to unauthorized area (Admin Block - 2nd Floor)',
+      message: 'TL-034 moved to unauthorized area (Admin Block – 2nd Floor)',
       at: sep(25, 9, 30),
-      location: 'Admin Block - 2nd Floor',
+      location: seedLocationOf('TL-034'),
       reportedBy: 'System (Geofence)',
     ),
     AlertItem(
@@ -87,7 +88,7 @@ List<AlertItem> seedAlerts() {
       assetId: 'FL-012',
       message: 'Asset moved to unauthorized zone',
       at: sep(25, 8, 42),
-      location: 'Main Warehouse / Dispatch',
+      location: seedLocationOf('FL-012'),
       reportedBy: 'System (Geofence)',
     ),
     AlertItem(
@@ -163,7 +164,7 @@ List<AlertItem> seedAlerts() {
           assetId: t.$2,
           message: t.$3,
           at: at,
-          location: '—',
+          location: seedLocationOf(t.$2),
           status: i.isEven ? AlertStatus.resolved : AlertStatus.acknowledged,
         ),
       );
@@ -282,7 +283,7 @@ List<AppNotification> seedNotifications() => [
     id: 'N-008',
     kind: 'assetMoved',
     title: 'Asset Moved',
-    message: 'TL-034 moved to unauthorized area (Admin Block - 2nd Floor)',
+    message: 'TL-034 moved to unauthorized area (Admin Block – 2nd Floor)',
     at: sep(25, 9, 30),
     categories: const {_sys},
     refType: 'alert',
@@ -364,4 +365,18 @@ List<AppNotification> seedNotifications() => [
     categories: const {_sys},
     refType: 'sync',
   ),
+];
+
+/// The simulated live alerts (type, severity, asset, message, location).
+const liveAlertTemplates = [
+  (
+    'Vibration Threshold Exceeded',
+    Severity.high,
+    'MTR-00123',
+    'Vibration 5.2 mm/s (limit 4.5)',
+    'Main Plant / Production Floor 1, Dubai',
+  ),
+  ('Temperature Out of Range', Severity.critical, 'CR-001', 'Cold room 9.4°C (allowed 2–8°C)', 'Storage Area'),
+  ('Geofence Exit', Severity.medium, 'FL-012', 'Forklift left the Zone B geofence', 'Main Warehouse / Zone B'),
+  ('Door Opened', Severity.low, 'CAB-011', 'Electrical cabinet door opened', 'Utility Room'),
 ];

@@ -1,33 +1,91 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/widgets/demo_gate.dart';
+import '../../features/more/all_modules.dart';
 import '../theme/app_colors.dart';
+import 'routes.dart';
 
-/// Hosts the five tab branches and the bottom bar:
+/// Hosts the four tab branches (Home, Assets, Work, More) and the bottom bar:
 /// Home, Assets, [raised Scan button], Work, More.
-class MainShell extends StatelessWidget {
-  const MainShell({super.key, required this.navigationShell});
+///
+/// The bar is visible on every signed-in screen. Scan opens Scan & Identify on top
+/// of the current screen (back returns there); More opens the All Modules sheet.
+/// Sheets and dialogs open on the current branch's navigator, which sits under the bar.
+class MainShell extends ConsumerStatefulWidget {
+  const MainShell({super.key, required this.navigationShell, required this.location, required this.branchKeys});
 
   final StatefulNavigationShell navigationShell;
+  final String location;
+  final List<GlobalKey<NavigatorState>> branchKeys;
 
-  void _onTap(int index) {
+  @override
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+/// Bar slot → branch index (the Scan slot has no branch).
+const _branchOfSlot = {0: 0, 1: 1, 3: 2, 4: 3};
+
+class _MainShellState extends ConsumerState<MainShell> {
+  bool _modulesOpen = false;
+
+  StatefulNavigationShell get _shell => widget.navigationShell;
+  BuildContext? get _branchContext => widget.branchKeys[_shell.currentIndex].currentContext;
+  bool get _onScan => widget.location.contains('/${Routes.scanSegment}');
+
+  void _closeModules() {
+    final ctx = _branchContext;
+    if (_modulesOpen && ctx != null) Navigator.of(ctx).pop();
+  }
+
+  Future<void> _openModules() async {
+    final ctx = _branchContext;
+    if (ctx == null) return;
+    setState(() => _modulesOpen = true);
+    final picked = await showAllModulesSheet(ctx, location: widget.location);
+    if (!mounted) return;
+    setState(() => _modulesOpen = false);
+    final c = _branchContext;
+    if (picked != null && c != null && c.mounted) openModule(c, ref, picked, from: widget.location);
+  }
+
+  void _onTap(int slot) {
+    if (slot == 4) {
+      _modulesOpen ? _closeModules() : _openModules();
+      return;
+    }
+    _closeModules();
+    if (slot == 2) {
+      if (!_onScan) GoRouter.of(context).push(Routes.scanFrom(widget.location));
+      return;
+    }
+    final index = _branchOfSlot[slot]!;
     // Re-tapping the active tab returns to that tab's first screen.
-    navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
+    _shell.goBranch(index, initialLocation: index == _shell.currentIndex);
   }
 
   @override
   Widget build(BuildContext context) {
-    final onHome = navigationShell.currentIndex == 0;
+    final onHome = _shell.currentIndex == 0;
+    final int active;
+    if (_modulesOpen) {
+      active = 4;
+    } else if (_onScan) {
+      active = 2;
+    } else {
+      active = _branchOfSlot.entries.firstWhere((e) => e.value == _shell.currentIndex).key;
+    }
     return PopScope(
       // Android back at the root of another tab goes to Home first; at Home it exits.
       canPop: onHome,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !onHome) navigationShell.goBranch(0);
+        if (!didPop && !onHome) _shell.goBranch(0);
       },
       child: Scaffold(
         extendBody: true,
-        body: navigationShell,
-        bottomNavigationBar: AppBottomBar(currentIndex: navigationShell.currentIndex, onTap: _onTap),
+        body: _shell,
+        bottomNavigationBar: AppBottomBar(currentIndex: active, onTap: _onTap),
       ),
     );
   }
@@ -73,14 +131,14 @@ class AppBottomBar extends StatelessWidget {
                   _NavItem(
                     label: 'Assets',
                     active: currentIndex == 1,
-                    onTap: () => onTap(1),
+                    onTap: DemoGate.tap(() => onTap(1)),
                     icon: (c, _) => CustomPaint(size: const Size(26, 26), painter: _AssetsIconPainter(c)),
                   ),
                   _ScanItem(active: currentIndex == 2, onTap: () => onTap(2)),
                   _NavItem(
                     label: 'Work',
                     active: currentIndex == 3,
-                    onTap: () => onTap(3),
+                    onTap: DemoGate.tap(() => onTap(3)),
                     icon: (c, a) =>
                         Icon(a ? Icons.assignment_turned_in_rounded : Icons.content_paste_rounded, color: c, size: 26),
                   ),
@@ -105,7 +163,9 @@ class _NavItem extends StatelessWidget {
 
   final String label;
   final bool active;
-  final VoidCallback onTap;
+
+  /// Null keeps the item visible but inert (client demo mode).
+  final VoidCallback? onTap;
   final Widget Function(Color color, bool active) icon;
 
   @override
@@ -188,7 +248,7 @@ class _ScanItem extends StatelessWidget {
                   height: AppBottomBar.scanSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [AppColors.primary, AppColors.primaryDark],
@@ -246,7 +306,7 @@ class _BarPainter extends CustomPainter {
       ..lineTo(0, size.height)
       ..close();
     canvas.drawShadow(path, const Color(0x552B1270), 6, false);
-    canvas.drawPath(path, Paint()..color = Colors.white);
+    canvas.drawPath(path, Paint()..color = AppColors.surface);
     canvas.drawPath(
       path,
       Paint()

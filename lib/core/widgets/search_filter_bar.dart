@@ -54,7 +54,7 @@ class SearchFilterBar extends StatelessWidget {
             style: AppText.body.copyWith(fontSize: 13.5),
             decoration: InputDecoration(
               hintText: hint,
-              prefixIcon: const Icon(Icons.search_rounded, color: AppColors.text, size: 22),
+              prefixIcon: Icon(Icons.search_rounded, color: AppColors.text, size: 22),
             ),
           ),
         ),
@@ -101,8 +101,8 @@ class _SquareButton extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             padding: EdgeInsets.zero,
             minimumSize: const Size(46, 46),
-            side: const BorderSide(color: AppColors.border),
-            backgroundColor: Colors.white,
+            side: BorderSide(color: AppColors.border),
+            backgroundColor: AppColors.surface,
           ),
           onPressed: onPressed,
           child: Icon(icon, color: AppColors.primary, size: 22),
@@ -163,11 +163,11 @@ class _FilterSheetState extends State<_FilterSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Filters', style: AppText.sectionTitle),
+              Text('Filters', style: AppText.sectionTitle),
               const SizedBox(height: 12),
               if (widget.groups.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Text('No filters are available on this screen yet.', style: AppText.secondary),
                 ),
               Flexible(
@@ -188,7 +188,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                               onSelected: (_) => _toggle(g, o),
                               showCheckmark: false,
                               selectedColor: AppColors.primarySoft,
-                              backgroundColor: Colors.white,
+                              backgroundColor: AppColors.surface,
                               labelStyle: TextStyle(
                                 fontSize: 13,
                                 color: _sel[g.title]!.contains(o) ? AppColors.primary : AppColors.text,

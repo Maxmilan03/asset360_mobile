@@ -293,6 +293,7 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
       commissionedDate: d.commissioned,
       warrantyExpiry: d.warranty!,
       amc: d.amc ? d.amcVendor : null,
+      amcExpiry: d.amc ? DateTime(DemoClock.today.year + 1, DemoClock.today.month, DemoClock.today.day) : null,
       purchaseCost: cost,
       usefulLifeYears: d.life,
       salvageValue: (cost * .1).roundToDouble(),
@@ -378,7 +379,7 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             children: [
               PageTitle(
-                leading: const Icon(Icons.radio_button_checked_rounded, color: AppColors.text, size: 22),
+                leading: Icon(Icons.radio_button_checked_rounded, color: AppColors.text, size: 22),
                 title: 'Asset Registration',
                 subtitle: isReview ? 'Review details before saving' : 'Add asset details and classification',
               ),
@@ -469,12 +470,14 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
                         for (final t in types)
                           PopupMenuItem(value: t, child: Text('$t  ·  ${_assets.nextAssetId(_assets.prefixFor(t))}')),
                       ],
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Flexible(child: Text('Suggest next ID', overflow: TextOverflow.ellipsis, style: AppText.link)),
+                            Flexible(
+                              child: Text('Suggest next ID', overflow: TextOverflow.ellipsis, style: AppText.link),
+                            ),
                             Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary, size: 20),
                           ],
                         ),
@@ -608,10 +611,10 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
 
   Widget _classification() {
     final typeMap = ref.watch(assetTypesProvider);
-    final categories = {...typeMap.values}.toList()..sort();
+    final master = ref.watch(masterDataProvider);
+    final categories = {...master.categories, ...typeMap.values}.toList()..sort();
     final types = typeMap.entries.where((e) => d.category == null || e.value == d.category).map((e) => e.key).toList();
-    final manufacturers = {...ref.watch(assetsProvider).map((a) => a.manufacturer).where((m) => m != '—')}.toList()
-      ..sort();
+    final manufacturers = master.manufacturers;
     final parent = d.parentId == null ? null : ref.watch(assetByIdProvider(d.parentId!));
 
     return Column(
@@ -624,7 +627,7 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
           child: DropdownButtonFormField<String>(
             initialValue: d.category,
             isExpanded: true,
-            hint: const Text('Select category', style: hintStyle),
+            hint: Text('Select category', style: hintStyle),
             items: [
               for (final c in categories)
                 DropdownMenuItem(
@@ -646,7 +649,7 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
             key: ValueKey('type-${d.category}'),
             initialValue: d.type,
             isExpanded: true,
-            hint: const Text('Select type', style: hintStyle),
+            hint: Text('Select type', style: hintStyle),
             items: [
               for (final t in types)
                 DropdownMenuItem(
@@ -695,16 +698,18 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
         LabeledField(
           label: 'Parent Asset',
           child: Material(
-            color: Colors.white,
+            color: AppColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.button),
-              side: const BorderSide(color: AppColors.border),
+              side: BorderSide(color: AppColors.border),
             ),
             child: ListTile(
               dense: true,
-              leading: const Icon(Icons.account_tree_outlined, color: AppColors.primary),
+              leading: Icon(Icons.account_tree_outlined, color: AppColors.primary),
               title: Text(
                 parent == null ? 'None (top-level asset)' : '${parent.id} – ${parent.name}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: AppText.body,
               ),
               trailing: parent == null
@@ -853,15 +858,15 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
         LabeledField(
           label: 'Custodian',
           child: Material(
-            color: Colors.white,
+            color: AppColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.button),
-              side: const BorderSide(color: AppColors.border),
+              side: BorderSide(color: AppColors.border),
             ),
             child: ListTile(
               dense: true,
-              leading: const Icon(Icons.person_outline_rounded, color: AppColors.primary),
-              title: Text(d.custodian, style: AppText.body),
+              leading: Icon(Icons.person_outline_rounded, color: AppColors.primary),
+              title: Text(d.custodian, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.body),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: _pickCustodian,
             ),
@@ -874,7 +879,7 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
             key: ValueKey('dept-${d.department}'),
             initialValue: d.department,
             isExpanded: true,
-            hint: const Text('Select department', style: hintStyle),
+            hint: Text('Select department', style: hintStyle),
             items: [
               for (final o in departments)
                 DropdownMenuItem(
@@ -900,8 +905,8 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Text('Select Custodian', style: AppText.sectionTitle),
               ),
               ListTile(
@@ -914,7 +919,7 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
                   leading: CircleAvatar(
                     radius: 16,
                     backgroundColor: AppColors.primarySoft,
-                    child: Text(p.initials, style: const TextStyle(fontSize: 12, color: AppColors.primary)),
+                    child: Text(p.initials, style: TextStyle(fontSize: 12, color: AppColors.primary)),
                   ),
                   title: Text(p.name),
                   subtitle: Text(p.role, style: AppText.caption),
@@ -1032,7 +1037,7 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
                 ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  leading: const IconSquare(icon: Icons.description_outlined, tone: TileTone.lavender, size: 34),
+                  leading: IconSquare(icon: Icons.description_outlined, tone: TileTone.lavender, size: 34),
                   title: Text(f.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.body),
                   subtitle: Text('${_docType(f.name)} · ${f.sizeMb.toStringAsFixed(1)} MB', style: AppText.caption),
                   trailing: IconButton(
@@ -1053,15 +1058,20 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
         LabeledField(
           label: 'Link IoT Device (optional)',
           child: Material(
-            color: Colors.white,
+            color: AppColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.button),
-              side: const BorderSide(color: AppColors.border),
+              side: BorderSide(color: AppColors.border),
             ),
             child: ListTile(
               dense: true,
-              leading: const Icon(Icons.sensors_rounded, color: AppColors.primary),
-              title: Text(d.iot == null ? 'No device' : '${d.iot!.model} · ${d.iot!.type}', style: AppText.body),
+              leading: Icon(Icons.sensors_rounded, color: AppColors.primary),
+              title: Text(
+                d.iot == null ? 'No device' : '${d.iot!.model} · ${d.iot!.type}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.body,
+              ),
               subtitle: Text(
                 d.iot == null ? '${unlinked.length} unlinked devices available' : 'IMEI ${d.iot!.imei}',
                 style: AppText.caption,
@@ -1117,11 +1127,11 @@ class _PhotoBox extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (path == null)
-                const Column(
+                Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.add_photo_alternate_outlined, size: 36, color: AppColors.textMuted),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text('Add photo', style: AppText.caption),
                   ],
                 )

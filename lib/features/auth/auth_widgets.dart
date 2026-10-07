@@ -400,7 +400,11 @@ class ArrowLabel extends StatelessWidget {
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [Text(label), const SizedBox(width: 10), const Icon(Icons.arrow_forward_rounded, size: 20)],
+      children: [
+        Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis)),
+        const SizedBox(width: 10),
+        const Icon(Icons.arrow_forward_rounded, size: 20),
+      ],
     );
   }
 }

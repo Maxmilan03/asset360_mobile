@@ -17,6 +17,9 @@ import 'repositories/issues_repository.dart';
 import 'repositories/maintenance_repository.dart';
 import 'repositories/movements_repository.dart';
 import 'repositories/scans_repository.dart';
+import 'mock/scans_mock.dart';
+import 'mock/tracking_mock.dart';
+import 'models/scan_record.dart';
 import 'repositories/session_repository.dart';
 import 'repositories/sync_repository.dart';
 import 'repositories/tracking_repository.dart';
@@ -127,6 +130,17 @@ List<DataCheckGroup> _run(Reader read) {
     _eq('FL-012 battery %', fl012.batteryPct, 78),
     _rule('FL-012 load status', fl012.loadStatus == 'Loaded', fl012.loadStatus),
     _eq('FL-015 battery %', tracking.vehicle('FL-015')!.batteryPct, 18),
+    _eq('Geofences', tracking.geofences.length, 3),
+    _rule(
+      'FL-012 pin = its position on the route',
+      tracking.entityFor('FL-012')?.x == fl012.position?.x && tracking.entityFor('FL-012')?.y == fl012.position?.y,
+      '${fl012.position?.x}, ${fl012.position?.y}',
+    ),
+    _rule(
+      'Restricted zone holds the TL-034 alert',
+      tracking.geofences.any((g) => g.restricted && g.contains(.50, .70)),
+      'GF-03',
+    ),
   ]);
 
   // ---- Maintenance
@@ -159,13 +173,13 @@ List<DataCheckGroup> _run(Reader read) {
     _info('Due Today', inspections.dueToday.length),
     _info('Overdue', inspections.overdue.length),
     _info('Completed', inspections.completed.length),
-    _info('Findings', inspections.findings.length),
+    _info('Findings (open)', '${inspections.openFindings.length} of ${inspections.findings.length}'),
     _info('All', inspections.length),
     _eq('INS-2026-0045 answered (of 12)', ins45.answeredQuestions, 8),
     _rule(
       'INS-2026-0045 sections 4/4, 3/4, 1/3, 0/1',
-      ins45.sections.map((s) => '${s.answered}/${s.questions.length}').join(', ') == '4/4, 3/4, 1/3, 0/1',
-      ins45.sections.map((s) => '${s.answered}/${s.questions.length}').join(', '),
+      ins45.sections.map((s) => '${s.answered}/${s.items.length}').join(', ') == '4/4, 3/4, 1/3, 0/1',
+      ins45.sections.map((s) => '${s.answered}/${s.items.length}').join(', '),
     ),
     _rule('INS-2026-0045 is overdue', DemoClock.isOverdue(ins45.dueAt), InspectionQueries.displayStatus(ins45)),
   ]);
@@ -230,7 +244,13 @@ List<DataCheckGroup> _run(Reader read) {
       '${inventory.reorder.length} = ${inventory.lowStock.length} + ${inventory.outOfStock.length}',
     ),
     _eq('BR-6205 current stock', br.qty, 36),
-    _eq('BR-6205 available (stock − reserved)', br.available, 32),
+    _eq('BR-6205 reserved (WO-0138 4 + WO-0045 2)', br.reserved, 6),
+    _eq('BR-6205 available (stock − reserved)', br.available, 30),
+    _rule(
+      'BR-6205 reserved = reservation history',
+      br.reserved == inventory.historyFor('BR-6205').fold<int>(0, (s, t) => s + t.reservedChange),
+      '${br.reserved}',
+    ),
     _rule('Stock history balances add up', chain.isEmpty, chain.isEmpty ? 'All balances OK' : chain.join('; ')),
   ]);
 
@@ -240,6 +260,7 @@ List<DataCheckGroup> _run(Reader read) {
     _eq('Pending Approval', moves.pending.length, 4),
     _eq('Approvals for Rex (Home)', moves.toApprove(me).length, 2),
     _info('Completed', moves.completed.length),
+    _info('Checked out now', moves.checkedOutAssetIds.join(', ')),
   ]);
 
   // ---- WIP
@@ -257,6 +278,7 @@ List<DataCheckGroup> _run(Reader read) {
     _eq('Delayed', w.delayed, 16),
     _eq('On Hold', w.onHold, 6),
     _eq('MO-2026-0018 progress %', (mo18.progress * 100).round(), 64),
+    _rule('MO-2026-0018 current station (list = detail)', mo18.currentStation == 'AOI Line 1', mo18.currentStation),
     _rule(
       'Production orders use MO- prefix',
       wip.orders.every((o) => o.id.startsWith('MO-')),
@@ -275,9 +297,9 @@ List<DataCheckGroup> _run(Reader read) {
       bucketSum == ds.total,
       ds.byBucket.entries.map((e) => '${e.key} ${e.value}').join(', '),
     ),
-    _eq('Expiring Soon', ds.expiringSoon, 8),
-    _eq('Compliant', ds.compliant, 42),
-    _eq('Pending', ds.pending, 6),
+    _eq('Expiring Soon (within 30 days)', docs.expiringSoon, 8),
+    _eq('Compliant', docs.compliant, 42),
+    _eq('Pending', docs.pending, 6),
     _eq('GEN-00045 documents', docs.forAsset('GEN-00045').length, 6),
     _rule(
       'Every detailed document can be opened',
@@ -291,8 +313,19 @@ List<DataCheckGroup> _run(Reader read) {
   final auditGroup = DataCheckGroup('Asset Audit', [
     _eq('My Audits', audits.mine(me).length, 3),
     _eq('Assigned', audits.assigned(me).length, 2),
-    _eq('Completed', audits.completed.length, 1),
+    _eq('Completed', audits.mine(me).completed.length, 1),
+    _eq('In Progress', audits.mine(me).withStatus(AuditStatus.inProgress).length, 1),
+    _eq('Pending', audits.mine(me).withStatus(AuditStatus.pending).length, 1),
     _eq('Annual audit done (of 1,500)', annual.done, 900),
+    _eq('Annual Verified', annual.verified, 850),
+    _eq('Annual Wrong Location', annual.wrongLocation, 25),
+    _eq('Annual Not Found', annual.notFound, 15),
+    _eq('Annual Unregistered', annual.unregistered, 10),
+    _rule(
+      'Annual sample results agree with their tiles',
+      AuditResult.all.every((r) => annual.entriesFor(r).length <= annual.count(r)),
+      AuditResult.all.map((r) => '${annual.entriesFor(r).length} ≤ ${annual.count(r)}').join(', '),
+    ),
     _eq('Annual audit progress %', (annual.progress * 100).round(), 60),
     _rule(
       'Done = Verified + Wrong Location + Not Found + Unregistered',
@@ -320,6 +353,11 @@ List<DataCheckGroup> _run(Reader read) {
     ),
     _eq('Completed Locally', sync.completedLocally, 5),
     _eq('Photos to Sync', sync.photosToSync, 2),
+    _rule(
+      'Pending = sum of the Pending Sync tabs',
+      SyncKind.values.fold<int>(0, (n, k) => n + sync.pendingOf(k).length) == sync.pending.length,
+      SyncKind.values.map((k) => '${k.label} ${sync.pendingOf(k).length}').join(', '),
+    ),
     _info('By type', pendingByKind.entries.map((e) => '${e.key.name} ${e.value}').join(', ')),
     _info('Synced %', '${(sync.syncedFraction * 100).round()}%'),
     _info('Last sync', DemoClock.formatDateTime(sync.lastSync)),
@@ -340,7 +378,13 @@ List<DataCheckGroup> _run(Reader read) {
     for (final x in docs.docs)
       if (!assetIds.contains(x.assetId)) '${x.id} → ${x.assetId}',
     for (final x in scans)
-      if (x.kind.name == 'asset' && !assetIds.contains(x.refId)) '${x.id} → ${x.refId}',
+      if (x.kind == ScanKind.asset && !assetIds.contains(x.refId)) '${x.id} → ${x.refId}',
+    for (final x in scans)
+      if (x.kind == ScanKind.part && inventory.part(x.refId) == null) '${x.id} → ${x.refId}',
+    for (final x in seedSensors)
+      if (!assetIds.contains(x.assetId)) '${x.id} → ${x.assetId}',
+    for (final b in seedBeacons)
+      if (!assetIds.contains(b.assetId)) 'BLE beacon → ${b.assetId}',
     for (final x in wos)
       for (final p in x.parts)
         if (inventory.part(p.partId) == null) '${x.id} → ${p.partId}',
@@ -358,7 +402,19 @@ List<DataCheckGroup> _run(Reader read) {
     ...moves.map((x) => x.id),
   ];
   final dupes = ids.where((id) => ids.where((x) => x == id).length > 1).toSet();
+  final byId = {for (final a in assets) a.id: a};
+  final wrongPlace = [
+    for (final x in issues.open)
+      if (byId[x.assetId] != null && x.location != byId[x.assetId]!.location) x.id,
+    for (final x in alerts.where((a) => !a.isResolved))
+      if (byId[x.assetId] != null && x.location != byId[x.assetId]!.location) x.id,
+  ];
   final integrity = DataCheckGroup('Consistency', [
+    _rule(
+      'Open issues and active alerts show their asset\'s location',
+      wrongPlace.isEmpty,
+      wrongPlace.isEmpty ? 'OK' : wrongPlace.join(', '),
+    ),
     _rule(
       'Every referenced asset / part / person exists',
       missing.isEmpty,
@@ -366,6 +422,12 @@ List<DataCheckGroup> _run(Reader read) {
     ),
     _rule('No duplicate record IDs', dupes.isEmpty, dupes.isEmpty ? 'OK' : dupes.join(', ')),
     _rule('Scan history seeded with 6 design scans', scans.length >= 6, '${scans.length} scans'),
+    _rule(
+      'Scan History: All = Assets + Parts + Locations',
+      scans.length == ScanKind.values.fold<int>(0, (n, k) => n + scans.count(k)),
+      '${scans.length} = ${scans.count(ScanKind.asset)} + ${scans.count(ScanKind.part)} + '
+          '${scans.count(ScanKind.location)}',
+    ),
   ]);
 
   return [

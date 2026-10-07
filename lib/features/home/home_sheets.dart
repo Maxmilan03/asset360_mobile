@@ -62,7 +62,7 @@ Future<void> showKpiSheet(BuildContext context, MaintenanceKpi kpi) {
       const SizedBox(height: 8),
       Text(kpi.description, style: AppText.secondary.copyWith(fontSize: 13.5, height: 1.4)),
       const SizedBox(height: 18),
-      const Text('Last 6 months', style: AppText.bodyStrong),
+      Text('Last 6 months', style: AppText.bodyStrong),
       const SizedBox(height: 10),
       SizedBox(
         height: 170,
@@ -88,7 +88,7 @@ class _TrendChart extends StatelessWidget {
         maxY: hi + pad,
         gridData: FlGridData(
           drawVerticalLine: false,
-          getDrawingHorizontalLine: (_) => const FlLine(color: AppColors.divider, strokeWidth: 1),
+          getDrawingHorizontalLine: (_) => FlLine(color: AppColors.divider, strokeWidth: 1),
         ),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
@@ -265,7 +265,7 @@ Future<void> showCostSheet(BuildContext context, OrgSummary org) {
       const Divider(height: 20),
       Row(
         children: [
-          const Expanded(child: Text('Total', style: AppText.cardTitle)),
+          Expanded(child: Text('Total', style: AppText.cardTitle)),
           Text('AED ${_n.format(org.totalCost)}', style: AppText.cardTitle),
         ],
       ),

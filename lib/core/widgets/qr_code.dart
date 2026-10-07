@@ -7,11 +7,12 @@ import '../../app/theme/app_colors.dart';
 /// Scannable QR code (byte mode, error correction L, versions 1–5 = up to 106 bytes),
 /// drawn with CustomPaint so no package is needed.
 class QrCode extends StatelessWidget {
-  const QrCode({super.key, required this.data, this.size = 160, this.color = AppColors.text});
+  const QrCode({super.key, required this.data, this.size = 160, this.color});
 
   final String data;
   final double size;
-  final Color color;
+  final Color? color;
+  Color get _color => color ?? AppColors.text;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +21,7 @@ class QrCode extends StatelessWidget {
       width: size,
       height: size,
       color: Colors.white,
-      child: CustomPaint(painter: _QrPainter(modules, color)),
+      child: CustomPaint(painter: _QrPainter(modules, _color)),
     );
   }
 }

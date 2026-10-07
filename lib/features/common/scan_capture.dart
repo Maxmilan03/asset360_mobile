@@ -12,7 +12,8 @@ Future<String?> showScanCapture(
   String title = 'Scan Asset Tag',
   List<String> suggestions = const [],
 }) {
-  return Navigator.of(context, rootNavigator: true).push<String>(
+  // Current tab's navigator: the bottom bar stays visible over the scanner.
+  return Navigator.of(context).push<String>(
     MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) => _ScanCapturePage(title: title, suggestions: suggestions),
@@ -48,25 +49,11 @@ class _ScanCapturePageState extends State<_ScanCapturePage> {
   }
 
   Future<void> _enterManually() async {
-    final text = TextEditingController();
     final code = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Enter code'),
-        content: TextField(
-          controller: text,
-          autofocus: true,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(hintText: 'Asset ID, serial, tag or barcode'),
-          onSubmitted: (v) => Navigator.pop(context, v),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, text.text), child: const Text('Find')),
-        ],
-      ),
+      useRootNavigator: false,
+      builder: (_) => const _CodeDialog(),
     );
-    text.dispose();
     if (code != null) _finish(code);
   }
 
@@ -146,7 +133,7 @@ class _ScanCapturePageState extends State<_ScanCapturePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (widget.suggestions.isNotEmpty) ...[
-                  const Text('Demo tags', style: AppText.bodyStrong),
+                  Text('Demo tags', style: AppText.bodyStrong),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -154,7 +141,7 @@ class _ScanCapturePageState extends State<_ScanCapturePage> {
                     children: [
                       for (final s in widget.suggestions)
                         ActionChip(
-                          avatar: const Icon(Icons.qr_code_2_rounded, size: 16, color: AppColors.primary),
+                          avatar: Icon(Icons.qr_code_2_rounded, size: 16, color: AppColors.primary),
                           label: Text(s),
                           onPressed: () => _finish(s),
                         ),
@@ -177,4 +164,38 @@ class _ScanCapturePageState extends State<_ScanCapturePage> {
       ),
     );
   }
+}
+
+/// "Enter code" dialog; owns its controller so it is disposed after the exit animation.
+class _CodeDialog extends StatefulWidget {
+  const _CodeDialog();
+
+  @override
+  State<_CodeDialog> createState() => _CodeDialogState();
+}
+
+class _CodeDialogState extends State<_CodeDialog> {
+  final _text = TextEditingController();
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Enter code'),
+    content: TextField(
+      controller: _text,
+      autofocus: true,
+      textCapitalization: TextCapitalization.characters,
+      decoration: const InputDecoration(hintText: 'Asset ID, serial, tag or barcode'),
+      onSubmitted: (v) => Navigator.pop(context, v),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+      FilledButton(onPressed: () => Navigator.pop(context, _text.text), child: const Text('Find')),
+    ],
+  );
 }

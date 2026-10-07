@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/checklist/checklist.dart';
 import '../../core/demo_clock.dart';
 import '../mock/maintenance_mock.dart';
 import '../models/asset.dart';
 import '../models/common.dart';
+import '../models/inventory.dart';
 import '../models/work_order.dart';
 import 'assets_repository.dart';
 import 'audits_repository.dart';
@@ -11,6 +13,8 @@ import 'inspections_repository.dart';
 import 'inventory_repository.dart';
 import 'repo_utils.dart';
 import 'session_repository.dart';
+import 'sync_repository.dart';
+import '../models/sync_item.dart';
 
 class WorkOrdersNotifier extends Notifier<List<WorkOrder>> {
   @override
@@ -23,6 +27,18 @@ class WorkOrdersNotifier extends Notifier<List<WorkOrder>> {
   void _update(String id, WorkOrder Function(WorkOrder) f) => state = replaceWhere(state, id, (w) => w.id, f);
 
   String get nextWoId => nextId('WO-2026-', state.map((w) => w.id));
+
+  /// Offline: queue the change and flag the WO "saved offline" until it syncs.
+  void _queue(String id, String change) {
+    final w = byId(id);
+    if (w == null) return;
+    if (ref.queueOffline(SyncKind.workOrder, id, '${w.workType} · $change', refId: id) && !w.savedOffline) {
+      _update(id, (w) => w.copyWith(savedOffline: true));
+    }
+  }
+
+  void _queuePhoto(String id, String path) =>
+      ref.queueOffline(SyncKind.photo, syncFileName(path), 'Work Order Attachment', refId: id);
 
   /// Creates a WO (Create Work Order form, "Generate WO now", issue → WO). Returns its ID.
   String create({
@@ -59,24 +75,24 @@ class WorkOrdersNotifier extends Notifier<List<WorkOrder>> {
           id: '$id-T1',
           title: 'Arrival & Safety Check',
           checklist: [
-            ChecklistItem(id: '$id-T1-1', label: 'PPE worn'),
-            ChecklistItem(id: '$id-T1-2', label: 'Area isolated (LOTO)'),
+            CheckItem(code: '$id-T1-1', label: 'PPE worn', type: CheckType.tick),
+            CheckItem(code: '$id-T1-2', label: 'Area isolated (LOTO)', type: CheckType.tick),
           ],
         ),
         WoTask(
           id: '$id-T2',
           title: 'Inspection & Repair',
           checklist: [
-            ChecklistItem(id: '$id-T2-1', label: 'Diagnose the fault'),
-            ChecklistItem(id: '$id-T2-2', label: 'Carry out the repair'),
+            CheckItem(code: '$id-T2-1', label: 'Diagnose the fault', type: CheckType.tick),
+            CheckItem(code: '$id-T2-2', label: 'Carry out the repair', type: CheckType.tick),
           ],
         ),
         WoTask(
           id: '$id-T3',
           title: 'Testing & Sign-off',
           checklist: [
-            ChecklistItem(id: '$id-T3-1', label: 'Functional test'),
-            ChecklistItem(id: '$id-T3-2', label: 'Operator sign-off'),
+            CheckItem(code: '$id-T3-1', label: 'Functional test', type: CheckType.tick),
+            CheckItem(code: '$id-T3-2', label: 'Operator sign-off', type: CheckType.tick),
           ],
         ),
       ],
@@ -84,11 +100,21 @@ class WorkOrdersNotifier extends Notifier<List<WorkOrder>> {
     );
     state = [wo, ...state];
     ref.read(assetsProvider.notifier).addEvent(assetId, 'Work order $id created', note: title);
+    _queue(id, 'Created');
     return id;
   }
 
   void updateStatus(String id, String status, {String? note}) {
-    _update(id, (w) => w.copyWith(status: status, history: [...w.history, _log('Status changed to $status', note)]));
+    _update(
+      id,
+      (w) => w.copyWith(
+        status: status,
+        holdReason: status == WoStatus.onHold ? note : null,
+        clearHold: status != WoStatus.onHold,
+        history: [...w.history, _log('Status changed to $status', note)],
+      ),
+    );
+    _queue(id, 'Status: $status');
     if (status == WoStatus.inProgress) {
       final wo = byId(id)!;
       if (wo.workType == 'Breakdown') {
@@ -107,35 +133,65 @@ class WorkOrdersNotifier extends Notifier<List<WorkOrder>> {
         history: [...w.history, _log('Assigned to ${p?.name ?? personId}')],
       ),
     );
+    _queue(id, 'Reassigned');
   }
 
-  void updateDescription(String id, String text) =>
-      _update(id, (w) => w.copyWith(description: text, history: [...w.history, _log('Description edited')]));
+  void updateDescription(String id, String text) {
+    _update(id, (w) => w.copyWith(description: text, history: [...w.history, _log('Description edited')]));
+    _queue(id, 'Description edited');
+  }
 
-  void addPhoto(String id, String path) => _update(id, (w) => w.copyWith(photos: [...w.photos, path]));
-  void removePhoto(String id, int index) => _update(id, (w) => w.copyWith(photos: [...w.photos]..removeAt(index)));
+  void addPhoto(String id, String path) {
+    _update(id, (w) => w.copyWith(photos: [...w.photos, path]));
+    _queuePhoto(id, path);
+  }
+
+  void removePhoto(String id, int index) {
+    _update(id, (w) => w.copyWith(photos: [...w.photos]..removeAt(index)));
+    _queue(id, 'Photo removed');
+  }
 
   void _updateTask(String woId, String taskId, WoTask Function(WoTask) f) =>
       _update(woId, (w) => w.copyWith(tasks: [for (final t in w.tasks) t.id == taskId ? f(t) : t]));
 
-  void toggleChecklistItem(String woId, String taskId, String itemId) => _updateTask(
-    woId,
-    taskId,
-    (t) => t.copyWith(checklist: [for (final c in t.checklist) c.id == itemId ? c.copyWith(done: !c.done) : c]),
-  );
+  /// Replaces one checklist item of a task (any change made in the checklist engine).
+  void setChecklistItem(String woId, String taskId, CheckItem item) {
+    _updateTask(
+      woId,
+      taskId,
+      (t) => t.copyWith(checklist: [for (final c in t.checklist) c.code == item.code ? item : c]),
+    );
+    _queue(woId, 'Checklist updated');
+  }
 
-  void setChecklistValue(String woId, String taskId, String itemId, String value) => _updateTask(
-    woId,
-    taskId,
-    (t) => t.copyWith(checklist: [for (final c in t.checklist) c.id == itemId ? c.copyWith(value: value) : c]),
-  );
+  void toggleChecklistItem(String woId, String taskId, String itemId) {
+    _updateTask(
+      woId,
+      taskId,
+      (t) => t.copyWith(
+        checklist: [
+          for (final c in t.checklist)
+            c.code == itemId ? (c.answered ? c.copyWith(clearValue: true) : c.copyWith(value: CheckItem.done)) : c,
+        ],
+      ),
+    );
+    _queue(woId, 'Checklist updated');
+  }
 
-  void setTaskNotes(String woId, String taskId, String notes) =>
-      _updateTask(woId, taskId, (t) => t.copyWith(notes: notes));
-  void addVoiceNote(String woId, String taskId, String label) =>
-      _updateTask(woId, taskId, (t) => t.copyWith(voiceNotes: [...t.voiceNotes, label]));
-  void addTaskPhoto(String woId, String taskId, String path) =>
-      _updateTask(woId, taskId, (t) => t.copyWith(photos: [...t.photos, path]));
+  void setTaskNotes(String woId, String taskId, String notes) {
+    _updateTask(woId, taskId, (t) => t.copyWith(notes: notes));
+    _queue(woId, 'Task notes');
+  }
+
+  void addVoiceNote(String woId, String taskId, String label) {
+    _updateTask(woId, taskId, (t) => t.copyWith(voiceNotes: [...t.voiceNotes, label]));
+    _queue(woId, 'Voice note added');
+  }
+
+  void addTaskPhoto(String woId, String taskId, String path) {
+    _updateTask(woId, taskId, (t) => t.copyWith(photos: [...t.photos, path]));
+    _queuePhoto(woId, path);
+  }
 
   /// Marks the task done and opens the next pending one.
   void completeTask(String woId, String taskId) {
@@ -160,6 +216,7 @@ class WorkOrdersNotifier extends Notifier<List<WorkOrder>> {
         history: [...w.history, _log('Task completed: ${wo.tasks[idx].title}')],
       ),
     );
+    _queue(woId, 'Task completed');
   }
 
   /// Adds a part from inventory and reserves it there.
@@ -171,16 +228,65 @@ class WorkOrdersNotifier extends Notifier<List<WorkOrder>> {
           : [for (final p in w.parts) p == existing ? p.copyWith(qty: p.qty + qty) : p];
       return w.copyWith(parts: parts, history: [...w.history, _log('Part added: $partId × $qty')]);
     });
-    ref.read(inventoryProvider.notifier).reserve(partId, qty);
+    ref.read(inventoryProvider.notifier).reserve(partId, qty, ref: woId, assetId: byId(woId)?.assetId);
+    _queue(woId, 'Parts updated');
+  }
+
+  /// Inventory → Issue to Work Order: stock is issued and the WO shows the part as used.
+  void issuePart(String woId, String partId, int qty) {
+    final wo = byId(woId);
+    if (wo == null) return;
+    ref.read(inventoryProvider.notifier).issue(partId, qty, ref: woId, assetId: wo.assetId, type: TxnType.issuedToWo);
+    _update(
+      woId,
+      (w) => w.copyWith(
+        parts: [
+          ...w.parts,
+          WoPart(partId: partId, qty: qty, status: 'Used'),
+        ],
+        history: [...w.history, _log('Part issued from stores: $partId × $qty')],
+      ),
+    );
+    _queue(woId, 'Parts updated');
+  }
+
+  /// Removes a reserved part and releases the reservation in inventory.
+  void removePart(String woId, String partId) {
+    final part = byId(woId)?.parts.firstWhereOrNull((p) => p.partId == partId && p.status == 'Reserved');
+    if (part == null) return;
+    _update(
+      woId,
+      (w) => w.copyWith(
+        parts: [...w.parts]..remove(part),
+        history: [...w.history, _log('Part removed: $partId × ${part.qty}')],
+      ),
+    );
+    ref.read(inventoryProvider.notifier).unreserve(partId, part.qty, ref: woId, assetId: byId(woId)?.assetId);
+    _queue(woId, 'Parts updated');
   }
 
   /// Closes the WO: parts become used (issued from stock) and the asset returns to Active.
-  void close(String id, {required String resolution, required double labourHours}) {
+  /// [usedQty] overrides how many of each reserved part were really used (the rest is released).
+  void close(
+    String id, {
+    required String resolution,
+    required double labourHours,
+    Map<String, int> usedQty = const {},
+    List<List<(double, double)>> signature = const [],
+  }) {
     final wo = byId(id);
     if (wo == null) return;
     final inventory = ref.read(inventoryProvider.notifier);
-    for (final p in wo.parts.where((p) => p.status == 'Reserved')) {
-      inventory.issue(p.partId, p.qty, ref: id, assetId: wo.assetId, fromReserved: true);
+    final parts = <WoPart>[];
+    for (final p in wo.parts) {
+      if (p.status != 'Reserved') {
+        parts.add(p);
+        continue;
+      }
+      final used = (usedQty[p.partId] ?? p.qty).clamp(0, p.qty);
+      if (used > 0) inventory.issue(p.partId, used, ref: id, assetId: wo.assetId, fromReserved: true);
+      if (used < p.qty) inventory.unreserve(p.partId, p.qty - used, ref: id, assetId: wo.assetId);
+      if (used > 0) parts.add(p.copyWith(qty: used, status: 'Used'));
     }
     _update(
       id,
@@ -189,13 +295,16 @@ class WorkOrdersNotifier extends Notifier<List<WorkOrder>> {
         completedAt: DemoClock.now,
         resolution: resolution,
         labourHours: labourHours,
-        parts: [for (final p in w.parts) p.copyWith(status: 'Used')],
-        history: [...w.history, _log('Work order closed', resolution)],
+        parts: parts,
+        signature: signature,
+        clearHold: true,
+        history: [...w.history, _log('Work order closed', '$resolution · ${labourHours}h labour')],
       ),
     );
     final assets = ref.read(assetsProvider.notifier);
     assets.setStatus(wo.assetId, AssetStatus.active);
     assets.addEvent(wo.assetId, 'Work order $id closed', note: resolution);
+    _queue(id, 'Closed');
   }
 
   void markSynced(String id) => _update(id, (w) => w.copyWith(savedOffline: false));

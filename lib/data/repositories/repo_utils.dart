@@ -21,4 +21,12 @@ extension FirstWhereOrNullX<T> on Iterable<T> {
     }
     return null;
   }
+
+  T? lastWhereOrNull(bool Function(T) test) {
+    T? found;
+    for (final x in this) {
+      if (test(x)) found = x;
+    }
+    return found;
+  }
 }
