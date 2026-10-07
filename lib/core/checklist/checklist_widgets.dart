@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../widgets/widgets.dart';
-import 'checklist.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/core/checklist/checklist.dart';
 
 /// "Checklist Progress  8 / 12" with a bar.
 class ChecklistProgress extends StatelessWidget {

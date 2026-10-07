@@ -1,5 +1,5 @@
-import '../../core/checklist/checklist.dart';
-import 'common.dart';
+import 'package:asset360_mobile/core/checklist/checklist.dart';
+import 'package:asset360_mobile/data/models/common.dart';
 
 abstract final class WoStatus {
   static const open = 'Open';

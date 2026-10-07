@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../../data/models/common.dart';
-import 'dialogs.dart';
-import 'feedback.dart';
-import 'photo_strip.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/core/widgets/dialogs.dart';
+import 'package:asset360_mobile/core/widgets/feedback.dart';
+import 'package:asset360_mobile/core/widgets/photo_strip.dart';
 
 bool _isImage(String name) {
   final n = name.toLowerCase();

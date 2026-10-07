@@ -4,9 +4,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import 'feedback.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/core/widgets/feedback.dart';
 
 /// A photo is either a bundled asset ('assets/images/…') or a picked file path.
 ImageProvider photoProvider(String path) =>

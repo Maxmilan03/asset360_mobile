@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_theme.dart';
-import 'cards.dart';
-import 'feedback.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_theme.dart';
+import 'package:asset360_mobile/core/widgets/cards.dart';
+import 'package:asset360_mobile/core/widgets/feedback.dart';
 
 /// Shimmer placeholder rows shown while a list "loads".
 class ListSkeleton extends StatelessWidget {

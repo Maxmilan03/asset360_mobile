@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/router/routes.dart';
-import '../../app/theme/app_colors.dart';
-import '../../data/repositories/network_repository.dart';
-import '../../data/repositories/sync_repository.dart';
+import 'package:asset360_mobile/app/router/routes.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/data/repositories/network_repository.dart';
+import 'package:asset360_mobile/data/repositories/sync_repository.dart';
 
 /// Slim bar under every header: offline (tap → Offline Sync) or a sync running in the background.
 class OfflineBanner extends ConsumerWidget {

@@ -1,5 +1,5 @@
-import '../models/document.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/data/models/document.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 const _pdf = 'assets/docs/sample_document.pdf';
 const _jpg = 'assets/docs/sample_photo.jpg';

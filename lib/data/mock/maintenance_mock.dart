@@ -1,8 +1,8 @@
-import '../../core/checklist/checklist.dart';
-import '../models/common.dart';
-import '../models/work_order.dart';
-import 'people_mock.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/core/checklist/checklist.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/models/work_order.dart';
+import 'package:asset360_mobile/data/mock/people_mock.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 const _corrective = 'Corrective Maintenance';
 const _preventive = 'Preventive Maintenance';

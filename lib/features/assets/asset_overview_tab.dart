@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../../core/demo_clock.dart';
-import '../../core/widgets/widgets.dart';
-import '../../data/models/asset.dart';
-import '../../data/repositories/assets_repository.dart';
-import 'asset_ui.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/features/assets/asset_ui.dart';
 
 /// Overview → Key Information. "Edit" turns the values into dropdowns and date
 /// pickers; Save writes them through [AssetsNotifier.editKeyInfo].

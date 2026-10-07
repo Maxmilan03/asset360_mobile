@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../../app/theme/app_theme.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/app/theme/app_theme.dart';
 
 /// Home KPI tile: icon, big number, label and a colored sub-label.
 class KpiTile extends StatelessWidget {

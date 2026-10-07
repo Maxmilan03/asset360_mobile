@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
 
 /// Status bar with dark icons on the light sign-in screens.
 const authOverlay = SystemUiOverlayStyle(

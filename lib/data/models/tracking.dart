@@ -1,4 +1,4 @@
-import 'common.dart';
+import 'package:asset360_mobile/data/models/common.dart';
 
 class TrackingSummary {
   const TrackingSummary({

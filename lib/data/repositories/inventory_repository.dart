@@ -1,13 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/demo_clock.dart';
-import '../mock/inventory_mock.dart';
-import 'alerts_repository.dart';
-import 'session_repository.dart';
-import 'sync_repository.dart';
-import '../models/inventory.dart';
-import '../models/sync_item.dart';
-import 'repo_utils.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/mock/inventory_mock.dart';
+import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/data/repositories/sync_repository.dart';
+import 'package:asset360_mobile/data/models/inventory.dart';
+import 'package:asset360_mobile/data/models/sync_item.dart';
+import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 
 class InventoryState {
   const InventoryState({required this.parts, required this.txns, required this.requests, required this.untrackedItems});

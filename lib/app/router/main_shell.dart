@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/widgets/demo_gate.dart';
-import '../../features/more/all_modules.dart';
-import '../theme/app_colors.dart';
-import 'routes.dart';
+import 'package:asset360_mobile/core/widgets/demo_gate.dart';
+import 'package:asset360_mobile/features/more/all_modules.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/router/routes.dart';
 
 /// Hosts the four tab branches (Home, Assets, Work, More) and the bottom bar:
 /// Home, Assets, [raised Scan button], Work, More.

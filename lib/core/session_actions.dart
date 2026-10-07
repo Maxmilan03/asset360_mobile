@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../app/router/routes.dart';
-import '../app/theme/app_colors.dart';
-import '../data/repositories/session_repository.dart';
-import 'widgets/dialogs.dart';
-import 'widgets/feedback.dart';
+import 'package:asset360_mobile/app/router/routes.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/core/widgets/dialogs.dart';
+import 'package:asset360_mobile/core/widgets/feedback.dart';
 
 /// Asks for confirmation, then signs out and returns to Login.
 Future<void> confirmLogout(BuildContext context, WidgetRef ref) async {

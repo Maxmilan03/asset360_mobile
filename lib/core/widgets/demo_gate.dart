@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../app/feature_flags.dart';
+import 'package:asset360_mobile/app/feature_flags.dart';
 
 /// Keeps a control visible but inert in client demo mode ([kClientDemo]):
 /// no navigation, no ripple, no SnackBar. In the full app it changes nothing.

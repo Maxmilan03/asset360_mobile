@@ -1,4 +1,4 @@
-import '../models/person.dart';
+import 'package:asset360_mobile/data/models/person.dart';
 
 abstract final class PersonIds {
   static const rex = 'rex';

@@ -1,6 +1,6 @@
-import '../models/audit.dart';
-import 'people_mock.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/data/models/audit.dart';
+import 'package:asset360_mobile/data/mock/people_mock.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 /// Building photo per audit site.
 const auditSiteImages = {

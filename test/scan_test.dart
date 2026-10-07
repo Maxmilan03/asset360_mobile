@@ -8,7 +8,7 @@ import 'package:asset360_mobile/data/models/scan_record.dart';
 import 'package:asset360_mobile/data/repositories/scans_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/auth/splash_screen.dart';
-import 'package:asset360_mobile/features/scan/scan_screen.dart';
+import 'package:asset360_mobile/features/assets/scan/scan_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'app/app.dart';
-import 'app/theme/app_theme.dart';
+import 'package:asset360_mobile/app/app.dart';
+import 'package:asset360_mobile/app/theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
 
 /// Code 39 barcode drawn with CustomPaint, readable by the phone scanner.
 /// Supports A–Z, 0–9 and - . space $ / + % (other characters are skipped).

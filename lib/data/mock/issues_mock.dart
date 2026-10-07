@@ -1,8 +1,8 @@
-import '../models/common.dart';
-import '../models/issue.dart';
-import 'assets_mock.dart';
-import 'people_mock.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/models/issue.dart';
+import 'package:asset360_mobile/data/mock/assets_mock.dart';
+import 'package:asset360_mobile/data/mock/people_mock.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 Issue _issue(
   String id,

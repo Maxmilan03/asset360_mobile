@@ -1,13 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/demo_clock.dart';
-import '../mock/registration_mock.dart';
-import '../mock/scans_mock.dart';
-import '../models/asset.dart';
-import '../models/scan_record.dart';
-import 'assets_repository.dart';
-import 'inventory_repository.dart';
-import 'repo_utils.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/mock/registration_mock.dart';
+import 'package:asset360_mobile/data/mock/scans_mock.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/models/scan_record.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/inventory_repository.dart';
+import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 
 /// What a scanned code points at: an asset ID, a part number or a location path.
 typedef ScanTarget = ({ScanKind kind, String refId});

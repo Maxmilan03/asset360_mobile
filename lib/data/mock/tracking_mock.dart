@@ -1,6 +1,6 @@
-import '../models/common.dart';
-import '../models/tracking.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/models/tracking.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 TrackingSummary seedTrackingSummary() =>
     const TrackingSummary(people: 24, equipment: 142, vehicles: 12, online: 166, offline: 12, lowBattery: 8, alerts: 6);

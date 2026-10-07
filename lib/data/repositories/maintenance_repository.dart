@@ -1,20 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/checklist/checklist.dart';
-import '../../core/demo_clock.dart';
-import '../mock/maintenance_mock.dart';
-import '../models/asset.dart';
-import '../models/common.dart';
-import '../models/inventory.dart';
-import '../models/work_order.dart';
-import 'assets_repository.dart';
-import 'audits_repository.dart';
-import 'inspections_repository.dart';
-import 'inventory_repository.dart';
-import 'repo_utils.dart';
-import 'session_repository.dart';
-import 'sync_repository.dart';
-import '../models/sync_item.dart';
+import 'package:asset360_mobile/core/checklist/checklist.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/mock/maintenance_mock.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/models/inventory.dart';
+import 'package:asset360_mobile/data/models/work_order.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/audits_repository.dart';
+import 'package:asset360_mobile/data/repositories/inspections_repository.dart';
+import 'package:asset360_mobile/data/repositories/inventory_repository.dart';
+import 'package:asset360_mobile/data/repositories/repo_utils.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/data/repositories/sync_repository.dart';
+import 'package:asset360_mobile/data/models/sync_item.dart';
 
 class WorkOrdersNotifier extends Notifier<List<WorkOrder>> {
   @override

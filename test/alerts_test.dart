@@ -7,7 +7,7 @@ import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
 import 'package:asset360_mobile/data/repositories/issues_repository.dart';
 import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
-import 'package:asset360_mobile/features/alerts/alerts_screen.dart';
+import 'package:asset360_mobile/features/more/alerts/alerts_screen.dart';
 import 'package:asset360_mobile/features/auth/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

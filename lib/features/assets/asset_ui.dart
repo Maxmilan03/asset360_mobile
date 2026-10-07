@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../data/models/asset.dart';
-import '../../data/repositories/assets_repository.dart';
-import '../../data/repositories/session_repository.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
 
 final _count = NumberFormat('#,###');
 final _aed = NumberFormat('#,##0');

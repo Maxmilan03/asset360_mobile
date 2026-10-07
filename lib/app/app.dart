@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/repositories/settings_repository.dart';
-import 'router/app_router.dart';
-import 'theme/app_colors.dart';
-import 'theme/app_theme.dart';
+import 'package:asset360_mobile/data/repositories/settings_repository.dart';
+import 'package:asset360_mobile/app/router/app_router.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_theme.dart';
 
 class Asset360App extends ConsumerStatefulWidget {
   const Asset360App({super.key});

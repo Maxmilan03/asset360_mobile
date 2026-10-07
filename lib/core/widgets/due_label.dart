@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../demo_clock.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
 
 /// Two-line due time: "Due in / 1h 20m" (red when under 2 h), "Due Today / 4:00 PM"
 /// (amber), "Overdue / 1h 30m" (red) or "Due / 27 Sep".

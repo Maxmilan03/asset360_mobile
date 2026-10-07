@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
 
 /// Numbered progress header for multi-step flows (Asset, From, To, Details, Review).
 /// Steps before [current] show a ✓. Tapping a completed step calls [onStepTap].

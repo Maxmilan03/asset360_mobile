@@ -2,24 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/router/routes.dart';
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../../core/demo_clock.dart';
-import '../../core/widgets/widgets.dart';
-import '../../data/models/asset.dart';
-import '../../data/models/document.dart';
-import '../../data/models/tracking.dart';
-import '../../data/repositories/assets_repository.dart';
-import '../../data/repositories/documents_repository.dart';
-import '../../data/repositories/inspections_repository.dart';
-import '../../data/repositories/issues_repository.dart';
-import '../../data/repositories/maintenance_repository.dart';
-import '../../data/repositories/movements_repository.dart';
-import '../../data/repositories/repo_utils.dart';
-import '../../data/repositories/session_repository.dart';
-import '../../data/repositories/tracking_repository.dart';
-import 'asset_ui.dart';
+import 'package:asset360_mobile/app/router/routes.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/models/document.dart';
+import 'package:asset360_mobile/data/models/tracking.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/documents_repository.dart';
+import 'package:asset360_mobile/data/repositories/inspections_repository.dart';
+import 'package:asset360_mobile/data/repositories/issues_repository.dart';
+import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
+import 'package:asset360_mobile/data/repositories/movements_repository.dart';
+import 'package:asset360_mobile/data/repositories/repo_utils.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/data/repositories/tracking_repository.dart';
+import 'package:asset360_mobile/features/assets/asset_ui.dart';
 
 /// Full-width primary button under a tab's cards.
 class _TabButton extends StatelessWidget {

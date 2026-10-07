@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
 
 /// Icon in a filled circle with two rings pulsing outwards ("hold the tag near
 /// the phone", "searching nearby beacons"). The rings stop when [active] is false.

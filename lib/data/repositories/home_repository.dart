@@ -1,18 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/demo_clock.dart';
-import '../mock/home_mock.dart';
-import '../models/alert.dart';
-import '../models/asset.dart';
-import '../models/inspection.dart';
-import '../models/movement.dart';
-import '../models/work_order.dart';
-import 'alerts_repository.dart';
-import 'assets_repository.dart';
-import 'inspections_repository.dart';
-import 'maintenance_repository.dart';
-import 'movements_repository.dart';
-import 'session_repository.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/mock/home_mock.dart';
+import 'package:asset360_mobile/data/models/alert.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/models/inspection.dart';
+import 'package:asset360_mobile/data/models/movement.dart';
+import 'package:asset360_mobile/data/models/work_order.dart';
+import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/inspections_repository.dart';
+import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
+import 'package:asset360_mobile/data/repositories/movements_repository.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
 
 // ---------------------------------------------------------------- Quick actions
 

@@ -7,7 +7,7 @@ import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/data/repositories/settings_repository.dart';
 import 'package:asset360_mobile/features/auth/splash_screen.dart';
-import 'package:asset360_mobile/features/help/help_screen.dart';
+import 'package:asset360_mobile/features/more/account/help_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

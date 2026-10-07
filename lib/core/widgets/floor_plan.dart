@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../data/models/tracking.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/data/models/tracking.dart';
 
 Color trackedKindColor(TrackedKind k) => switch (k) {
   TrackedKind.vehicle => AppColors.iconBlue,

@@ -1,15 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/demo_clock.dart';
-import '../../core/checklist/checklist.dart';
-import '../mock/inspections_mock.dart';
-import '../models/common.dart';
-import '../models/inspection.dart';
-import 'assets_repository.dart';
-import 'repo_utils.dart';
-import 'session_repository.dart';
-import 'sync_repository.dart';
-import '../models/sync_item.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/core/checklist/checklist.dart';
+import 'package:asset360_mobile/data/mock/inspections_mock.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/models/inspection.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/repo_utils.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/data/repositories/sync_repository.dart';
+import 'package:asset360_mobile/data/models/sync_item.dart';
 
 class InspectionsNotifier extends Notifier<List<Inspection>> {
   @override

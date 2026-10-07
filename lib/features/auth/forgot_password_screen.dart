@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/router/routes.dart';
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../../data/repositories/session_repository.dart';
-import 'auth_widgets.dart';
+import 'package:asset360_mobile/app/router/routes.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/features/auth/auth_widgets.dart';
 
 enum _HelpWith { password, username }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
 
 abstract final class AppRadius {
   static const card = 14.0;

@@ -1,16 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/demo_clock.dart';
-import '../mock/movements_mock.dart';
-import '../models/asset.dart';
-import '../models/common.dart';
-import '../models/movement.dart';
-import 'assets_repository.dart';
-import '../mock/people_mock.dart';
-import 'repo_utils.dart';
-import 'session_repository.dart';
-import 'sync_repository.dart';
-import '../models/sync_item.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/mock/movements_mock.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/models/movement.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/mock/people_mock.dart';
+import 'package:asset360_mobile/data/repositories/repo_utils.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/data/repositories/sync_repository.dart';
+import 'package:asset360_mobile/data/models/sync_item.dart';
 
 class MovementsNotifier extends Notifier<List<MovementRequest>> {
   @override

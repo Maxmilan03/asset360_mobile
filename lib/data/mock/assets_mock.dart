@@ -1,6 +1,6 @@
-import '../models/asset.dart';
-import '../models/common.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 const _img = 'assets/images';
 

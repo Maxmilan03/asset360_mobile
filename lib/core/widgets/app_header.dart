@@ -3,14 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/router/routes.dart';
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_theme.dart';
-import '../../data/repositories/alerts_repository.dart';
-import '../../data/repositories/session_repository.dart';
-import '../session_actions.dart';
-import 'demo_gate.dart';
-import 'feedback.dart';
+import 'package:asset360_mobile/app/router/routes.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_theme.dart';
+import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/core/session_actions.dart';
+import 'package:asset360_mobile/core/widgets/demo_gate.dart';
+import 'package:asset360_mobile/core/widgets/feedback.dart';
 
 /// Purple top bar: back arrow, logo + "Purple IQ | Asset360", bell and "RK" avatar.
 class AppHeader extends StatelessWidget {

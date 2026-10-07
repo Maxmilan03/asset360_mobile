@@ -1,8 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
 
 /// Finger-drawn signature. Strokes are reported as 0–1 fractions of the pad.
 class SignaturePad extends StatefulWidget {

@@ -3,9 +3,9 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../../data/models/common.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/data/models/common.dart';
 
 /// Curved line chart with a soft fill, axis labels and a touch tooltip.
 /// [xLabel] formats the bottom axis and tooltip time; by default x is hours (0–24).

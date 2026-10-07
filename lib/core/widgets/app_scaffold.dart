@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_theme.dart';
-import 'app_header.dart';
-import 'offline_banner.dart';
-import 'feedback.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_theme.dart';
+import 'package:asset360_mobile/core/widgets/app_header.dart';
+import 'package:asset360_mobile/core/widgets/offline_banner.dart';
+import 'package:asset360_mobile/core/widgets/feedback.dart';
 
 /// Page frame used by every screen inside the shell: purple header on top and
 /// a light sheet with rounded top corners that holds the content.

@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/demo_clock.dart';
-import '../mock/people_mock.dart';
-import '../models/person.dart';
-import 'repo_utils.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/mock/people_mock.dart';
+import 'package:asset360_mobile/data/models/person.dart';
+import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 
 class PeopleNotifier extends Notifier<List<Person>> {
   @override

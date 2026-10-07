@@ -1,8 +1,8 @@
-import '../models/alert.dart';
-import '../models/common.dart';
-import 'assets_mock.dart';
-import 'seed_utils.dart';
-import 'tracking_mock.dart';
+import 'package:asset360_mobile/data/models/alert.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/mock/assets_mock.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
+import 'package:asset360_mobile/data/mock/tracking_mock.dart';
 
 /// 45 alerts: Critical 8, High 12, Medium 18, Low 7.
 List<AlertItem> seedAlerts() {

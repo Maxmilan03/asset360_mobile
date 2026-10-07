@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/router/routes.dart';
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../../core/widgets/widgets.dart';
-import '../../data/repositories/home_repository.dart';
+import 'package:asset360_mobile/app/router/routes.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/repositories/home_repository.dart';
 
 String taskRoute(MyTask t) => switch (t.kind) {
   TaskKind.workOrder => Routes.workOrder(t.id),

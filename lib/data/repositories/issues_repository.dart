@@ -1,17 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/demo_clock.dart';
-import '../mock/issues_mock.dart';
-import '../models/common.dart';
-import '../models/alert.dart';
-import '../models/issue.dart';
-import 'alerts_repository.dart';
-import 'assets_repository.dart';
-import 'maintenance_repository.dart';
-import 'repo_utils.dart';
-import 'session_repository.dart';
-import 'sync_repository.dart';
-import '../models/sync_item.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/mock/issues_mock.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/models/alert.dart';
+import 'package:asset360_mobile/data/models/issue.dart';
+import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
+import 'package:asset360_mobile/data/repositories/repo_utils.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/data/repositories/sync_repository.dart';
+import 'package:asset360_mobile/data/models/sync_item.dart';
 
 class IssuesNotifier extends Notifier<List<Issue>> {
   @override

@@ -6,13 +6,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../../core/demo_clock.dart';
-import '../../core/widgets/widgets.dart';
-import '../../data/models/asset.dart';
-import '../../data/repositories/assets_repository.dart';
-import 'asset_actions.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/features/assets/asset_actions.dart';
 
 /// Icon and tile tone per telemetry key (design: blue, blue, violet / blue, green, violet).
 (IconData, TileTone) _look(String key) => switch (key) {

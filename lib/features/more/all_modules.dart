@@ -3,14 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import '../../app/feature_flags.dart';
-import '../../app/router/routes.dart';
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../../app/theme/app_theme.dart';
-import '../../core/session_actions.dart';
-import '../../core/widgets/widgets.dart';
-import '../../data/repositories/alerts_repository.dart';
+import 'package:asset360_mobile/app/feature_flags.dart';
+import 'package:asset360_mobile/app/router/routes.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/app/theme/app_theme.dart';
+import 'package:asset360_mobile/core/session_actions.dart';
+import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
 
 enum ModuleAction { go, profile, logout }
 

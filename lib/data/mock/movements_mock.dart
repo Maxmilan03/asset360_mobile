@@ -1,7 +1,7 @@
-import '../models/common.dart';
-import '../models/movement.dart';
-import 'people_mock.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/models/movement.dart';
+import 'package:asset360_mobile/data/mock/people_mock.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 List<LogEntry> _timeline(DateTime at, String status) => [
   LogEntry(at: at, title: 'Submitted'),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import 'info_row.dart';
-import 'photo_strip.dart';
-import 'tiles.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/core/widgets/info_row.dart';
+import 'package:asset360_mobile/core/widgets/photo_strip.dart';
+import 'package:asset360_mobile/core/widgets/tiles.dart';
 
 /// Product photo (bundled or picked file) in a white rounded box, or an icon in a soft square when
 /// there is no photo.

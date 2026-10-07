@@ -3,12 +3,12 @@ import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/demo_clock.dart';
-import '../mock/tracking_mock.dart';
-import '../models/asset.dart';
-import '../models/tracking.dart';
-import 'assets_repository.dart';
-import 'repo_utils.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/mock/tracking_mock.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/models/tracking.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 
 class TrackingState {
   const TrackingState({

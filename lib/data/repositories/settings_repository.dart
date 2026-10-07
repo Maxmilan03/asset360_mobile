@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'alerts_repository.dart';
-import 'assets_repository.dart';
-import 'audits_repository.dart';
-import 'documents_repository.dart';
-import 'home_repository.dart';
-import 'inspections_repository.dart';
-import 'inventory_repository.dart';
-import 'issues_repository.dart';
-import 'maintenance_repository.dart';
-import 'movements_repository.dart';
-import 'network_repository.dart';
-import 'scans_repository.dart';
-import 'session_repository.dart';
-import 'sync_repository.dart';
-import 'tracking_repository.dart';
-import 'wip_repository.dart';
+import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/audits_repository.dart';
+import 'package:asset360_mobile/data/repositories/documents_repository.dart';
+import 'package:asset360_mobile/data/repositories/home_repository.dart';
+import 'package:asset360_mobile/data/repositories/inspections_repository.dart';
+import 'package:asset360_mobile/data/repositories/inventory_repository.dart';
+import 'package:asset360_mobile/data/repositories/issues_repository.dart';
+import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
+import 'package:asset360_mobile/data/repositories/movements_repository.dart';
+import 'package:asset360_mobile/data/repositories/network_repository.dart';
+import 'package:asset360_mobile/data/repositories/scans_repository.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/data/repositories/sync_repository.dart';
+import 'package:asset360_mobile/data/repositories/tracking_repository.dart';
+import 'package:asset360_mobile/data/repositories/wip_repository.dart';
 
 /// Default tab of the Scan screen (Settings → Scanning). Names match `ScanMode`.
 enum DefaultScanMode {

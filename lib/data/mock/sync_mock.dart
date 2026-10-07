@@ -1,5 +1,5 @@
-import '../models/sync_item.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/data/models/sync_item.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 /// 8 pending items (times from design/16_offline_sync.jpg); 25 already synced → 33 local items.
 SyncState seedSyncState() => SyncState(

@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/demo_clock.dart';
-import '../mock/alerts_mock.dart';
-import '../models/alert.dart';
-import '../models/common.dart';
-import 'repo_utils.dart';
-import 'session_repository.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/mock/alerts_mock.dart';
+import 'package:asset360_mobile/data/models/alert.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/repositories/repo_utils.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
 
 class AlertsNotifier extends Notifier<List<AlertItem>> {
   @override

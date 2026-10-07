@@ -1,7 +1,7 @@
-import '../models/common.dart';
-import '../models/wip.dart';
-import 'people_mock.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/models/wip.dart';
+import 'package:asset360_mobile/data/mock/people_mock.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 const _img = 'assets/images';
 const _doc = 'assets/docs/sample_document.pdf';

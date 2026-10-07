@@ -1,5 +1,5 @@
-import '../models/inventory.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/data/models/inventory.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 const _img = 'assets/images';
 

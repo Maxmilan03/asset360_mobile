@@ -1,5 +1,5 @@
-import '../models/asset.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 /// Site → Building → Floor → Rooms / Zones (Registration step 3 cascading dropdowns).
 /// A registered location reads "Building / Floor – Zone", like the seed assets.

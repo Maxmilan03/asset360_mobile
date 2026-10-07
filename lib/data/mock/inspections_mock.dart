@@ -1,8 +1,8 @@
-import '../../core/checklist/checklist.dart';
-import '../models/common.dart';
-import '../models/inspection.dart';
-import 'people_mock.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/core/checklist/checklist.dart';
+import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/models/inspection.dart';
+import 'package:asset360_mobile/data/mock/people_mock.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 CheckItem _choice(String code, String label, List<String> options, [String? value]) => CheckItem(
   code: code,

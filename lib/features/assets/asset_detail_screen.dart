@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/router/routes.dart';
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../../app/theme/app_theme.dart';
-import '../../core/demo_clock.dart';
-import '../../core/widgets/widgets.dart';
-import '../../data/models/asset.dart';
-import '../../data/repositories/assets_repository.dart';
-import 'asset_actions.dart';
-import 'asset_iot_tab.dart';
-import 'asset_overview_tab.dart';
-import 'asset_tabs.dart';
-import 'asset_ui.dart';
+import 'package:asset360_mobile/app/router/routes.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/app/theme/app_theme.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/features/assets/asset_actions.dart';
+import 'package:asset360_mobile/features/assets/asset_iot_tab.dart';
+import 'package:asset360_mobile/features/assets/asset_overview_tab.dart';
+import 'package:asset360_mobile/features/assets/asset_tabs.dart';
+import 'package:asset360_mobile/features/assets/asset_ui.dart';
 
 enum AssetTab { overview, location, iot, maintenance, inspection, financial, documents, history }
 

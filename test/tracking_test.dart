@@ -7,7 +7,7 @@ import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/data/repositories/tracking_repository.dart';
 import 'package:asset360_mobile/features/auth/splash_screen.dart';
-import 'package:asset360_mobile/features/tracking/tracking_hub_screen.dart';
+import 'package:asset360_mobile/features/more/tracking/tracking_hub_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

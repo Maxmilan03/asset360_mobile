@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
 
 class RingSegment {
   const RingSegment(this.value, this.color);

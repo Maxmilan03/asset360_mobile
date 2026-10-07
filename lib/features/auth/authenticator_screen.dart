@@ -5,14 +5,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/router/routes.dart';
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../../core/platform/app_launcher.dart';
-import '../../core/widgets/widgets.dart';
-import '../../data/mock/people_mock.dart';
-import '../../data/repositories/session_repository.dart';
-import 'auth_widgets.dart';
+import 'package:asset360_mobile/app/router/routes.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/core/platform/app_launcher.dart';
+import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/mock/people_mock.dart';
+import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/features/auth/auth_widgets.dart';
 
 /// Enter Authenticator Code (design/01_login_security.jpg, right).
 class AuthenticatorScreen extends ConsumerStatefulWidget {

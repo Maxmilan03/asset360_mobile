@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
-import '../demo_clock.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
 
 /// Text style for values typed or picked in forms.
 TextStyle get inputStyle => TextStyle(fontSize: 13.5, color: AppColors.text);

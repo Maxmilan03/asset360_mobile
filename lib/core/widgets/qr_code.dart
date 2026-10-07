@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
 
 /// Scannable QR code (byte mode, error correction L, versions 1–5 = up to 106 bytes),
 /// drawn with CustomPaint so no package is needed.

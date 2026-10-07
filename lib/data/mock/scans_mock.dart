@@ -1,5 +1,5 @@
-import '../models/scan_record.dart';
-import 'seed_utils.dart';
+import 'package:asset360_mobile/data/models/scan_record.dart';
+import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 /// The 6 scans shown in design/05_scan_identify.jpg (GEN-01 there is GEN-00045).
 List<ScanRecord> seedScans() => [

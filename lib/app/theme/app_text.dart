@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
 
 /// Text styles measured against design/ (phone width ≈ 390 logical px).
 abstract final class AppText {

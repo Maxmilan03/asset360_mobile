@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_text.dart';
+import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
 
 class EmptyState extends StatelessWidget {
   const EmptyState({super.key, required this.icon, required this.title, this.message, this.actionLabel, this.onAction});

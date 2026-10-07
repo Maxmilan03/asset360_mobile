@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/widgets/widgets.dart';
-import '../../data/repositories/home_repository.dart';
-import 'task_row.dart';
+import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/repositories/home_repository.dart';
+import 'package:asset360_mobile/features/home/task_row.dart';
 
 /// Full list behind Home "My Tasks → View All".
 class MyTasksScreen extends ConsumerStatefulWidget {

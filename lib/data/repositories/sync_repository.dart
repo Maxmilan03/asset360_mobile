@@ -3,13 +3,13 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/demo_clock.dart';
-import '../mock/sync_mock.dart';
-import '../models/sync_item.dart';
-import 'inspections_repository.dart';
-import 'maintenance_repository.dart';
-import 'network_repository.dart';
-import 'repo_utils.dart';
+import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/mock/sync_mock.dart';
+import 'package:asset360_mobile/data/models/sync_item.dart';
+import 'package:asset360_mobile/data/repositories/inspections_repository.dart';
+import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
+import 'package:asset360_mobile/data/repositories/network_repository.dart';
+import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 
 /// The sync queue and the upload engine. A run uploads its items one at a time
 /// (0.6–1.0 s each, photos and files 1.2–1.5 s); it keeps going while the user

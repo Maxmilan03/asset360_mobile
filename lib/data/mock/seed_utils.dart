@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import '../models/common.dart';
+import 'package:asset360_mobile/data/models/common.dart';
 
 /// A date in September 2026 (or [month]) at [h]:[m], the demo's local time.
 DateTime sep(int day, [int h = 0, int m = 0]) => DateTime(2026, 9, day, h, m);
