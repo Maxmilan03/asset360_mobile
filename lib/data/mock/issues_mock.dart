@@ -58,7 +58,7 @@ List<Issue> seedIssues() {
           'Generator does not start. Starter motor clicks but engine is not cranking. Checked battery and fuse, both are OK.',
       assigneeId: PersonIds.rafi,
       assignedTeam: 'Maintenance Team',
-      photos: const ['assets/images/generator.jpg', 'assets/images/pump_unit.jpg', 'assets/images/control_panel.jpg'],
+      photos: const ['assets/images/generator.webp', 'assets/images/pump_unit.webp', 'assets/images/control_panel.webp'],
       workOrderIds: const ['WO-2026-0046'],
       timeline: [
         LogEntry(at: sep(25, 10, 24), title: 'Issue reported', by: 'Rex Kumar'),

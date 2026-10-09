@@ -43,8 +43,8 @@ List<ProductionOrder> seedProductionOrders() => [
     plannedQty: 500,
     completedQty: 320,
     dueDate: sep(25),
-    imagePath: '$_img/pcb.jpg',
-    photos: const ['$_img/pcb.jpg', '$_img/aoi_machine.jpg'],
+    imagePath: '$_img/pcb.webp',
+    photos: const ['$_img/pcb.webp', '$_img/aoi_machine.webp'],
     scans: [
       UnitScan(at: sep(12, 11, 38), location: 'AOI Line 1', by: 'John Smith', device: 'Station-AOI-01'),
       UnitScan(at: sep(12, 11, 20), location: 'AOI Line 1', by: 'Alex Mathew', device: 'Station-AOI-01'),
@@ -102,7 +102,7 @@ List<ProductionOrder> seedProductionOrders() => [
     completedQty: 64,
     dueDate: sep(24),
     area: 'Assembly Hall',
-    imagePath: '$_img/control_panel.jpg',
+    imagePath: '$_img/control_panel.webp',
     scans: [
       UnitScan(at: sep(25, 9, 12), location: 'Test Bench 2', by: 'John Smith', device: 'Station-TST-02'),
       UnitScan(at: sep(24, 15, 0), location: 'Wiring Bay 1', by: 'John Smith', device: 'Station-WIR-01'),
@@ -148,7 +148,7 @@ List<ProductionOrder> seedProductionOrders() => [
     completedQty: 52,
     dueDate: sep(28),
     area: 'Pump Line',
-    imagePath: '$_img/pump_unit.jpg',
+    imagePath: '$_img/pump_unit.webp',
     scans: [
       UnitScan(at: sep(25, 10, 5), location: 'Testing Station 1', by: 'Ramesh Kumar', device: 'Station-TST-01'),
       UnitScan(at: sep(25, 8, 30), location: 'Assembly Station 1', by: 'Ramesh Kumar', device: 'Station-ASM-01'),

@@ -192,3 +192,7 @@
 - Client demo mode: `kClientDemo` in `lib/app/feature_flags.dart` (see README). When true only Home + Scan
   (`features/assets/scan/demo_scan_screen.dart`) are routed; gated taps go through `DemoGate` (`core/widgets/demo_gate.dart`).
 - `DemoClock.now` starts at 25 Sep 2026 10:30 AM and runs forward; `DemoClock.frozen` pins it (tests).
+- App size: bundled images in `assets/images/` are WebP (q80) — add new ones as `.webp`. Release builds use R8 code +
+  resource shrinking (`android/app/proguard-rules.pro`), the unbundled ML Kit barcode model
+  (`dev.steenbakker.mobile_scanner.useUnbundled=true` in android/gradle.properties) and
+  `--obfuscate --split-debug-info=build/symbols` (keep build/symbols, see README).

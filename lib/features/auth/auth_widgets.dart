@@ -59,7 +59,7 @@ class BrandMark extends StatelessWidget {
       children: [
         ClipOval(
           child: Image.asset(
-            'assets/images/logo_on_light.png',
+            'assets/images/logo_on_light.webp',
             width: size,
             height: size,
             fit: BoxFit.cover,

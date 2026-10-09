@@ -12,7 +12,7 @@ flutter pub get
 flutter run                 # debug build on a connected phone or emulator (Developer section visible)
 flutter analyze             # must report "No issues found!"
 flutter test                # all widget / unit tests
-flutter build apk --release --split-per-abi
+flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/symbols
 # → build/app/outputs/flutter-apk/app-arm64-v8a-release.apk   (most phones)
 #   build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk (older 32-bit phones)
 #   build/app/outputs/flutter-apk/app-x86_64-release.apk      (emulators)
@@ -20,6 +20,18 @@ flutter build apk --release --split-per-abi
 
 Install on a phone: `adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`, or copy the APK to the
 phone and open it (allow "Install unknown apps").
+
+Release builds are shrunk (R8 code + resource shrinking, rules in `android/app/proguard-rules.pro`) and the Dart
+code is obfuscated. **Keep `build/symbols/` for every build you hand out** — it is the only way to read its crash
+reports. Copy it somewhere safe next to the APK (it is wiped by `flutter clean`), then decode a stack trace with:
+
+```bash
+flutter symbolize -i crash.txt -d build/symbols/app.android-arm64.symbols
+```
+
+The QR / barcode scanner uses the unbundled ML Kit model (`dev.steenbakker.mobile_scanner.useUnbundled=true` in
+`android/gradle.properties`): Google Play services downloads it once, so the phone needs Play services, and the
+first scan after install can need a network connection.
 
 ## Demo login
 
@@ -109,7 +121,7 @@ With `kClientDemo = true` the app is cut down to what the client should see:
 Set the flag to `false` and rebuild to get the full app back. Client APK:
 
 ```bash
-flutter build apk --release --split-per-abi
+flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/symbols
 # → build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 ```
 

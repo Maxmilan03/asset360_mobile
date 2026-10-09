@@ -77,7 +77,7 @@ List<Asset> seedAssets() {
       purchaseCost: 685000,
       usefulLifeYears: 12,
       salvageValue: 68500,
-      imagePath: '$_img/cnc_vmc.jpg',
+      imagePath: '$_img/cnc_vmc.webp',
       iot: IotDevice(
         model: 'Teltonika TRB245',
         type: 'Industrial Gateway',
@@ -145,7 +145,7 @@ List<Asset> seedAssets() {
       purchaseCost: 245000,
       usefulLifeYears: 15,
       salvageValue: 24500,
-      imagePath: '$_img/generator.jpg',
+      imagePath: '$_img/generator.webp',
       favorite: true,
       iot: _iot('Teltonika FMB920', 'Engine Monitor', '45', 92, -61),
       telemetry: const [
@@ -181,7 +181,7 @@ List<Asset> seedAssets() {
       purchaseCost: 240000,
       usefulLifeYears: 15,
       salvageValue: 24000,
-      imagePath: '$_img/generator.jpg',
+      imagePath: '$_img/generator.webp',
     ),
     Asset(
       id: 'AHU-03',
@@ -205,7 +205,7 @@ List<Asset> seedAssets() {
       amc: 'CoolAir Services',
       amcCost: 9000,
       purchaseCost: 95000,
-      imagePath: '$_img/ahu.jpg',
+      imagePath: '$_img/ahu.webp',
     ),
     Asset(
       id: 'AHU-02',
@@ -227,7 +227,7 @@ List<Asset> seedAssets() {
       amc: 'CoolAir Services',
       amcCost: 9000,
       purchaseCost: 92000,
-      imagePath: '$_img/ahu.jpg',
+      imagePath: '$_img/ahu.webp',
     ),
     Asset(
       id: 'FL-012',
@@ -250,7 +250,7 @@ List<Asset> seedAssets() {
       purchaseCost: 145000,
       usefulLifeYears: 8,
       salvageValue: 20000,
-      imagePath: '$_img/forklift.jpg',
+      imagePath: '$_img/forklift.webp',
       favorite: true,
       iot: _iot('Teltonika FMB140', 'Vehicle Tracker', '12', 78, -62),
     ),
@@ -275,7 +275,7 @@ List<Asset> seedAssets() {
       purchaseCost: 145000,
       usefulLifeYears: 8,
       salvageValue: 20000,
-      imagePath: '$_img/forklift.jpg',
+      imagePath: '$_img/forklift.webp',
       iot: _iot('Teltonika FMB140', 'Vehicle Tracker', '15', 18, -70, seen: sep(25, 10, 25)),
     ),
     Asset(
@@ -298,7 +298,7 @@ List<Asset> seedAssets() {
       amc: 'FireSafe Emirates',
       amcCost: 6000,
       purchaseCost: 68000,
-      imagePath: '$_img/fire_pump.jpg',
+      imagePath: '$_img/fire_pump.webp',
     ),
     Asset(
       id: 'LAP-0098',
@@ -320,7 +320,7 @@ List<Asset> seedAssets() {
       purchaseCost: 5400,
       usefulLifeYears: 4,
       salvageValue: 500,
-      imagePath: '$_img/laptop.jpg',
+      imagePath: '$_img/laptop.webp',
     ),
     Asset(
       id: 'MTR-00123',
@@ -342,7 +342,7 @@ List<Asset> seedAssets() {
       commissionedDate: on(2024, 5, 2),
       warrantyExpiry: on(2027, 5, 2),
       purchaseCost: 38000,
-      imagePath: '$_img/electric_motor.jpg',
+      imagePath: '$_img/electric_motor.webp',
       iot: _iot('Siemens SIMOTICS Connect 400', 'Motor Sensor', '123', 90, -58),
       telemetry: const [
         TelemetryReading(key: 'vibration', label: 'Vibration (RMS)', value: 1.9, unit: 'mm/s'),
@@ -369,7 +369,7 @@ List<Asset> seedAssets() {
       commissionedDate: on(2022, 4, 1),
       warrantyExpiry: on(2025, 4, 1),
       purchaseCost: 22000,
-      imagePath: '$_img/motor_small.jpg',
+      imagePath: '$_img/motor_small.webp',
       iot: _iot('Siemens SIMOTICS Connect 400', 'Motor Sensor', '7', 74, -66),
       telemetry: const [TelemetryReading(key: 'vibration', label: 'Vibration (RMS)', value: 8.5, unit: 'mm/s')],
       trends: {
@@ -396,7 +396,7 @@ List<Asset> seedAssets() {
       purchaseCost: 420000,
       usefulLifeYears: 12,
       salvageValue: 42000,
-      imagePath: '$_img/cnc_vmc.jpg',
+      imagePath: '$_img/cnc_vmc.webp',
       iot: _iot('Teltonika TRB245', 'Industrial Gateway', '21', 81, -60),
       telemetry: const [TelemetryReading(key: 'vibration', label: 'Vibration (RMS)', value: 6.1, unit: 'mm/s')],
       trends: {
@@ -419,7 +419,7 @@ List<Asset> seedAssets() {
       purchaseDate: on(2022, 9, 1),
       warrantyExpiry: on(2025, 9, 1),
       purchaseCost: 180000,
-      imagePath: '$_img/cold_room.jpg',
+      imagePath: '$_img/cold_room.webp',
       iot: _iot('Teltonika EYE Sensor', 'Temperature Sensor', '1', 66, -71, seen: sep(25, 9, 45)),
       telemetry: const [TelemetryReading(key: 'temperature', label: 'Temperature', value: 12, unit: '°C')],
       trends: {
@@ -442,7 +442,7 @@ List<Asset> seedAssets() {
       warrantyExpiry: on(2026, 1, 9),
       purchaseCost: 3200,
       usefulLifeYears: 5,
-      imagePath: '$_img/tool_box.jpg',
+      imagePath: '$_img/tool_box.webp',
       iot: _iot('Minew E8 BLE Tag', 'BLE Beacon', '34', 54, -78, seen: sep(25, 9, 30)),
     ),
     Asset(
@@ -460,7 +460,7 @@ List<Asset> seedAssets() {
       purchaseDate: on(2022, 2, 11),
       warrantyExpiry: on(2027, 2, 11),
       purchaseCost: 26000,
-      imagePath: '$_img/cabinet.jpg',
+      imagePath: '$_img/cabinet.webp',
       iot: _iot('Teltonika EYE Sensor', 'Door Sensor', '11', 88, -64, seen: sep(25, 7, 30)),
     ),
     Asset(
@@ -481,7 +481,7 @@ List<Asset> seedAssets() {
       warrantyExpiry: on(2027, 3, 4),
       purchaseCost: 3600,
       usefulLifeYears: 5,
-      imagePath: '$_img/camera.jpg',
+      imagePath: '$_img/camera.webp',
     ),
     Asset(
       id: 'DRL-0043',
@@ -501,7 +501,7 @@ List<Asset> seedAssets() {
       warrantyExpiry: on(2026, 7, 22),
       purchaseCost: 850,
       usefulLifeYears: 5,
-      imagePath: '$_img/drill.jpg',
+      imagePath: '$_img/drill.webp',
     ),
     Asset(
       id: 'PRJ-0042',
@@ -521,7 +521,7 @@ List<Asset> seedAssets() {
       warrantyExpiry: on(2025, 10, 2),
       purchaseCost: 4200,
       usefulLifeYears: 6,
-      imagePath: '$_img/projector.jpg',
+      imagePath: '$_img/projector.webp',
     ),
     Asset(
       id: 'CH-00021',
@@ -585,7 +585,7 @@ List<Asset> seedAssets() {
       warrantyExpiry: on(2030, 1, 12),
       purchaseCost: 450,
       usefulLifeYears: 5,
-      imagePath: '$_img/fire_extinguisher.jpg',
+      imagePath: '$_img/fire_extinguisher.webp',
     ),
   ];
   return [

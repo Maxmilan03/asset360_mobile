@@ -57,7 +57,7 @@ List<WorkOrder> seedWorkOrders() {
       assigneeId: PersonIds.rafi,
       reporterId: PersonIds.ahmed,
       coordinatorId: PersonIds.rex,
-      photos: const ['assets/images/generator.jpg', 'assets/images/control_panel.jpg'],
+      photos: const ['assets/images/generator.webp', 'assets/images/control_panel.webp'],
       documentIds: const ['DOC-2026-0048'],
       parts: const [WoPart(partId: 'BR-6205', qty: 2)],
       history: [

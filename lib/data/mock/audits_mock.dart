@@ -4,9 +4,9 @@ import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 /// Building photo per audit site.
 const auditSiteImages = {
-  'Dubai Factory': 'assets/images/building_factory.jpg',
-  'Dubai Office': 'assets/images/building_office.jpg',
-  'Education City': 'assets/images/building_campus.jpg',
+  'Dubai Factory': 'assets/images/building_factory.webp',
+  'Dubai Office': 'assets/images/building_office.webp',
+  'Education City': 'assets/images/building_campus.webp',
 };
 
 /// Sample results of the annual audit (part of its 850 / 25 / 15 / 10 summary figures).

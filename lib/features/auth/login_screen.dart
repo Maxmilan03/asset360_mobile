@@ -468,7 +468,7 @@ class _HeroImage extends StatelessWidget {
       child: ShaderMask(
         blendMode: BlendMode.dstIn,
         shaderCallback: (r) => fade(r, Alignment.centerLeft, Alignment.centerRight, const [0, .22]),
-        child: Image.asset('assets/images/login_hero.jpg', fit: BoxFit.cover, alignment: Alignment.bottomCenter),
+        child: Image.asset('assets/images/login_hero.webp', fit: BoxFit.cover, alignment: Alignment.bottomCenter),
       ),
     );
   }

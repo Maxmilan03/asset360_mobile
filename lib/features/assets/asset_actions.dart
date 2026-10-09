@@ -299,7 +299,7 @@ Future<void> showPrintTagSheet(BuildContext context, Asset a) {
           ),
           child: Row(
             children: [
-              Image.asset('assets/images/logo_on_light.png', width: 36, height: 36),
+              Image.asset('assets/images/logo_on_light.webp', width: 36, height: 36),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

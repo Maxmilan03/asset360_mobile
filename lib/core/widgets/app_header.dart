@@ -169,7 +169,7 @@ class _Brand extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/images/logo_on_dark.png', width: 32, height: 32, filterQuality: FilterQuality.medium),
+            Image.asset('assets/images/logo_on_dark.webp', width: 32, height: 32, filterQuality: FilterQuality.medium),
             const SizedBox(width: 8),
             const Text(
               'Purple IQ',

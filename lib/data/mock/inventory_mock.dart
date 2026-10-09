@@ -28,7 +28,7 @@ List<Part> seedParts() => [
     supplier: 'SpareTech LLC',
     warrantyMonths: 12,
     remarks: 'Standard bearing for motors',
-    imagePath: '$_img/bearing.jpg',
+    imagePath: '$_img/bearing.webp',
   ),
   Part(
     id: 'AF-250-001',
@@ -46,7 +46,7 @@ List<Part> seedParts() => [
     unitCost: 42,
     supplier: 'FilterPro Trading',
     warrantyMonths: 6,
-    imagePath: '$_img/air_filter.jpg',
+    imagePath: '$_img/air_filter.webp',
   ),
   Part(
     id: 'EM-075',
@@ -65,7 +65,7 @@ List<Part> seedParts() => [
     unitCost: 210,
     supplier: 'Siemens Middle East',
     warrantyMonths: 24,
-    imagePath: '$_img/motor_small.jpg',
+    imagePath: '$_img/motor_small.webp',
   ),
   Part(
     id: 'FE-6KG',
@@ -82,7 +82,7 @@ List<Part> seedParts() => [
     unitCost: 95,
     supplier: 'NAFFCO',
     warrantyMonths: 60,
-    imagePath: '$_img/fire_extinguisher.jpg',
+    imagePath: '$_img/fire_extinguisher.webp',
   ),
   Part(
     id: 'LB-230',
@@ -114,7 +114,7 @@ List<Part> seedParts() => [
     unitCost: 120,
     supplier: 'Internal',
     warrantyMonths: 12,
-    imagePath: '$_img/pcb.jpg',
+    imagePath: '$_img/pcb.webp',
   ),
   Part(
     id: 'RL-24V',
@@ -145,7 +145,7 @@ List<Part> seedParts() => [
     lastUpdate: sep(24, 15, 0),
     unitCost: 28,
     supplier: 'FilterPro Trading',
-    imagePath: '$_img/air_filter.jpg',
+    imagePath: '$_img/air_filter.webp',
   ),
   // Low Stock (8)
   Part(
@@ -163,7 +163,7 @@ List<Part> seedParts() => [
     lastUpdate: sep(25, 6, 30),
     unitCost: 14,
     supplier: 'SpareTech LLC',
-    imagePath: '$_img/v_belt.jpg',
+    imagePath: '$_img/v_belt.webp',
   ),
   Part(
     id: 'TS-110',
@@ -285,7 +285,7 @@ List<Part> seedParts() => [
     lastUpdate: sep(19, 13, 0),
     unitCost: 9,
     supplier: 'SpareTech LLC',
-    imagePath: '$_img/spark_plug.jpg',
+    imagePath: '$_img/spark_plug.webp',
   ),
   Part(
     id: 'PG-0034',
@@ -316,7 +316,7 @@ List<Part> seedParts() => [
     unitCost: 34,
     supplier: 'SpareTech LLC',
     warrantyMonths: 12,
-    imagePath: '$_img/bearing.jpg',
+    imagePath: '$_img/bearing.webp',
   ),
   Part(
     id: 'CS-210',

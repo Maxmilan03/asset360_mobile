@@ -43,7 +43,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ClipOval(
-                child: Image.asset('assets/images/logo_on_light.png', width: 110, height: 110, fit: BoxFit.cover),
+                child: Image.asset('assets/images/logo_on_light.webp', width: 110, height: 110, fit: BoxFit.cover),
               ),
               const SizedBox(height: 16),
               const Text(

@@ -34,7 +34,7 @@ List<CheckSection> fireAndPumpChecklist() => [
       _number('2.3', 'Check motor current', 'A', 10, 14, '12.8'),
       _choice('2.4', 'Check vibration', ['Normal', 'High', 'Excessive'], 'Normal'),
     ],
-    photos: const ['assets/images/fire_pump.jpg', 'assets/images/pump_unit.jpg'],
+    photos: const ['assets/images/fire_pump.webp', 'assets/images/pump_unit.webp'],
   ),
   CheckSection(
     title: 'Electrical Check',
