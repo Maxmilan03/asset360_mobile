@@ -57,7 +57,7 @@ class PmSchedulesScreen extends ConsumerWidget {
             final asset = ref.watch(assetByIdProvider(pm.assetId));
             final overdue = DemoClock.isOverdue(pm.nextDue);
             return AppCard(
-              onTap: () => context.push(Routes.assetDetail(pm.assetId)),
+              onTap: DemoGuard.push(context, Routes.assetDetail(pm.assetId)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [

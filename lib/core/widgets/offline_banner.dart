@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/core/widgets/demo_guard.dart';
 import 'package:asset360_mobile/data/repositories/network_repository.dart';
 import 'package:asset360_mobile/data/repositories/sync_repository.dart';
 
@@ -26,7 +27,8 @@ class OfflineBanner extends ConsumerWidget {
     return Material(
       color: offline ? const Color(0xFF3B2F63) : AppColors.primary,
       child: InkWell(
-        onTap: path == target ? null : () => context.push(target),
+        // Inert when the client demo does not allow Offline Sync (client_demo.dart).
+        onTap: path == target ? null : DemoGuard.push(context, target),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Row(

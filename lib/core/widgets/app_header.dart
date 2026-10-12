@@ -9,7 +9,7 @@ import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/core/session_actions.dart';
-import 'package:asset360_mobile/core/widgets/demo_gate.dart';
+import 'package:asset360_mobile/core/widgets/demo_guard.dart';
 import 'package:asset360_mobile/core/widgets/feedback.dart';
 
 /// Purple top bar: back arrow, logo + "Purple IQ | Asset360", bell and "RK" avatar.
@@ -34,9 +34,9 @@ class AppHeader extends StatelessWidget {
         else
           const SizedBox(width: 12),
         const Expanded(child: _Brand(showProduct: true)),
-        const DemoGate(child: NotificationBell()),
+        const _GuardedBell(),
         const SizedBox(width: 6),
-        const DemoGate(child: _InitialsAvatar()),
+        DemoGuard(allowed: demoCanOpen(Routes.profileFrom(Routes.home)), child: const _InitialsAvatar()),
         const SizedBox(width: 16),
       ],
     );
@@ -59,9 +59,10 @@ class HomeHeader extends ConsumerWidget {
       children: [
         const SizedBox(width: 16),
         Expanded(child: _Brand(showProduct: showProduct)),
-        const DemoGate(child: NotificationBell()),
+        const _GuardedBell(),
         const SizedBox(width: 4),
-        DemoGate(
+        DemoGuard(
+          action: DemoAction.headerUserMenu,
           child: PopupMenuButton<_UserMenu>(
             tooltip: 'Account menu',
             offset: const Offset(0, 48),
@@ -192,6 +193,15 @@ class _Brand extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The bell, inert when the client demo does not allow Notifications.
+class _GuardedBell extends StatelessWidget {
+  const _GuardedBell();
+
+  @override
+  Widget build(BuildContext context) =>
+      DemoGuard(allowed: demoCanOpen(Routes.notificationsFrom(Routes.home)), child: const NotificationBell());
 }
 
 /// Bell with the unread count; opens Notifications inside the current tab.

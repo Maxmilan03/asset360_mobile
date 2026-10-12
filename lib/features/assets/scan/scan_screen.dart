@@ -380,14 +380,17 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
             child: PageTitle(
               title: 'Scan & Identify',
               subtitle: 'Scan asset tag to instantly view details',
-              trailing: IconButton(
-                tooltip: 'Scan History (${history.length})',
-                onPressed: () => context.push(Routes.scanHistoryFrom(GoRouterState.of(context).uri.path)),
-                icon: Badge(
-                  isLabelVisible: history.isNotEmpty,
-                  backgroundColor: AppColors.primary,
-                  label: Text('${history.length}'),
-                  child: Icon(Icons.history_rounded, color: AppColors.text),
+              trailing: DemoGuard(
+                route: Routes.scanHistoryFrom(Routes.home),
+                child: IconButton(
+                  tooltip: 'Scan History (${history.length})',
+                  onPressed: () => context.push(Routes.scanHistoryFrom(GoRouterState.of(context).uri.path)),
+                  icon: Badge(
+                    isLabelVisible: history.isNotEmpty,
+                    backgroundColor: AppColors.primary,
+                    label: Text('${history.length}'),
+                    child: Icon(Icons.history_rounded, color: AppColors.text),
+                  ),
                 ),
               ),
             ),
@@ -424,27 +427,36 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                         children: [
                           Padding(
                             padding: const EdgeInsets.only(bottom: 22),
-                            child: ScanSideButton(
-                              icon: Icons.keyboard_alt_outlined,
-                              label: 'Manual Entry',
-                              onTap: _manualEntry,
+                            child: DemoGuard(
+                              action: DemoAction.scanManualEntry,
+                              child: ScanSideButton(
+                                icon: Icons.keyboard_alt_outlined,
+                                label: 'Manual Entry',
+                                onTap: _manualEntry,
+                              ),
                             ),
                           ),
                           Flexible(
-                            child: ScanShutterButton(
-                              label: _shutterLabel,
-                              icon: _mode.icon,
-                              busy: _seeking,
-                              onTap: _onShutter,
+                            child: DemoGuard(
+                              action: DemoAction.scanTap,
+                              child: ScanShutterButton(
+                                label: _shutterLabel,
+                                icon: _mode.icon,
+                                busy: _seeking,
+                                onTap: _onShutter,
+                              ),
                             ),
                           ),
                           Padding(
                             padding: const EdgeInsets.only(bottom: 22),
-                            child: ScanSideButton(
-                              icon: _multi ? Icons.done_all_rounded : Icons.library_add_check_outlined,
-                              label: _multi ? 'Done' : 'Multi Scan',
-                              active: _multi,
-                              onTap: _toggleMulti,
+                            child: DemoGuard(
+                              action: DemoAction.scanMultiScan,
+                              child: ScanSideButton(
+                                icon: _multi ? Icons.done_all_rounded : Icons.library_add_check_outlined,
+                                label: _multi ? 'Done' : 'Multi Scan',
+                                active: _multi,
+                                onTap: _toggleMulti,
+                              ),
                             ),
                           ),
                         ],
@@ -488,9 +500,19 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
           right: 16,
           child: Column(
             children: [
-              TorchButton(controller: _controller),
+              DemoGuard(
+                action: DemoAction.scanFlash,
+                child: TorchButton(controller: _controller),
+              ),
               const SizedBox(height: 14),
-              ScanRoundButton(icon: Icons.image_outlined, tooltip: 'Scan from gallery', onPressed: _scanFromGallery),
+              DemoGuard(
+                action: DemoAction.scanGallery,
+                child: ScanRoundButton(
+                  icon: Icons.image_outlined,
+                  tooltip: 'Scan from gallery',
+                  onPressed: _scanFromGallery,
+                ),
+              ),
             ],
           ),
         ),

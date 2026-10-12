@@ -78,7 +78,7 @@ class AssetListTile extends StatelessWidget {
 
   /// Row tint (e.g. amber for "expiring"); [selected] wins.
   final Color? background;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

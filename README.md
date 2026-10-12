@@ -94,36 +94,56 @@ so the request shows in Home → My Approvals and the whole Approve → In Trans
 - Final QA (Prompt 19): `docs/QA_REPORT.md` — button audit tables per module in `docs/qa/`, design check notes,
   cross-module flow results (`test/flows_test.dart`) and consistency checks (`test/data_check_test.dart`).
 
-## Client demo mode
+## Client demo
 
-`lib/app/feature_flags.dart` holds one switch:
+The client demo is a **screen-level allow-list** in `lib/app/client_demo.dart`
+(reference screenshots: `design/client_demo/`, one file per screen):
 
 ```dart
-// Set to false to restore the full app.
-const bool kClientDemo = true;
+// Set to false to restore the full app (current build: full app).
+const bool kUseClientDemo = false;
 ```
 
-With `kClientDemo = true` the app is cut down to what the client should see:
+- `kDemoScreens` — the allowed screens, as route patterns from `routes.dart` (`/assets/detail/:assetId`).
+  Today: Splash, Login, Forgot Password, Authenticator, Home, Work hub, All Modules, Assets list, Asset
+  detail (all 8 tabs), Scan & Identify (QR / NFC / RFID / BLE + Manual Entry), Movement & Custody hub,
+  Transfer Asset, Maintenance hub, Work Order detail (Overview tab), Inventory hub, Part Details and Stock
+  Movement (Stock History tab).
+- `DemoAction` / `kDemoActions` — named in-screen actions (a control that opens a sheet, dialog, picker
+  or form, or changes data). Only the actions in `kDemoActions` respond.
+- Helpers: `demoCanOpen(route)` and `demoCanDo(action)`. Both return `true` when `kUseClientDemo` is false.
 
-- **Works fully:** Splash, Login (Remember me, password eye, validation, lockout), simulated Google /
-  Microsoft sign-in, Forgot Username or Password, Authenticator code screen (code `123456`), the Home
-  dashboard with pull-to-refresh, the bottom bar's **Scan** button (live camera scan; a known asset ID
-  shows its card, an unknown code shows "Tag not registered") and **More** button (All Modules sheet
-  with the 13 tiles plus a **Logout** row, so the login can be replayed).
-- **Visible but inert:** everything else on Home (KPI tiles, site picker, quick actions, My Tasks,
-  View All / Calendar / Map / Details links, chart legends, list rows), the header bell / avatar /
-  name menu, Assets and Work in the bottom bar, and the 13 module tiles. Inert means no navigation,
-  no ripple and no SnackBar. This is done by `DemoGate` (`lib/core/widgets/demo_gate.dart`):
-  `DemoGate(child: …)` or `onTap: DemoGate.tap(…)`.
-- **Not registered:** every other route (Assets, Work, More branches, Registration, Maintenance, …).
-  `app_router.dart` leaves them out with `if (!kClientDemo) ...[ … ]`. Their code stays in the project.
+How it is enforced:
 
-Set the flag to `false` and rebuild to get the full app back. Client APK:
+- **Router:** `demoRoutes()` in `app_router.dart` registers only the routes whose full path is in
+  `kDemoScreens` (with their children filtered the same way). The redirect sends any other location to an
+  unregistered path, and `onException` keeps the current screen, for `go` and `push` alike.
+- **Controls:** `DemoGuard` (`lib/core/widgets/demo_guard.dart`) keeps a blocked control visible but
+  inert: no navigation, no ripple, no SnackBar, no visual change. Use `DemoGuard(route: …)` /
+  `DemoGuard(action: …)` around a button, or build a callback with `DemoGuard.push(context, route)`,
+  `DemoGuard.go(…)`, `DemoGuard.open(route, onTap)` or `DemoGuard.tap(action, onTap)`, which return
+  `null` when blocked. Tabs that are shown but can't be selected use `SegmentTab(enabled: …)`.
+- In the demo a scan that finds an asset opens its Asset detail directly (Asset Identified is not on the
+  list); an unknown tag shows "Tag not registered" with Scan Again.
+
+### Allowing one more screen or action
+
+1. **A screen:** add its route pattern to `kDemoScreens`, e.g. `'/work/maintenance/calendar', //
+   Maintenance Calendar`. Its parent must be listed too (a child of an unlisted route is never
+   registered). Every link, tile and row that leads to it starts working by itself, because they all go
+   through `DemoGuard.push` / `DemoGuard.go` / `demoCanOpen`.
+2. **An in-screen action:** add it to `kDemoActions`, e.g. `DemoAction.woOtherTabs` to let the Tasks /
+   Parts / History / Documents tabs of a work order be selected. If the control is not guarded yet, add a
+   new `DemoAction` value and wrap the control with `DemoGuard(action: …)`.
+3. Run `flutter test test/client_demo_allowlist_test.dart`, then rebuild.
+
+Set `kUseClientDemo = false` and rebuild to get the full app back. Client APK:
 
 ```bash
 flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/symbols
 # → build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 ```
 
-`test/client_demo_test.dart` runs only in demo mode. The other widget tests cover the full app, so run
-them with the flag set to `false`.
+Tests: `test/flutter_test_config.dart` turns the demo off (`debugClientDemo = false`) so the module tests
+always see the full app. `test/client_demo_allowlist_test.dart` (the allow-list) and
+`test/client_demo_test.dart` (the demo flows) switch it on themselves.

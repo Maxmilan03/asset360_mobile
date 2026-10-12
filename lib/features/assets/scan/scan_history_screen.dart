@@ -175,7 +175,7 @@ class _HistoryRow extends ConsumerWidget {
           fallbackIcon: assetIcon(a),
           details: [time],
           trailingTop: StatusChip(a.status),
-          onTap: () => context.push(Routes.assetDetail(a.id)),
+          onTap: DemoGuard.push(context, Routes.assetDetail(a.id)),
         );
       case ScanKind.part:
         final p = ref.watch(inventoryProvider).part(record.refId);
@@ -188,7 +188,7 @@ class _HistoryRow extends ConsumerWidget {
           fallbackIcon: Icons.settings_outlined,
           details: [time],
           trailingTop: StatusChip(p.status),
-          onTap: () => context.push(Routes.partDetail(p.id)),
+          onTap: DemoGuard.push(context, Routes.partDetail(p.id)),
         );
       case ScanKind.location:
         final (place, zone) = switch (record.refId.split(' – ')) {
@@ -201,7 +201,7 @@ class _HistoryRow extends ConsumerWidget {
           location: place,
           fallbackIcon: Icons.place_outlined,
           details: [time],
-          onTap: () => context.push(Routes.tracking),
+          onTap: DemoGuard.push(context, Routes.tracking),
         );
     }
   }

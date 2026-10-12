@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
@@ -50,7 +49,7 @@ class WorkHubScreen extends StatelessWidget {
             childAspectRatio: 1.6,
             children: [
               for (final (icon, label, tone, route) in _modules)
-                ActionTile(icon: icon, label: label, tone: tone, onTap: () => context.go(route)),
+                ActionTile(icon: icon, label: label, tone: tone, onTap: DemoGuard.go(context, route)),
             ],
           ),
           const SizedBox(height: 20),
@@ -126,7 +125,7 @@ class _WorkTasksCardState extends ConsumerState<_WorkTasksCard> {
                     title: 'Nothing here',
                     message: 'You are all caught up.',
                     actionLabel: 'Open Maintenance',
-                    onAction: () => context.go(Routes.maintenance),
+                    onAction: DemoGuard.go(context, Routes.maintenance),
                   )
                 : Column(
                     children: [

@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 
 class SegmentTab {
-  const SegmentTab(this.label, {this.count});
+  const SegmentTab(this.label, {this.count, this.enabled = true});
 
   final String label;
   final int? count;
+
+  /// False shows the tab but it can't be selected (client demo).
+  final bool enabled;
 
   String get text => count == null ? label : '$label ($count)';
 }
@@ -35,7 +38,7 @@ class SegmentTabs extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 for (var i = 0; i < tabs.length; i++)
-                  _Tab(tab: tabs[i], active: i == selected, onTap: () => onChanged(i)),
+                  _Tab(tab: tabs[i], active: i == selected, onTap: tabs[i].enabled ? () => onChanged(i) : null),
               ],
             ),
           ),
@@ -50,7 +53,7 @@ class _Tab extends StatelessWidget {
 
   final SegmentTab tab;
   final bool active;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

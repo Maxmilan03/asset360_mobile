@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:asset360_mobile/core/widgets/demo_gate.dart';
+import 'package:asset360_mobile/core/widgets/demo_guard.dart';
 import 'package:asset360_mobile/features/more/all_modules.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
@@ -131,14 +131,17 @@ class AppBottomBar extends StatelessWidget {
                   _NavItem(
                     label: 'Assets',
                     active: currentIndex == 1,
-                    onTap: DemoGate.tap(() => onTap(1)),
+                    onTap: DemoGuard.open(Routes.assets, () => onTap(1)),
                     icon: (c, _) => CustomPaint(size: const Size(26, 26), painter: _AssetsIconPainter(c)),
                   ),
-                  _ScanItem(active: currentIndex == 2, onTap: () => onTap(2)),
+                  _ScanItem(
+                    active: currentIndex == 2,
+                    onTap: DemoGuard.open(Routes.scanFrom(Routes.home), () => onTap(2)),
+                  ),
                   _NavItem(
                     label: 'Work',
                     active: currentIndex == 3,
-                    onTap: DemoGate.tap(() => onTap(3)),
+                    onTap: () => onTap(3),
                     icon: (c, a) =>
                         Icon(a ? Icons.assignment_turned_in_rounded : Icons.content_paste_rounded, color: c, size: 26),
                   ),
@@ -164,7 +167,7 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool active;
 
-  /// Null keeps the item visible but inert (client demo mode).
+  /// Null keeps the item visible but inert (module switched off).
   final VoidCallback? onTap;
   final Widget Function(Color color, bool active) icon;
 
@@ -224,7 +227,7 @@ class _ScanItem extends StatelessWidget {
   const _ScanItem({required this.active, required this.onTap});
 
   final bool active;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

@@ -89,24 +89,27 @@ class _MaintenanceHubScreenState extends ConsumerState<MaintenanceHubScreen> {
         'Preventive Maintenance',
         TileTone.sky,
         null,
-        () => context.push(Routes.pmSchedules),
+        DemoGuard.push(context, Routes.pmSchedules),
       ),
-      (Icons.warning_rounded, 'Breakdown Requests', TileTone.pink, null, () => context.push(Routes.breakdowns)),
-      (Icons.history_edu_rounded, 'Service History', TileTone.sky, null, () => context.push(Routes.serviceHistory)),
-      (Icons.inventory_2_rounded, 'Spare Parts', TileTone.sky, null, () => context.go(Routes.inventory)),
+      (Icons.warning_rounded, 'Breakdown Requests', TileTone.pink, null, DemoGuard.push(context, Routes.breakdowns)),
+      (Icons.history_edu_rounded, 'Service History', TileTone.sky, null, DemoGuard.push(context, Routes.serviceHistory)),
+      (Icons.inventory_2_rounded, 'Spare Parts', TileTone.sky, null, DemoGuard.go(context, Routes.inventory)),
       (
         Icons.calendar_month_rounded,
         'Maintenance Calendar',
         TileTone.lavender,
         null,
-        () => context.push(Routes.maintenanceCalendar),
+        DemoGuard.push(context, Routes.maintenanceCalendar),
       ),
     ];
     return AppScaffold(
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Create Work Order',
-        onPressed: () => context.push(Routes.createWorkOrder()),
-        child: const Icon(Icons.add_rounded),
+      floatingActionButton: DemoGuard(
+        route: Routes.createWorkOrder(),
+        child: FloatingActionButton(
+          tooltip: 'Create Work Order',
+          onPressed: () => context.push(Routes.createWorkOrder()),
+          child: const Icon(Icons.add_rounded),
+        ),
       ),
       body: LazyListPage(
         padding: context.pagePadding.copyWith(bottom: context.pagePadding.bottom + 64),

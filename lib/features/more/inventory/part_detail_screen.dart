@@ -30,18 +30,24 @@ class PartDetailScreen extends ConsumerWidget {
       bottomActions: Row(
         children: [
           Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => context.push(Routes.requestPart(partId: p.id)),
-              icon: const Icon(Icons.shopping_cart_outlined, size: 18),
-              label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Create Request')),
+            child: DemoGuard(
+              route: Routes.requestPart(partId: p.id),
+              child: OutlinedButton.icon(
+                onPressed: () => context.push(Routes.requestPart(partId: p.id)),
+                icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Create Request')),
+              ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: FilledButton.icon(
-              onPressed: () => context.push(Routes.newPurchaseOrder(partId: p.id)),
-              icon: const Icon(Icons.description_outlined, size: 18),
-              label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Create Purchase Order')),
+            child: DemoGuard(
+              route: Routes.newPurchaseOrder(partId: p.id),
+              child: FilledButton.icon(
+                onPressed: () => context.push(Routes.newPurchaseOrder(partId: p.id)),
+                icon: const Icon(Icons.description_outlined, size: 18),
+                label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Create Purchase Order')),
+              ),
             ),
           ),
         ],
@@ -53,29 +59,35 @@ class PartDetailScreen extends ConsumerWidget {
             leading: ScanPartButton(currentPartId: p.id),
             title: 'Part Details',
             subtitle: 'View stock, location and usage details',
-            trailing: PopupMenuButton<String>(
-              tooltip: 'Stock actions',
-              icon: Icon(Icons.more_vert_rounded, color: AppColors.text),
-              onSelected: (v) => switch (v) {
-                'issue' => showIssueToWoSheet(context, ref, p),
-                'count' => showStockCountSheet(context, ref, p),
-                _ => context.push(Routes.partStock(p.id)),
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'issue', child: Text('Issue to Work Order')),
-                PopupMenuItem(value: 'count', child: Text('Stock Count Adjustment')),
-                PopupMenuItem(value: 'history', child: Text('Stock Movement')),
-              ],
+            trailing: DemoGuard(
+              action: DemoAction.partMenu,
+              child: PopupMenuButton<String>(
+                tooltip: 'Stock actions',
+                icon: Icon(Icons.more_vert_rounded, color: AppColors.text),
+                onSelected: (v) => switch (v) {
+                  'issue' => showIssueToWoSheet(context, ref, p),
+                  'count' => showStockCountSheet(context, ref, p),
+                  _ => context.push(Routes.partStock(p.id)),
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'issue', child: Text('Issue to Work Order')),
+                  PopupMenuItem(value: 'count', child: Text('Stock Count Adjustment')),
+                  PopupMenuItem(value: 'history', child: Text('Stock Movement')),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 12),
-          PartCard(part: p, onTap: () => showSpecSheet(context, p)),
+          DemoGuard(
+            action: DemoAction.partSpecSheet,
+            child: PartCard(part: p, onTap: () => showSpecSheet(context, p)),
+          ),
           const SizedBox(height: 12),
           SectionCard(
             title: 'Stock Overview',
             actionLabel: 'Edit',
             actionIcon: Icons.edit_outlined,
-            onAction: () => showEditLevelsSheet(context, ref, p),
+            onAction: DemoGuard.tap(DemoAction.partEditStock, () => showEditLevelsSheet(context, ref, p)),
             child: Row(
               children: [
                 for (final (n, (icon, label, value, tone)) in [
@@ -90,7 +102,9 @@ class PartDetailScreen extends ConsumerWidget {
                       value: '$value',
                       label: label,
                       tone: tone,
-                      onTap: () => n == 0 ? context.push(Routes.partStock(p.id)) : showEditLevelsSheet(context, ref, p),
+                      onTap: n == 0
+                          ? DemoGuard.push(context, Routes.partStock(p.id))
+                          : DemoGuard.tap(DemoAction.partEditStock, () => showEditLevelsSheet(context, ref, p)),
                     ),
                   ),
                 ],
@@ -102,13 +116,16 @@ class PartDetailScreen extends ConsumerWidget {
             title: 'Location Details',
             actionLabel: 'Manage',
             actionIcon: Icons.edit_outlined,
-            onAction: () => showManageLocationSheet(context, ref, p),
+            onAction: DemoGuard.tap(DemoAction.partManage, () => showManageLocationSheet(context, ref, p)),
             child: Column(
               children: [
                 InfoRow(label: 'Primary Location', value: p.warehouse),
                 InfoRow(label: 'Rack / Bin', value: p.bin),
                 InkWell(
-                  onTap: () => context.push(Routes.partStock(p.id, tab: 'reserved')),
+                  onTap: DemoGuard.tap(
+                    DemoAction.stockOtherTabs,
+                    DemoGuard.push(context, Routes.partStock(p.id, tab: 'reserved')),
+                  ),
                   child: InfoRow(
                     label: 'Reserved Qty',
                     value: '${p.reserved}',
@@ -147,6 +164,7 @@ class PartDetailScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
+          // The entry to Stock Movement (also the Current Stock tile).
           OutlinedButton.icon(
             onPressed: () => context.push(Routes.partStock(p.id)),
             icon: const Icon(Icons.sync_alt_rounded),

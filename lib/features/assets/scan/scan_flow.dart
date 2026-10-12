@@ -45,10 +45,15 @@ Future<ScanTarget?> openScannedCode(BuildContext context, WidgetRef ref, String 
   final here = GoRouterState.of(context).uri.path;
   switch (target.kind) {
     case ScanKind.asset:
-      await context.push(Routes.scanResultFrom(here, target.refId));
+      // The client demo skips Asset Identified and opens the asset itself.
+      final result = Routes.scanResultFrom(here, target.refId);
+      await context.push(demoCanOpen(result) ? result : Routes.assetDetail(target.refId));
     case ScanKind.part:
+      if (!demoCanOpen(Routes.partDetail(target.refId))) break;
       await context.push(Routes.partDetail(target.refId));
     case ScanKind.location:
+      // Locations open in Tracking; without it the scan is only recorded in history.
+      if (!demoCanOpen(Routes.tracking)) break;
       context.showSnack('Location ${target.refId} – showing assets on the floor plan');
       await context.push(Routes.tracking);
   }
@@ -77,10 +82,13 @@ Future<void> _showUnregisteredSheet(BuildContext context, String code, String me
         style: AppText.secondary,
       ),
       const SizedBox(height: 20),
-      FilledButton.icon(
-        onPressed: () => Navigator.pop(context, true),
-        icon: const Icon(Icons.add_box_outlined),
-        label: const Text('Register this asset'),
+      DemoGuard(
+        route: Routes.newRegistration,
+        child: FilledButton.icon(
+          onPressed: () => Navigator.pop(context, true),
+          icon: const Icon(Icons.add_box_outlined),
+          label: const Text('Register this asset'),
+        ),
       ),
       const SizedBox(height: 10),
       OutlinedButton.icon(
@@ -218,19 +226,25 @@ Future<bool> showMultiScanSummary(BuildContext context, WidgetRef ref, List<Stri
             Row(
               children: [
                 Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.pop(context, 'move'),
-                    icon: const Icon(Icons.swap_horiz_rounded),
-                    label: const Text('Move'),
+                  child: DemoGuard(
+                    route: Routes.transferAsset,
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.pop(context, 'move'),
+                      icon: const Icon(Icons.swap_horiz_rounded),
+                      label: const Text('Move'),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(backgroundColor: AppColors.green),
-                    onPressed: () => Navigator.pop(context, 'audit'),
-                    icon: const Icon(Icons.fact_check_outlined),
-                    label: const Text('Audit'),
+                  child: DemoGuard(
+                    route: Routes.audit,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(backgroundColor: AppColors.green),
+                      onPressed: () => Navigator.pop(context, 'audit'),
+                      icon: const Icon(Icons.fact_check_outlined),
+                      label: const Text('Audit'),
+                    ),
                   ),
                 ),
               ],

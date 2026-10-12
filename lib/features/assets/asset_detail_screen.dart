@@ -163,33 +163,36 @@ class _Header extends StatelessWidget {
           tooltip: asset.favorite ? 'Remove from Favorites' : 'Add to Favorites',
           icon: asset.favorite ? Icons.star_rounded : Icons.star_border_rounded,
           color: asset.favorite ? AppColors.amber : AppColors.text,
-          onTap: onFavorite,
+          onTap: DemoGuard.tap(DemoAction.assetFavourite, onFavorite),
         ),
         const SizedBox(width: 8),
-        PopupMenuButton<_Menu>(
-          tooltip: 'More',
-          onSelected: onMenu,
-          itemBuilder: (_) => [
-            for (final (m, icon, label) in [
-              (_Menu.edit, Icons.edit_outlined, 'Edit Asset'),
-              (_Menu.print, Icons.print_outlined, 'Print Tag'),
-              (_Menu.share, Icons.share_outlined, 'Share'),
-              (_Menu.duplicate, Icons.copy_all_rounded, 'Duplicate'),
-              (_Menu.retire, Icons.archive_outlined, 'Retire Asset'),
-              (_Menu.delete, Icons.delete_outline_rounded, 'Delete'),
-            ])
-              PopupMenuItem(
-                value: m,
-                child: Row(
-                  children: [
-                    Icon(icon, size: 20, color: m == _Menu.delete ? AppColors.red : AppColors.text),
-                    const SizedBox(width: 12),
-                    Text(label, style: TextStyle(color: m == _Menu.delete ? AppColors.red : AppColors.text)),
-                  ],
+        DemoGuard(
+          action: DemoAction.assetMenu,
+          child: PopupMenuButton<_Menu>(
+            tooltip: 'More',
+            onSelected: onMenu,
+            itemBuilder: (_) => [
+              for (final (m, icon, label) in [
+                (_Menu.edit, Icons.edit_outlined, 'Edit Asset'),
+                (_Menu.print, Icons.print_outlined, 'Print Tag'),
+                (_Menu.share, Icons.share_outlined, 'Share'),
+                (_Menu.duplicate, Icons.copy_all_rounded, 'Duplicate'),
+                (_Menu.retire, Icons.archive_outlined, 'Retire Asset'),
+                (_Menu.delete, Icons.delete_outline_rounded, 'Delete'),
+              ])
+                PopupMenuItem(
+                  value: m,
+                  child: Row(
+                    children: [
+                      Icon(icon, size: 20, color: m == _Menu.delete ? AppColors.red : AppColors.text),
+                      const SizedBox(width: 12),
+                      Text(label, style: TextStyle(color: m == _Menu.delete ? AppColors.red : AppColors.text)),
+                    ],
+                  ),
                 ),
-              ),
-          ],
-          child: const _SquareIcon(icon: Icons.more_vert_rounded),
+            ],
+            child: const _SquareIcon(icon: Icons.more_vert_rounded),
+          ),
         ),
       ],
     );
@@ -256,7 +259,9 @@ class _PhotoAndSpecs extends ConsumerWidget {
           Expanded(
             flex: 8,
             child: GestureDetector(
-              onTap: gallery.isEmpty ? () => _addPhoto(context, ref) : () => openPhotoViewer(context, gallery),
+              onTap: gallery.isEmpty
+                  ? DemoGuard.tap(DemoAction.assetAddPhoto, () => _addPhoto(context, ref))
+                  : DemoGuard.tap(DemoAction.assetPhotoViewer, () => openPhotoViewer(context, gallery)),
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.surface,
@@ -412,7 +417,7 @@ class _StatCards extends ConsumerWidget {
           ),
           value: '',
           label: 'Health Score',
-          onTap: () => showHealthScoreSheet(context, ref, asset),
+          onTap: DemoGuard.tap(DemoAction.assetHealthSheet, () => showHealthScoreSheet(context, ref, asset)),
         ),
         const SizedBox(width: 8),
         card(
@@ -424,13 +429,16 @@ class _StatCards extends ConsumerWidget {
           value: asset.criticality,
           valueColor: crit.foreground == AppColors.grey ? AppColors.green : crit.foreground,
           label: 'Criticality',
-          onTap: () => showHelpSheet(
-            context,
-            title: 'Criticality',
-            body:
-                '${asset.id} is rated ${asset.criticality}. Criticality reflects the impact of a failure on production, '
-                'safety and cost: Critical assets stop the plant or affect safety, High assets stop a line, Medium assets '
-                'slow work down and Low assets have little impact. It sets the default work-order priority and PM frequency.',
+          onTap: DemoGuard.tap(
+            DemoAction.assetHelpSheet,
+            () => showHelpSheet(
+              context,
+              title: 'Criticality',
+              body:
+                  '${asset.id} is rated ${asset.criticality}. Criticality reflects the impact of a failure on production, '
+                  'safety and cost: Critical assets stop the plant or affect safety, High assets stop a line, Medium assets '
+                  'slow work down and Low assets have little impact. It sets the default work-order priority and PM frequency.',
+            ),
           ),
         ),
         const SizedBox(width: 8),

@@ -43,13 +43,19 @@ class WorkOrderScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkOrderScreenState extends ConsumerState<WorkOrderScreen> {
-  late WoTab _tab = WoTab.values.firstWhere((t) => t.name == widget.initialTab, orElse: () => WoTab.overview);
+  late WoTab _tab = _initial(WoTab.overview);
+
+  /// The tab from the route, or [fallback]; the client demo only opens Overview.
+  WoTab _initial(WoTab fallback) {
+    final t = WoTab.values.firstWhere((t) => t.name == widget.initialTab, orElse: () => fallback);
+    return t == WoTab.overview || demoCanDo(DemoAction.woOtherTabs) ? t : WoTab.overview;
+  }
 
   @override
   void didUpdateWidget(WorkOrderScreen old) {
     super.didUpdateWidget(old);
     if (widget.initialTab != old.initialTab) {
-      _tab = WoTab.values.firstWhere((t) => t.name == widget.initialTab, orElse: () => _tab);
+      _tab = _initial(_tab);
     }
   }
 
@@ -78,6 +84,7 @@ class _WorkOrderScreenState extends ConsumerState<WorkOrderScreen> {
               for (final t in WoTab.values)
                 SegmentTab(
                   t.label,
+                  enabled: t == WoTab.overview || demoCanDo(DemoAction.woOtherTabs),
                   count: switch (t) {
                     WoTab.parts => wo.parts.isEmpty ? null : wo.parts.length,
                     WoTab.documents => wo.documentIds.isEmpty ? null : wo.documentIds.length,
@@ -148,24 +155,27 @@ class _Header extends ConsumerWidget {
             ],
           ),
         ),
-        PopupMenuButton<String>(
-          key: const ValueKey('wo-status'),
-          tooltip: 'Change status',
-          initialValue: wo.status,
-          onSelected: (s) => changeWoStatus(context, ref, wo, s),
-          itemBuilder: (_) => [
-            for (final s in WoStatus.all)
-              PopupMenuItem(
-                value: s,
-                child: Row(
-                  children: [
-                    Expanded(child: Text(s)),
-                    if (s == wo.status) Icon(Icons.check_rounded, size: 18, color: AppColors.primary),
-                  ],
+        DemoGuard(
+          action: DemoAction.woStatus,
+          child: PopupMenuButton<String>(
+            key: const ValueKey('wo-status'),
+            tooltip: 'Change status',
+            initialValue: wo.status,
+            onSelected: (s) => changeWoStatus(context, ref, wo, s),
+            itemBuilder: (_) => [
+              for (final s in WoStatus.all)
+                PopupMenuItem(
+                  value: s,
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(s)),
+                      if (s == wo.status) Icon(Icons.check_rounded, size: 18, color: AppColors.primary),
+                    ],
+                  ),
                 ),
-              ),
-          ],
-          child: StatusChip(wo.status, trailingIcon: Icons.keyboard_arrow_down_rounded),
+            ],
+            child: StatusChip(wo.status, trailingIcon: Icons.keyboard_arrow_down_rounded),
+          ),
         ),
       ],
     );
@@ -242,7 +252,9 @@ class _OverviewState extends ConsumerState<_Overview> {
                 children: [
                   Expanded(
                     child: InkWell(
-                      onTap: closed ? null : () => showReassignSheet(context, ref, wo),
+                      onTap: closed
+                          ? null
+                          : DemoGuard.tap(DemoAction.woReassign, () => showReassignSheet(context, ref, wo)),
                       child: _iconField(Icons.engineering_outlined, 'Assigned To', PersonLine(person: assignee)),
                     ),
                   ),
@@ -284,10 +296,13 @@ class _OverviewState extends ConsumerState<_Overview> {
                 title: 'Issue Description',
                 actionLabel: _editing || closed ? null : 'Edit',
                 actionIcon: Icons.edit_outlined,
-                onAction: () => setState(() {
-                  _description.text = wo.description;
-                  _editing = true;
-                }),
+                onAction: DemoGuard.tap(
+                  DemoAction.woEditDescription,
+                  () => setState(() {
+                    _description.text = wo.description;
+                    _editing = true;
+                  }),
+                ),
               ),
               const SizedBox(height: 8),
               if (_editing) ...[
@@ -320,16 +335,19 @@ class _OverviewState extends ConsumerState<_Overview> {
         ),
         const SizedBox(height: 10),
         AppCard(
-          child: PhotoStrip(
-            title: 'Photos',
-            photos: wo.photos,
-            onAdd: closed
-                ? null
-                : (p) {
-                    notifier.addPhoto(wo.id, p);
-                    context.showSnack('Photo added to ${wo.id}');
-                  },
-            onRemove: closed ? null : (i) => notifier.removePhoto(wo.id, i),
+          child: DemoGuard(
+            action: DemoAction.woPhotos,
+            child: PhotoStrip(
+              title: 'Photos',
+              photos: wo.photos,
+              onAdd: closed
+                  ? null
+                  : (p) {
+                      notifier.addPhoto(wo.id, p);
+                      context.showSnack('Photo added to ${wo.id}');
+                    },
+              onRemove: closed ? null : (i) => notifier.removePhoto(wo.id, i),
+            ),
           ),
         ),
         const SizedBox(height: 14),
@@ -339,26 +357,35 @@ class _OverviewState extends ConsumerState<_Overview> {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  onPressed: () => showUpdateStatusSheet(context, ref, wo),
-                  child: const FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [Text('Update Status'), SizedBox(width: 6), Icon(Icons.keyboard_arrow_down_rounded)],
+                child: DemoGuard(
+                  action: DemoAction.woStatus,
+                  child: OutlinedButton(
+                    onPressed: () => showUpdateStatusSheet(context, ref, wo),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [Text('Update Status'), SizedBox(width: 6), Icon(Icons.keyboard_arrow_down_rounded)],
+                      ),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: FilledButton(
-                  // Looks disabled until every task is done; a tap explains why.
-                  style: wo.allTasksDone
-                      ? null
-                      : FilledButton.styleFrom(backgroundColor: AppColors.greyBg, foregroundColor: AppColors.textMuted),
-                  onPressed: () => startCloseWorkOrder(context, ref, wo),
-                  child: const FittedBox(fit: BoxFit.scaleDown, child: Text('Close Work Order')),
+                child: DemoGuard(
+                  action: DemoAction.woClose,
+                  child: FilledButton(
+                    // Looks disabled until every task is done; a tap explains why.
+                    style: wo.allTasksDone
+                        ? null
+                        : FilledButton.styleFrom(
+                            backgroundColor: AppColors.greyBg,
+                            foregroundColor: AppColors.textMuted,
+                          ),
+                    onPressed: () => startCloseWorkOrder(context, ref, wo),
+                    child: const FittedBox(fit: BoxFit.scaleDown, child: Text('Close Work Order')),
+                  ),
                 ),
               ),
             ],
@@ -397,7 +424,7 @@ class _AssetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = asset;
     return AppCard(
-      onTap: () => context.push(Routes.assetDetail(a.id)),
+      onTap: DemoGuard.push(context, Routes.assetDetail(a.id)),
       child: Row(
         children: [
           AssetThumb(imagePath: a.imagePath, fallbackIcon: assetIcon(a), size: 92),
@@ -530,7 +557,7 @@ class _PartsTab extends ConsumerWidget {
                                 context.showSnack('${part.id} reservation released');
                               }
                             }
-                          : () => context.push(Routes.partDetail(part.id)),
+                          : DemoGuard.push(context, Routes.partDetail(part.id)),
                     ),
                 ],
               ],
@@ -640,16 +667,19 @@ class _DocumentsTab extends ConsumerWidget {
         style: AppText.caption,
       ),
       trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: () => context.push(Routes.documentDetail(d.id)),
+      onTap: DemoGuard.push(context, Routes.documentDetail(d.id)),
     );
     if (linked.isEmpty && assetDocs.isEmpty) {
       return AppCard(
-        child: EmptyState(
-          icon: Icons.description_outlined,
-          title: 'No documents',
-          message: 'Manuals, reports and certificates of ${wo.assetId} appear here.',
-          actionLabel: 'Add Document',
-          onAction: () => context.push(Routes.withAsset(Routes.addDocument, wo.assetId)),
+        child: DemoGuard(
+          route: Routes.addDocument,
+          child: EmptyState(
+            icon: Icons.description_outlined,
+            title: 'No documents',
+            message: 'Manuals, reports and certificates of ${wo.assetId} appear here.',
+            actionLabel: 'Add Document',
+            onAction: () => context.push(Routes.withAsset(Routes.addDocument, wo.assetId)),
+          ),
         ),
       );
     }

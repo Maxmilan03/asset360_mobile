@@ -290,7 +290,10 @@ class _TransferAssetScreenState extends ConsumerState<TransferAssetScreen> {
             Expanded(
               flex: _step > 0 ? 3 : 1,
               child: review
-                  ? FilledButton(onPressed: _submit, child: const Text('Submit for Approval'))
+                  ? DemoGuard(
+                      action: DemoAction.transferSubmit,
+                      child: FilledButton(onPressed: _submit, child: const Text('Submit for Approval')),
+                    )
                   : FilledButton(
                       onPressed: _step == 0 && _assetIds.isEmpty ? null : _next,
                       child: const Row(
@@ -355,14 +358,18 @@ class _TransferAssetScreenState extends ConsumerState<TransferAssetScreen> {
         _title('1. Select Asset'),
         Row(
           children: [
-            for (final (p, label) in [
-              (_Pick.scan, 'Scan Asset'),
-              (_Pick.search, 'Search Asset'),
-              (_Pick.mine, 'My Assets'),
+            for (final (p, label, action) in [
+              (_Pick.scan, 'Scan Asset', DemoAction.transferScanAsset),
+              (_Pick.search, 'Search Asset', DemoAction.transferSearchAsset),
+              (_Pick.mine, 'My Assets', DemoAction.transferMyAssets),
             ]) ...[
               if (p != _Pick.scan) const SizedBox(width: 8),
               Expanded(
-                child: _ToggleButton(label: label, selected: _pick == p, onTap: () => setState(() => _pick = p)),
+                child: _ToggleButton(
+                  label: label,
+                  selected: _pick == p,
+                  onTap: DemoGuard.tap(action, () => setState(() => _pick = p)),
+                ),
               ),
             ],
           ],
@@ -370,7 +377,7 @@ class _TransferAssetScreenState extends ConsumerState<TransferAssetScreen> {
         const SizedBox(height: 12),
         if (_pick == _Pick.scan)
           InkWell(
-            onTap: _scan,
+            onTap: DemoGuard.tap(DemoAction.transferScanAsset, _scan),
             borderRadius: BorderRadius.circular(12),
             child: CustomPaint(
               painter: DashedBorderPainter(color: AppColors.illustration, radius: 12),
@@ -434,10 +441,13 @@ class _TransferAssetScreenState extends ConsumerState<TransferAssetScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: _manual,
-          icon: const Icon(Icons.keyboard_alt_outlined),
-          label: const Text('Enter Asset ID Manually'),
+        DemoGuard(
+          action: DemoAction.transferManualId,
+          child: OutlinedButton.icon(
+            onPressed: _manual,
+            icon: const Icon(Icons.keyboard_alt_outlined),
+            label: const Text('Enter Asset ID Manually'),
+          ),
         ),
         const SizedBox(height: 18),
         if (asset != null) ...[
@@ -763,10 +773,13 @@ class _TransferAssetScreenState extends ConsumerState<TransferAssetScreen> {
         Row(
           children: [
             Expanded(child: Text('Attachments (${_attachments.length})', style: AppText.bodyStrong)),
-            TextButton.icon(
-              onPressed: _pickFiles,
-              icon: const Icon(Icons.attach_file_rounded, size: 18),
-              label: const Text('Add File'),
+            DemoGuard(
+              action: DemoAction.transferForm,
+              child: TextButton.icon(
+                onPressed: _pickFiles,
+                icon: const Icon(Icons.attach_file_rounded, size: 18),
+                label: const Text('Add File'),
+              ),
             ),
           ],
         ),
@@ -789,7 +802,7 @@ class _ToggleButton extends StatelessWidget {
 
   final String label;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

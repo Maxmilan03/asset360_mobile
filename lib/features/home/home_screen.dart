@@ -294,7 +294,7 @@ class _TopSection extends ConsumerWidget {
                     label: 'Work Orders',
                     caption: 'My Assigned',
                     tone: TileTone.sky,
-                    onTap: DemoGate.tap(() => context.go(Routes.maintenanceTab('mine'))),
+                    onTap: DemoGuard.go(context, Routes.maintenanceTab('mine')),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -305,7 +305,7 @@ class _TopSection extends ConsumerWidget {
                     label: 'Inspections',
                     caption: 'Due Today',
                     tone: TileTone.mint,
-                    onTap: DemoGate.tap(() => context.go(Routes.inspectionTab('dueToday'))),
+                    onTap: DemoGuard.go(context, Routes.inspectionTab('dueToday')),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -316,7 +316,7 @@ class _TopSection extends ConsumerWidget {
                     label: 'Approvals',
                     caption: 'Pending',
                     tone: TileTone.peach,
-                    onTap: DemoGate.tap(() => context.push(Routes.approvals)),
+                    onTap: DemoGuard.push(context, Routes.approvals),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -327,7 +327,7 @@ class _TopSection extends ConsumerWidget {
                     label: 'Critical Alert',
                     caption: 'Requires Action',
                     tone: TileTone.pink,
-                    onTap: DemoGate.tap(() => context.go(Routes.alertsTab('critical'))),
+                    onTap: DemoGuard.go(context, Routes.alertsTab('critical')),
                   ),
                 ),
               ],
@@ -346,7 +346,8 @@ class _SitePicker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final site = ref.watch(sessionProvider.select((s) => s.site));
     final sites = ref.watch(sitesProvider);
-    return DemoGate(
+    return DemoGuard(
+      action: DemoAction.homeSiteSelector,
       child: PopupMenuButton<String>(
         tooltip: 'Select site',
         initialValue: site,
@@ -413,7 +414,7 @@ class _QuickActionsCard extends ConsumerWidget {
       title: 'Quick Actions',
       actionLabel: 'Customize',
       actionIcon: null,
-      onAction: DemoGate.tap(() => showCustomizeQuickActions(context)),
+      onAction: DemoGuard.tap(DemoAction.homeCustomize, () => showCustomizeQuickActions(context)),
       child: GridView.count(
         padding: EdgeInsets.zero,
         crossAxisCount: 4,
@@ -424,23 +425,22 @@ class _QuickActionsCard extends ConsumerWidget {
         childAspectRatio: .95,
         children: [
           for (final a in shown)
-            DemoGate(
-              child: ActionTile(
-                icon: quickActionDefs[a.id]!.icon,
-                label: quickActionDefs[a.id]!.label,
-                tone: quickActionDefs[a.id]!.tone,
-                labelSize: 11.5,
-                onTap: () => openRoute(context, quickActionDefs[a.id]!.route),
+            ActionTile(
+              icon: quickActionDefs[a.id]!.icon,
+              label: quickActionDefs[a.id]!.label,
+              tone: quickActionDefs[a.id]!.tone,
+              labelSize: 11.5,
+              onTap: DemoGuard.open(
+                quickActionTarget(quickActionDefs[a.id]!.route),
+                () => openRoute(context, quickActionDefs[a.id]!.route),
               ),
             ),
-          DemoGate(
-            child: ActionTile(
-              icon: Icons.more_horiz_rounded,
-              label: 'More Actions',
-              tone: TileTone.grey,
-              labelSize: 11.5,
-              onTap: () => showMoreActionsSheet(context),
-            ),
+          ActionTile(
+            icon: Icons.more_horiz_rounded,
+            label: 'More Actions',
+            tone: TileTone.grey,
+            labelSize: 11.5,
+            onTap: DemoGuard.tap(DemoAction.homeMoreActions, () => showMoreActionsSheet(context)),
           ),
         ],
       ),
@@ -473,7 +473,7 @@ class _MyTasksCardState extends ConsumerState<_MyTasksCard> {
     return SectionCard(
       title: 'My Tasks',
       actionLabel: 'View All',
-      onAction: DemoGate.tap(() => context.push('${Routes.myTasks}?tab=$_tab')),
+      onAction: DemoGuard.push(context, '${Routes.myTasks}?tab=$_tab'),
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -483,12 +483,10 @@ class _MyTasksCardState extends ConsumerState<_MyTasksCard> {
             child: Row(
               children: [
                 for (var i = 0; i < tabs.length; i++) ...[
-                  DemoGate(
-                    child: PillChip(
-                      label: '${tabs[i].$1} (${tabs[i].$2.length})',
-                      selected: i == _tab,
-                      onTap: () => setState(() => _tab = i),
-                    ),
+                  PillChip(
+                    label: '${tabs[i].$1} (${tabs[i].$2.length})',
+                    selected: i == _tab,
+                    onTap: () => setState(() => _tab = i),
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -499,16 +497,11 @@ class _MyTasksCardState extends ConsumerState<_MyTasksCard> {
           if (list.isEmpty)
             const EmptyState(icon: Icons.task_alt_rounded, title: 'Nothing here', message: 'You are all caught up.')
           else
-            for (var i = 0; i < math.min(3, list.length); i++) ...[
-              if (i > 0) const Divider(),
-              DemoGate(child: TaskRow(task: list[i])),
-            ],
+            for (var i = 0; i < math.min(3, list.length); i++) ...[if (i > 0) const Divider(), TaskRow(task: list[i])],
           if (list.length > 3)
-            DemoGate(
-              child: TextButton(
-                onPressed: () => context.push('${Routes.myTasks}?tab=$_tab'),
-                child: Text('Show ${list.length - 3} more'),
-              ),
+            TextButton(
+              onPressed: DemoGuard.push(context, '${Routes.myTasks}?tab=$_tab'),
+              child: Text('Show ${list.length - 3} more'),
             ),
         ],
       ),
@@ -571,7 +564,7 @@ class _LegendRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: DemoGate.tap(onTap),
+      onTap: onTap,
       borderRadius: BorderRadius.circular(6),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
@@ -618,7 +611,7 @@ class _AssetOverviewCard extends ConsumerWidget {
     return SectionCard(
       title: 'Asset Overview',
       actionLabel: 'View All',
-      onAction: DemoGate.tap(() => context.go(Routes.assets)),
+      onAction: DemoGuard.go(context, Routes.assets),
       child: Row(
         children: [
           _Donut(
@@ -642,7 +635,10 @@ class _AssetOverviewCard extends ConsumerWidget {
                     label: s,
                     value: _n.format(org.statusCounts[s] ?? 0),
                     pct: '(${org.statusPct(s).round()}%)',
-                    onTap: () => context.go(Routes.assetsWithStatus(s)),
+                    onTap: DemoGuard.tap(
+                      DemoAction.homeLegendFilters,
+                      DemoGuard.go(context, Routes.assetsWithStatus(s)),
+                    ),
                   ),
               ],
             ),
@@ -664,7 +660,7 @@ class _MaintenancePerformanceCard extends ConsumerWidget {
     return SectionCard(
       title: 'Maintenance Performance',
       actionLabel: 'View All',
-      onAction: DemoGate.tap(() => context.go(Routes.maintenance)),
+      onAction: DemoGuard.go(context, Routes.maintenance),
       child: Row(
         children: [
           for (var i = 0; i < kpis.length; i++) ...[
@@ -675,7 +671,7 @@ class _MaintenancePerformanceCard extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(10),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(10),
-                  onTap: DemoGate.tap(() => showKpiSheet(context, kpis[i])),
+                  onTap: DemoGuard.tap(DemoAction.homeInsightSheets, () => showKpiSheet(context, kpis[i])),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                     child: Column(
@@ -744,7 +740,7 @@ class _UpcomingActivitiesCard extends ConsumerWidget {
     return SectionCard(
       title: 'Upcoming Activities',
       actionLabel: 'View Calendar',
-      onAction: DemoGate.tap(() => context.go(Routes.maintenanceCalendar)),
+      onAction: DemoGuard.go(context, Routes.maintenanceCalendar),
       child: Column(
         children: [
           if (list.isEmpty)
@@ -753,7 +749,7 @@ class _UpcomingActivitiesCard extends ConsumerWidget {
               title: 'Nothing scheduled',
               message: 'No work orders, inspections or audits are coming up.',
               actionLabel: 'Open Calendar',
-              onAction: DemoGate.tap(() => context.go(Routes.maintenanceCalendar)),
+              onAction: DemoGuard.go(context, Routes.maintenanceCalendar),
             ),
           for (final a in list)
             Padding(
@@ -763,7 +759,7 @@ class _UpcomingActivitiesCard extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(10),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(10),
-                  onTap: DemoGate.tap(() => context.push(activityRoute(a))),
+                  onTap: DemoGuard.tap(DemoAction.homeActivityRows, DemoGuard.push(context, activityRoute(a))),
                   child: Padding(
                     padding: const EdgeInsets.all(8),
                     child: Row(
@@ -856,7 +852,7 @@ class _RecentAlertsCard extends ConsumerWidget {
     return SectionCard(
       title: 'Recent Alerts',
       actionLabel: 'View All',
-      onAction: DemoGate.tap(() => context.go(Routes.alerts)),
+      onAction: DemoGuard.go(context, Routes.alerts),
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
       child: Column(
         children: [
@@ -883,7 +879,7 @@ class _AlertRow extends ConsumerWidget {
     final asset = ref.watch(assetByIdProvider(alert.assetId));
     final (icon, tone) = severityIcon(alert.severity);
     return InkWell(
-      onTap: DemoGate.tap(() => context.go(Routes.alertDetail(alert.id))),
+      onTap: DemoGuard.go(context, Routes.alertDetail(alert.id)),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
         child: Row(
@@ -940,13 +936,13 @@ class _AssetLocationCard extends ConsumerWidget {
     return SectionCard(
       title: 'Asset Location (Live)',
       actionLabel: 'View Map',
-      onAction: DemoGate.tap(() => context.go(Routes.tracking)),
+      onAction: DemoGuard.go(context, Routes.tracking),
       child: Row(
         children: [
           Expanded(
             flex: 11,
             child: GestureDetector(
-              onTap: DemoGate.tap(() => context.go(Routes.tracking)),
+              onTap: DemoGuard.go(context, Routes.tracking),
               child: SizedBox(
                 height: 128,
                 child: Stack(
@@ -958,7 +954,7 @@ class _AssetLocationCard extends ConsumerWidget {
                       child: Tooltip(
                         message: 'Open map',
                         child: InkWell(
-                          onTap: DemoGate.tap(() => context.go(Routes.tracking)),
+                          onTap: DemoGuard.go(context, Routes.tracking),
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
                             width: 32,
@@ -985,7 +981,7 @@ class _AssetLocationCard extends ConsumerWidget {
               children: [
                 for (final (kind, label, count) in legend)
                   InkWell(
-                    onTap: DemoGate.tap(() => context.go(Routes.tracking)),
+                    onTap: DemoGuard.go(context, Routes.tracking),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Row(
@@ -1031,9 +1027,9 @@ class _AssetHealthCard extends ConsumerWidget {
     return SectionCard(
       title: 'Asset Health',
       actionLabel: 'View Details',
-      onAction: DemoGate.tap(() => showHealthSheet(context, org)),
+      onAction: DemoGuard.tap(DemoAction.homeInsightSheets, () => showHealthSheet(context, org)),
       child: InkWell(
-        onTap: DemoGate.tap(() => showHealthSheet(context, org)),
+        onTap: DemoGuard.tap(DemoAction.homeInsightSheets, () => showHealthSheet(context, org)),
         child: Row(
           children: [
             ProgressRing(
@@ -1077,7 +1073,7 @@ class CostSummaryCard extends ConsumerWidget {
     return SectionCard(
       title: 'Cost Summary (AED)',
       actionLabel: 'View Details',
-      onAction: DemoGate.tap(() => showCostSheet(context, org)),
+      onAction: DemoGuard.tap(DemoAction.homeInsightSheets, () => showCostSheet(context, org)),
       child: Row(
         children: [
           _Donut(
@@ -1101,7 +1097,7 @@ class CostSummaryCard extends ConsumerWidget {
                     label: entries[i].key,
                     value: _n.format(entries[i].value),
                     pct: '(${org.costPct(entries[i].key).round()}%)',
-                    onTap: () => showCostSheet(context, org),
+                    onTap: DemoGuard.tap(DemoAction.homeInsightSheets, () => showCostSheet(context, org)),
                   ),
               ],
             ),
@@ -1123,7 +1119,7 @@ class _RecentAssetsCard extends ConsumerWidget {
     return SectionCard(
       title: 'Recent Assets',
       actionLabel: 'View All',
-      onAction: DemoGate.tap(() => context.go(Routes.assets)),
+      onAction: DemoGuard.tap(DemoAction.homeRecentAssetsViewAll, DemoGuard.go(context, Routes.assets)),
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
       child: Column(
         children: [
@@ -1134,18 +1130,16 @@ class _RecentAssetsCard extends ConsumerWidget {
               if (i > 0) const Divider(),
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: DemoGate(
-                  child: AssetListTile(
-                    title: assets[i].id,
-                    subtitle: assets[i].name,
-                    location: assets[i].location,
-                    imagePath: assets[i].imagePath,
-                    trailingTop: StatusChip(assets[i].status),
-                    onTap: () {
-                      ref.read(recentAssetsProvider.notifier).viewed(assets[i].id);
-                      context.go(Routes.assetDetail(assets[i].id));
-                    },
-                  ),
+                child: AssetListTile(
+                  title: assets[i].id,
+                  subtitle: assets[i].name,
+                  location: assets[i].location,
+                  imagePath: assets[i].imagePath,
+                  trailingTop: StatusChip(assets[i].status),
+                  onTap: DemoGuard.open(Routes.assetDetail(assets[i].id), () {
+                    ref.read(recentAssetsProvider.notifier).viewed(assets[i].id);
+                    context.go(Routes.assetDetail(assets[i].id));
+                  }),
                 ),
               ),
             ],

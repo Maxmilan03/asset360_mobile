@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
@@ -102,7 +101,7 @@ class _MovementHubScreenState extends ConsumerState<MovementHubScreen> {
             childAspectRatio: 1.35,
             children: [
               for (final (icon, label, tone, route) in tiles)
-                ActionTile(icon: icon, label: label, tone: tone, onTap: () => context.push(route)),
+                ActionTile(icon: icon, label: label, tone: tone, onTap: DemoGuard.push(context, route)),
             ],
           ),
           const SizedBox(height: 14),

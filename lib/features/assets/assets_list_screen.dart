@@ -113,13 +113,16 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
     ];
 
     return AppScaffold(
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Register asset',
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        shape: const CircleBorder(),
-        onPressed: () => context.push(Routes.registration),
-        child: const Icon(Icons.add_rounded, size: 30),
+      floatingActionButton: DemoGuard(
+        route: Routes.registration,
+        child: FloatingActionButton(
+          tooltip: 'Register asset',
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          shape: const CircleBorder(),
+          onPressed: () => context.push(Routes.registration),
+          child: const Icon(Icons.add_rounded, size: 30),
+        ),
       ),
       body: CustomScrollView(
         slivers: [
@@ -134,6 +137,7 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
                   hint: 'Search by Asset ID, Name, Serial No...',
                   onChanged: (v) => setState(() => _query = v),
                   onScan: _scan,
+                  scanAllowed: demoCanDo(DemoAction.assetsListScan),
                 ),
                 const SizedBox(height: 12),
                 SingleChildScrollView(

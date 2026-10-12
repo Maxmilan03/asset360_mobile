@@ -105,12 +105,15 @@ class _AssetIotTabState extends ConsumerState<AssetIotTab> {
     final iot = a.iot;
     if (iot == null) {
       return AppCard(
-        child: EmptyState(
-          icon: Icons.sensors_off_rounded,
-          title: 'No IoT device linked',
-          message: 'Link a gateway or sensor to see live telemetry, trends and alerts for ${a.id}.',
-          actionLabel: 'Link IoT Device',
-          onAction: () => showLinkIotSheet(context, ref, a),
+        child: DemoGuard(
+          action: DemoAction.assetLinkIot,
+          child: EmptyState(
+            icon: Icons.sensors_off_rounded,
+            title: 'No IoT device linked',
+            message: 'Link a gateway or sensor to see live telemetry, trends and alerts for ${a.id}.',
+            actionLabel: 'Link IoT Device',
+            onAction: () => showLinkIotSheet(context, ref, a),
+          ),
         ),
       );
     }
@@ -132,30 +135,33 @@ class _AssetIotTabState extends ConsumerState<AssetIotTab> {
                 Row(
                   children: [
                     Expanded(child: Text('Live Data Trend (Last 24 Hours)', style: AppText.bodyStrong)),
-                    Container(
-                      height: 32,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.border),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButton<String>(
-                        value: _metric,
-                        underline: const SizedBox.shrink(),
-                        isDense: true,
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-                        items: [
-                          for (final r in a.telemetry)
-                            if (a.trends.containsKey(r.key))
-                              DropdownMenuItem(
-                                value: r.key,
-                                child: Text(
-                                  '${_shortLabel(r.label)} (${r.unit})',
-                                  style: AppText.body.copyWith(fontSize: 12),
+                    DemoGuard(
+                      action: DemoAction.assetIotMetric,
+                      child: Container(
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.border),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButton<String>(
+                          value: _metric,
+                          underline: const SizedBox.shrink(),
+                          isDense: true,
+                          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                          items: [
+                            for (final r in a.telemetry)
+                              if (a.trends.containsKey(r.key))
+                                DropdownMenuItem(
+                                  value: r.key,
+                                  child: Text(
+                                    '${_shortLabel(r.label)} (${r.unit})',
+                                    style: AppText.body.copyWith(fontSize: 12),
+                                  ),
                                 ),
-                              ),
-                        ],
-                        onChanged: (v) => setState(() => _metric = v),
+                          ],
+                          onChanged: (v) => setState(() => _metric = v),
+                        ),
                       ),
                     ),
                   ],
@@ -230,11 +236,14 @@ class _LiveTelemetry extends StatelessWidget {
               childAspectRatio: 1.12,
               children: [
                 for (final r in asset.telemetry)
-                  _TelemetryTile(
-                    reading: r,
-                    value: _format(r, seeds),
-                    selected: r.key == selected,
-                    onTap: () => onSelect(r),
+                  DemoGuard(
+                    action: DemoAction.assetIotMetric,
+                    child: _TelemetryTile(
+                      reading: r,
+                      value: _format(r, seeds),
+                      selected: r.key == selected,
+                      onTap: () => onSelect(r),
+                    ),
                   ),
               ],
             ),

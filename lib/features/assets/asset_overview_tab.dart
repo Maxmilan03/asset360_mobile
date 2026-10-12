@@ -229,7 +229,7 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
       title: 'Key Information',
       actionLabel: e ? null : 'Edit',
       actionIcon: Icons.keyboard_arrow_down_rounded,
-      onAction: () => widget.onEditingChanged(true),
+      onAction: DemoGuard.tap(DemoAction.assetEditKeyInfo, () => widget.onEditingChanged(true)),
       child: Column(
         children: [
           for (final (icon, label, value) in rows)

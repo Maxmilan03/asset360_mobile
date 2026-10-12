@@ -35,7 +35,14 @@ class StockMovementScreen extends ConsumerStatefulWidget {
 }
 
 class _StockMovementScreenState extends ConsumerState<StockMovementScreen> {
-  late StockTab _tab = StockTab.values.firstWhere((t) => t.name == widget.initialTab, orElse: () => StockTab.history);
+  late StockTab _tab = _initialTab();
+
+  /// The tab from the route; the client demo only opens Stock History.
+  StockTab _initialTab() {
+    final t = StockTab.values.firstWhere((t) => t.name == widget.initialTab, orElse: () => StockTab.history);
+    return t == StockTab.history || demoCanDo(DemoAction.stockOtherTabs) ? t : StockTab.history;
+  }
+
   String _query = '';
   FilterSelection _filters = const {};
   final _search = TextEditingController();
@@ -79,7 +86,10 @@ class _StockMovementScreenState extends ConsumerState<StockMovementScreen> {
             PartCard(part: part, compact: true, onTap: () => context.push(Routes.partDetail(part.id))),
             const SizedBox(height: 6),
             SegmentTabs(
-              tabs: [for (final t in StockTab.values) SegmentTab(t.label)],
+              tabs: [
+                for (final t in StockTab.values)
+                  SegmentTab(t.label, enabled: t == StockTab.history || demoCanDo(DemoAction.stockOtherTabs)),
+              ],
               selected: _tab.index,
               onChanged: (i) => setState(() => _tab = StockTab.values[i]),
             ),
@@ -221,7 +231,7 @@ class _StockMovementScreenState extends ConsumerState<StockMovementScreen> {
                     leading: const Icon(Icons.build_circle_rounded, color: AppColors.orange),
                     title: Text('${w.id} · $qty ${p.unit}', style: AppText.bodyStrong),
                     subtitle: Text('${w.title} · ${w.assetId}', style: AppText.caption),
-                    onTap: () => context.push(Routes.workOrder(w.id)),
+                    onTap: DemoGuard.push(context, Routes.workOrder(w.id)),
                     trailing: TextButton(
                       onPressed: () async {
                         final ok = await showConfirmDialog(

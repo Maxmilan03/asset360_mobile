@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
@@ -70,21 +69,21 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
         'Request Part',
         'Create Request',
         TileTone.sky,
-        () => context.push(Routes.partRequests),
+        DemoGuard.push(context, Routes.partRequests),
       ),
       (
         Icons.receipt_long_rounded,
         'Purchase Orders',
         'Track Orders',
         TileTone.peach,
-        () => context.push(Routes.purchaseOrders),
+        DemoGuard.push(context, Routes.purchaseOrders),
       ),
       (
         Icons.bar_chart_rounded,
         'Stock Reports',
         'Usage & Forecast',
         TileTone.sky,
-        () => context.push(Routes.stockReports),
+        DemoGuard.push(context, Routes.stockReports),
       ),
     ];
     return AppScaffold(

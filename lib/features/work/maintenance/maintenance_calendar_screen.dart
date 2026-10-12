@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:asset360_mobile/app/router/routes.dart';
@@ -211,7 +210,7 @@ class _MaintenanceCalendarScreenState extends ConsumerState<MaintenanceCalendarS
                             style: AppText.caption,
                           ),
                           trailing: Text(DemoClock.formatTime(dayEvents[i].at), style: AppText.caption),
-                          onTap: () => context.push(calendarEventRoute(dayEvents[i])),
+                          onTap: DemoGuard.push(context, calendarEventRoute(dayEvents[i])),
                         ),
                       ],
                     ],

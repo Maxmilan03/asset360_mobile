@@ -172,7 +172,7 @@ class AssetLocationTab extends ConsumerWidget {
           title: 'Floor Plan',
           actionLabel: tracked == null ? null : 'Live',
           actionIcon: Icons.sensors_rounded,
-          onAction: () => context.push(Routes.trackAsset(asset.id)),
+          onAction: DemoGuard.push(context, Routes.trackAsset(asset.id)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -182,7 +182,9 @@ class AssetLocationTab extends ConsumerWidget {
                   entities: [pin],
                   showZoneLabels: true,
                   pinSize: 30,
-                  onPinTap: (e) => context.showSnack('${asset.id} · ${e.zone} · ${asset.location}'),
+                  onPinTap: demoCanDo(DemoAction.assetFloorPlanPin)
+                      ? (e) => context.showSnack('${asset.id} · ${e.zone} · ${asset.location}')
+                      : null,
                 ),
               ),
               const SizedBox(height: 8),
@@ -193,10 +195,13 @@ class AssetLocationTab extends ConsumerWidget {
                 style: AppText.caption,
               ),
               const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () => context.push(Routes.trackAsset(asset.id)),
-                icon: const Icon(Icons.map_outlined, size: 20),
-                label: const Text('View on Map'),
+              DemoGuard(
+                route: Routes.trackAsset(asset.id),
+                child: OutlinedButton.icon(
+                  onPressed: () => context.push(Routes.trackAsset(asset.id)),
+                  icon: const Icon(Icons.map_outlined, size: 20),
+                  label: const Text('View on Map'),
+                ),
               ),
             ],
           ),
@@ -294,14 +299,17 @@ class AssetMaintenanceTab extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        final id = ref.read(pmSchedulesProvider.notifier).generateWorkOrder(pm.id);
-                        context.showSnack('$id generated from ${pm.id}');
-                        context.push(Routes.workOrder(id));
-                      },
-                      icon: const Icon(Icons.playlist_add_rounded, size: 20),
-                      label: const Text('Generate PM Work Order'),
+                    DemoGuard(
+                      action: DemoAction.assetGeneratePm,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          final id = ref.read(pmSchedulesProvider.notifier).generateWorkOrder(pm.id);
+                          context.showSnack('$id generated from ${pm.id}');
+                          context.push(Routes.workOrder(id));
+                        },
+                        icon: const Icon(Icons.playlist_add_rounded, size: 20),
+                        label: const Text('Generate PM Work Order'),
+                      ),
                     ),
                   ],
                 ),
@@ -310,7 +318,7 @@ class AssetMaintenanceTab extends ConsumerWidget {
         SectionCard(
           title: 'Work Orders (${wos.length})',
           actionLabel: 'View All',
-          onAction: () => context.go(Routes.maintenance),
+          onAction: DemoGuard.go(context, Routes.maintenance),
           child: _RowList(
             empty: 'No work orders for ${asset.id} yet.',
             children: [
@@ -322,15 +330,18 @@ class AssetMaintenanceTab extends ConsumerWidget {
                       ? '${w.workType} · ${DemoClock.dueLabel(w.dueAt)}'
                       : '${w.workType} · Completed ${w.completedAt == null ? '' : DemoClock.formatDate(w.completedAt!)}',
                   trailing: StatusChip(w.status),
-                  onTap: () => context.push(Routes.workOrder(w.id)),
+                  onTap: DemoGuard.push(context, Routes.workOrder(w.id)),
                 ),
             ],
           ),
         ),
-        _TabButton(
-          icon: Icons.build_rounded,
-          label: 'Create Work Order',
-          onPressed: () => context.push(Routes.createWorkOrder(assetId: asset.id)),
+        DemoGuard(
+          route: Routes.createWorkOrder(assetId: asset.id),
+          child: _TabButton(
+            icon: Icons.build_rounded,
+            label: 'Create Work Order',
+            onPressed: () => context.push(Routes.createWorkOrder(assetId: asset.id)),
+          ),
         ),
       ],
     );
@@ -396,31 +407,38 @@ class AssetInspectionTab extends ConsumerWidget {
         SectionCard(
           title: 'Inspections (${list.length})',
           actionLabel: 'View All',
-          onAction: () => context.go(Routes.inspection),
+          onAction: DemoGuard.go(context, Routes.inspection),
           child: _RowList(
             empty: 'No inspections for ${asset.id} yet.',
             children: [
               for (final i in list)
-                _Row(
-                  leading: IconSquare(icon: Icons.fact_check_outlined, tone: TileTone.mint, size: 36),
-                  title: '${i.id} · ${i.title}',
-                  subtitle: [
-                    i.type,
-                    people.firstWhereOrNull((p) => p.id == i.inspectorId)?.name ?? '',
-                    i.isCompleted
-                        ? 'Completed ${DemoClock.formatDate(i.completedAt ?? i.dueAt)}'
-                        : DemoClock.dueLabel(i.dueAt),
-                  ].where((s) => s.isNotEmpty).join(' · '),
-                  trailing: StatusChip(!i.isCompleted && DemoClock.isOverdue(i.dueAt) ? 'Overdue' : i.status),
-                  onTap: () => context.push(Routes.inspectionDetail(i.id)),
+                // Rows keep their chevron when the screen is not allowed (client demo).
+                DemoGuard(
+                  route: Routes.inspectionDetail(i.id),
+                  child: _Row(
+                    leading: IconSquare(icon: Icons.fact_check_outlined, tone: TileTone.mint, size: 36),
+                    title: '${i.id} · ${i.title}',
+                    subtitle: [
+                      i.type,
+                      people.firstWhereOrNull((p) => p.id == i.inspectorId)?.name ?? '',
+                      i.isCompleted
+                          ? 'Completed ${DemoClock.formatDate(i.completedAt ?? i.dueAt)}'
+                          : DemoClock.dueLabel(i.dueAt),
+                    ].where((s) => s.isNotEmpty).join(' · '),
+                    trailing: StatusChip(!i.isCompleted && DemoClock.isOverdue(i.dueAt) ? 'Overdue' : i.status),
+                    onTap: () => context.push(Routes.inspectionDetail(i.id)),
+                  ),
                 ),
             ],
           ),
         ),
-        _TabButton(
-          icon: Icons.assignment_outlined,
-          label: 'Create Inspection',
-          onPressed: () => context.push(Routes.withAsset(Routes.createInspection, asset.id)),
+        DemoGuard(
+          route: Routes.createInspection,
+          child: _TabButton(
+            icon: Icons.assignment_outlined,
+            label: 'Create Inspection',
+            onPressed: () => context.push(Routes.withAsset(Routes.createInspection, asset.id)),
+          ),
         ),
       ],
     );
@@ -605,7 +623,7 @@ class AssetDocumentsTab extends ConsumerWidget {
           title: 'Documents (${docs.length})',
           actionLabel: '+ Add',
           actionIcon: null,
-          onAction: () => context.push(Routes.withAsset(Routes.addDocument, asset.id)),
+          onAction: DemoGuard.push(context, Routes.withAsset(Routes.addDocument, asset.id)),
           child: _RowList(
             empty: 'No documents linked to ${asset.id}. Tap “+ Add” to upload one.',
             children: [for (final d in docs) _DocRow(doc: d)],
@@ -629,18 +647,21 @@ class _DocRow extends StatelessWidget {
         ? (Icons.picture_as_pdf_outlined, TileTone.pink)
         : (Icons.description_outlined, TileTone.lavender);
     final days = doc.expiry == null ? null : DemoClock.daysUntil(doc.expiry!);
-    return _Row(
-      leading: IconSquare(icon: icon, tone: tone, size: 36),
-      title: doc.name,
-      subtitle: '${doc.type} · ${doc.sizeLabel} · ${DemoClock.formatDate(doc.uploadedAt)}',
-      trailing: days == null
-          ? null
-          : days < 0
-          ? const StatusChip('Expired', tone: ChipTone.red)
-          : days <= 90
-          ? const StatusChip('Expiring', tone: ChipTone.amber)
-          : null,
-      onTap: () => context.push(Routes.documentDetail(doc.id)),
+    return DemoGuard(
+      route: Routes.documentDetail(doc.id),
+      child: _Row(
+        leading: IconSquare(icon: icon, tone: tone, size: 36),
+        title: doc.name,
+        subtitle: '${doc.type} · ${doc.sizeLabel} · ${DemoClock.formatDate(doc.uploadedAt)}',
+        trailing: days == null
+            ? null
+            : days < 0
+            ? const StatusChip('Expired', tone: ChipTone.red)
+            : days <= 90
+            ? const StatusChip('Expiring', tone: ChipTone.amber)
+            : null,
+        onTap: () => context.push(Routes.documentDetail(doc.id)),
+      ),
     );
   }
 }
@@ -720,16 +741,20 @@ class AssetHistoryTab extends ConsumerWidget {
               child: Column(
                 children: [
                   for (var i = 0; i < events.length; i++)
-                    _TimelineRow(
-                      icon: events[i].icon,
-                      color: events[i].color,
-                      title: events[i].title,
-                      subtitle: [
-                        DemoClock.formatDateTime(events[i].at),
-                        events[i].detail,
-                      ].where((s) => s.isNotEmpty).join(' · '),
-                      last: i == events.length - 1,
-                      onTap: events[i].route == null ? null : () => context.push(events[i].route!),
+                    // Rows into a disabled module keep their chevron but ignore taps.
+                    DemoGuard(
+                      route: events[i].route ?? Routes.home,
+                      child: _TimelineRow(
+                        icon: events[i].icon,
+                        color: events[i].color,
+                        title: events[i].title,
+                        subtitle: [
+                          DemoClock.formatDateTime(events[i].at),
+                          events[i].detail,
+                        ].where((s) => s.isNotEmpty).join(' · '),
+                        last: i == events.length - 1,
+                        onTap: events[i].route == null ? null : () => context.push(events[i].route!),
+                      ),
                     ),
                 ],
               ),

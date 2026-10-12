@@ -28,6 +28,7 @@ class SearchFilterBar extends StatelessWidget {
     this.selection = const {},
     this.onFiltersChanged,
     this.onScan,
+    this.scanAllowed = true,
   });
 
   final String hint;
@@ -39,6 +40,9 @@ class SearchFilterBar extends StatelessWidget {
 
   /// Shows a square scan button next to the field when set (design 03).
   final VoidCallback? onScan;
+
+  /// False keeps the scan button visible but inert (client demo).
+  final bool scanAllowed;
 
   int get _activeCount => selection.values.fold(0, (sum, s) => sum + s.length);
 
@@ -60,7 +64,10 @@ class SearchFilterBar extends StatelessWidget {
         ),
         if (onScan != null) ...[
           const SizedBox(width: 10),
-          _SquareButton(tooltip: 'Scan', icon: Icons.qr_code_scanner_rounded, onPressed: onScan!),
+          IgnorePointer(
+            ignoring: !scanAllowed,
+            child: _SquareButton(tooltip: 'Scan', icon: Icons.qr_code_scanner_rounded, onPressed: onScan!),
+          ),
         ],
         if (onFiltersChanged != null) ...[
           const SizedBox(width: 10),

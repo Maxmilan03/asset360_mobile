@@ -18,46 +18,62 @@ import 'package:asset360_mobile/features/assets/asset_ui.dart';
 // ---------------------------------------------------------------- Action grid
 
 /// One tile of an asset's action grid: icon, label, tone and what it opens.
-typedef AssetAction = (IconData icon, String label, TileTone tone, VoidCallback onTap);
+/// A null onTap = the target module is switched off (tile stays visible, inert).
+typedef AssetAction = (IconData icon, String label, TileTone tone, VoidCallback? onTap);
 
 /// The actions shared by the Asset 360° grid and Scan → Asset Identified, each prefilled with [asset].
 List<AssetAction> assetActions(BuildContext context, WidgetRef ref, Asset asset) {
   final plain = TileTone(AppColors.tileGrey, AppColors.text);
   final id = asset.id;
   return [
-    (Icons.build_rounded, 'Create Work Order', TileTone.sky, () => context.push(Routes.createWorkOrder(assetId: id))),
+    (
+      Icons.build_rounded,
+      'Create Work Order',
+      TileTone.sky,
+      DemoGuard.push(context, Routes.createWorkOrder(assetId: id)),
+    ),
     (
       Icons.assignment_outlined,
       'Create Inspection',
       TileTone.lavender,
-      () => context.push(Routes.withAsset(Routes.createInspection, id)),
+      DemoGuard.push(context, Routes.withAsset(Routes.createInspection, id)),
     ),
     (
       Icons.swap_horiz_rounded,
       'Move Asset',
       TileTone.mint,
-      () => context.push(Routes.withAsset(Routes.transferAsset, id)),
+      DemoGuard.tap(DemoAction.assetMove, DemoGuard.push(context, Routes.withAsset(Routes.transferAsset, id))),
     ),
     (
       Icons.warning_rounded,
       'Report Issue',
       TileTone.peach,
-      () => context.push(Routes.withAsset(Routes.reportIssue, id)),
+      DemoGuard.push(context, Routes.withAsset(Routes.reportIssue, id)),
     ),
-    (Icons.person_rounded, 'Check Out', plain, () => showCheckOutSheet(context, ref, asset)),
-    (Icons.location_on_rounded, 'View on Map', plain, () => context.push(Routes.trackAsset(id))),
+    (
+      Icons.person_rounded,
+      'Check Out',
+      plain,
+      DemoGuard.tap(DemoAction.assetCheckOut, () => showCheckOutSheet(context, ref, asset)),
+    ),
+    (Icons.location_on_rounded, 'View on Map', plain, DemoGuard.push(context, Routes.trackAsset(id))),
     (
       Icons.photo_camera_rounded,
       'Add Photo',
       plain,
-      () async {
+      DemoGuard.tap(DemoAction.assetAddPhoto, () async {
         final path = await pickPhoto(context);
         if (path == null || !context.mounted) return;
         ref.read(assetsProvider.notifier).addPhoto(id, path);
         context.showSnack('Photo added (${asset.gallery.length + 1} in gallery)');
-      },
+      }),
     ),
-    (Icons.more_horiz_rounded, 'More Actions', plain, () => showMoreActionsSheet(context, ref, asset)),
+    (
+      Icons.more_horiz_rounded,
+      'More Actions',
+      plain,
+      DemoGuard.tap(DemoAction.assetMoreActions, () => showMoreActionsSheet(context, ref, asset)),
+    ),
   ];
 }
 

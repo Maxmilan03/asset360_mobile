@@ -48,6 +48,13 @@ List<(String, IconData, TileTone, String)> get _moreModules => [
   ('Scan History', Icons.history_rounded, TileTone.grey, Routes.scanHistory),
 ];
 
+/// The screen a quick-action route opens (the Scan markers resolve to Scan on Home).
+String quickActionTarget(String route) => switch (route) {
+  Routes.scan => Routes.scanFrom(Routes.home),
+  Routes.scanHistory => Routes.scanHistoryFrom(Routes.home),
+  _ => route,
+};
+
 /// Opens a quick-action / module route. Scan opens on top of the current screen.
 void openRoute(BuildContext context, String route) {
   final here = GoRouterState.of(context).uri.path;
@@ -87,10 +94,10 @@ Future<void> showMoreActionsSheet(BuildContext context) {
                     icon: icon,
                     label: label,
                     tone: tone,
-                    onTap: () {
+                    onTap: DemoGuard.open(quickActionTarget(route), () {
                       Navigator.pop(ctx);
                       openRoute(context, route);
-                    },
+                    }),
                   ),
               ],
             ),

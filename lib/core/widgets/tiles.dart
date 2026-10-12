@@ -76,7 +76,9 @@ class ActionTile extends StatelessWidget {
   final String label;
   final String? subtitle;
   final TileTone tone;
-  final VoidCallback onTap;
+
+  /// Null keeps the tile visible but inert (e.g. its module is switched off).
+  final VoidCallback? onTap;
 
   /// Count shown in a small circle at the top-right (hidden when null or 0).
   final int? badge;

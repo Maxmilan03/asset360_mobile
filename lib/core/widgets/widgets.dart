@@ -7,7 +7,7 @@ export 'package:asset360_mobile/core/widgets/asset_list_tile.dart';
 export 'package:asset360_mobile/core/widgets/barcode.dart';
 export 'package:asset360_mobile/core/widgets/cards.dart';
 export 'package:asset360_mobile/core/widgets/chips.dart';
-export 'package:asset360_mobile/core/widgets/demo_gate.dart';
+export 'package:asset360_mobile/core/widgets/demo_guard.dart';
 export 'package:asset360_mobile/core/widgets/dialogs.dart';
 export 'package:asset360_mobile/core/widgets/empty_state.dart';
 export 'package:asset360_mobile/core/widgets/feedback.dart';

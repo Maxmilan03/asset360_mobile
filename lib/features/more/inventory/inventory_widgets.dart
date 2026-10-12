@@ -76,13 +76,16 @@ class ScanPartButton extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => IconButton(
-    tooltip: 'Scan part label',
-    visualDensity: VisualDensity.compact,
-    padding: EdgeInsets.zero,
-    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-    onPressed: () => _scan(context, ref),
-    icon: Icon(Icons.camera_alt_outlined, color: AppColors.text, size: 22),
+  Widget build(BuildContext context, WidgetRef ref) => DemoGuard(
+    action: DemoAction.partScanLabel,
+    child: IconButton(
+      tooltip: 'Scan part label',
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      onPressed: () => _scan(context, ref),
+      icon: Icon(Icons.camera_alt_outlined, color: AppColors.text, size: 22),
+    ),
   );
 }
 
@@ -144,6 +147,17 @@ class PartCard extends StatelessWidget {
   TxnType.released => (Icons.lock_open_rounded, ChipTone.purple),
   _ => (Icons.tune_rounded, ChipTone.grey),
 };
+
+/// The tap on a ledger reference, or null when the client demo keeps it inert
+/// (only REF: WO-… links are allowed; GRN / PO / TR stay inert).
+VoidCallback? stockRefTap(BuildContext context, WidgetRef ref, String reference) {
+  final allowed = reference.startsWith('WO-')
+      ? demoCanDo(DemoAction.stockRefLinks) && demoCanOpen(Routes.workOrder(reference))
+      : reference.startsWith('PO-')
+      ? demoCanOpen(Routes.purchaseOrder(reference))
+      : demoCanDo(DemoAction.stockOtherRefs);
+  return allowed ? () => openStockRef(context, ref, reference) : null;
+}
 
 /// Opens what a ledger reference points at: WO detail, PO detail or the goods receipt.
 void openStockRef(BuildContext context, WidgetRef ref, String reference) {
@@ -229,7 +243,7 @@ class TxnRow extends ConsumerWidget {
                 ),
                 if (showPart) Text(t.partId, style: AppText.caption.copyWith(color: AppColors.primary)),
                 InkWell(
-                  onTap: () => openStockRef(context, ref, t.ref),
+                  onTap: stockRefTap(context, ref, t.ref),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Text(

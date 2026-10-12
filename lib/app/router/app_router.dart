@@ -64,7 +64,6 @@ import 'package:asset360_mobile/features/more/tracking/tracking_hub_screen.dart'
 import 'package:asset360_mobile/features/more/tracking/tracking_pages.dart';
 import 'package:asset360_mobile/features/more/account/demo_tags_screen.dart';
 import 'package:asset360_mobile/features/more/account/settings_screen.dart';
-import 'package:asset360_mobile/features/assets/scan/demo_scan_screen.dart';
 import 'package:asset360_mobile/features/assets/scan/scan_history_screen.dart';
 import 'package:asset360_mobile/features/assets/scan/scan_result_screen.dart';
 import 'package:asset360_mobile/features/assets/scan/scan_screen.dart';
@@ -72,11 +71,14 @@ import 'package:asset360_mobile/features/work/wip/production_order_screen.dart';
 import 'package:asset360_mobile/features/work/wip/wip_hub_screen.dart';
 import 'package:asset360_mobile/features/work/wip/wip_unit_screen.dart';
 import 'package:asset360_mobile/features/work/work_hub_screen.dart';
-import 'package:asset360_mobile/app/feature_flags.dart';
+import 'package:asset360_mobile/app/client_demo.dart';
 import 'package:asset360_mobile/app/router/main_shell.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 
 final _rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+
+/// Unregistered location used to refuse a screen the client demo does not allow.
+const _demoBlocked = '/demo-blocked';
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Re-run the redirect whenever the session changes (sign-in, logout).
@@ -93,6 +95,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: _rootKey,
     initialLocation: Routes.splash,
     refreshListenable: refresh,
+    // A location no route matches (a screen left out by the client demo) is
+    // ignored: go_router keeps the current screen.
+    onException: (_, state, _) => debugPrint('Ignored navigation to ${state.uri}'),
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
       final loc = state.matchedLocation;
@@ -102,7 +107,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         return onAuth ? null : Routes.login;
       }
       // Bare /scan… (no tab) opens Scan on the Home tab.
-      if (loc == Routes.scan || loc.startsWith('${Routes.scan}/')) return '${Routes.home}$loc';
+      if (loc == Routes.scan || loc.startsWith('${Routes.scan}/')) {
+        return demoCanOpen('${Routes.home}$loc') ? '${Routes.home}$loc' : _demoBlocked;
+      }
+      // Client demo safety net: a screen that is not allowed is never opened. It is
+      // not registered, and this unregistered target lands in onException (stay put).
+      if (!demoCanOpen(state.uri.path)) return _demoBlocked;
       // Signed in: the sign-in screens are no longer reachable.
       if (onAuth && loc != Routes.splash) return Routes.home;
       return null;
@@ -116,17 +126,37 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state, shell) =>
             _fade(state, MainShell(navigationShell: shell, location: state.uri.path, branchKeys: branchKeys)),
         branches: [
-          // Client demo: only the Home branch exists (Assets / Work in the bar are inert).
-          for (final (i, root) in [
-            _homeRoute(),
-            if (!kClientDemo) ...[_assetsRoute(), _workRoute(), _moreRoute()],
-          ].indexed)
-            StatefulShellBranch(navigatorKey: branchKeys[i], routes: [root]),
+          // Client demo: only the allowed screens are registered (demoRoutes).
+          for (final (i, root) in [_homeRoute(), _assetsRoute(), _workRoute(), _moreRoute()].indexed)
+            StatefulShellBranch(navigatorKey: branchKeys[i], routes: demoRoutes([root])),
         ],
       ),
     ],
   );
 });
+
+/// [routes] without the screens the client demo does not allow (lib/app/client_demo.dart):
+/// a route is kept when its full path is in `kDemoScreens`, and its children are
+/// filtered the same way. With the demo off the routes are returned unchanged.
+@visibleForTesting
+List<RouteBase> demoRoutes(List<RouteBase> routes, [String parent = '']) {
+  if (!clientDemoActive) return routes;
+  return [
+    for (final r in routes)
+      if (r is GoRoute)
+        for (final full in [r.path.startsWith('/') ? r.path : '${parent == '/' ? '' : parent}/${r.path}'])
+          if (demoScreenFor(full) != null)
+            GoRoute(
+              path: r.path,
+              name: r.name,
+              builder: r.builder,
+              pageBuilder: r.pageBuilder,
+              redirect: r.redirect,
+              parentNavigatorKey: r.parentNavigatorKey,
+              routes: demoRoutes(r.routes, full),
+            ),
+  ];
+}
 
 /// Smooth cross-fade (splash → login, authenticator → home).
 CustomTransitionPage<void> _fade(GoRouterState state, Widget child) => CustomTransitionPage<void>(
@@ -165,16 +195,12 @@ GoRoute _homeRoute() => GoRoute(
   path: Routes.home,
   builder: (_, _) => const HomeScreen(),
   routes: [
-    // Client demo: Home's only child is the simple camera Scan screen.
-    if (kClientDemo) GoRoute(path: Routes.scanSegment, builder: (_, _) => const DemoScanScreen()),
-    if (!kClientDemo) ...[
-      GoRoute(path: 'approvals', builder: (_, _) => const MyApprovalsScreen()),
-      GoRoute(
-        path: 'tasks',
-        builder: (_, state) => MyTasksScreen(initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0),
-      ),
-      ..._shared(),
-    ],
+    GoRoute(path: 'approvals', builder: (_, _) => const MyApprovalsScreen()),
+    GoRoute(
+      path: 'tasks',
+      builder: (_, state) => MyTasksScreen(initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0),
+    ),
+    ..._shared(),
   ],
 );
 

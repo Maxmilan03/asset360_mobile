@@ -189,8 +189,11 @@
 - SnackBars are shown by the shell's root Scaffold; `AppScaffold` marks routes with sticky `bottomActions`
   (`markStickyActions`) so `context.showSnack` lifts the SnackBar above them. Custom SnackBars should pass
   `margin: context.snackMargin`. `SignaturePad` / `SignaturePainter` now live in core/widgets/signature_pad.dart.
-- Client demo mode: `kClientDemo` in `lib/app/feature_flags.dart` (see README). When true only Home + Scan
-  (`features/assets/scan/demo_scan_screen.dart`) are routed; gated taps go through `DemoGate` (`core/widgets/demo_gate.dart`).
+- Client demo: screen-level allow-list in `lib/app/client_demo.dart` (`kUseClientDemo`, `kDemoScreens` route patterns,
+  `DemoAction` / `kDemoActions`, `demoCanOpen` / `demoCanDo`; README "Client demo"). `demoRoutes()` in app_router.dart
+  registers only allowed screens; blocked controls go through `DemoGuard` (core/widgets/demo_guard.dart). New links to a
+  screen should use `DemoGuard.push/go`, new sheets / dialogs / pickers on an allowed screen need a `DemoAction`.
+  Screenshots: `design/client_demo/`. Tests turn the demo off in `test/flutter_test_config.dart`.
 - `DemoClock.now` starts at 25 Sep 2026 10:30 AM and runs forward; `DemoClock.frozen` pins it (tests).
 - App size: bundled images in `assets/images/` are WebP (q80) — add new ones as `.webp`. Release builds use R8 code +
   resource shrinking (`android/app/proguard-rules.pro`), the unbundled ML Kit barcode model

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
@@ -33,7 +32,7 @@ class MovementRow extends ConsumerWidget {
       details: [_line('From:', m.from.name), _line('To:', m.to.name, icon: true)],
       trailingTop: StatusChip(m.status),
       trailingBottom: DemoClock.formatDate(m.createdAt),
-      onTap: () => context.push(Routes.movementRequest(m.id)),
+      onTap: DemoGuard.push(context, Routes.movementRequest(m.id)),
     );
   }
 
@@ -138,7 +137,7 @@ class MovementSummary extends StatelessWidget {
           child: Column(
             children: [
               InkWell(
-                onTap: () => context.push(Routes.assetDetail(a.id)),
+                onTap: DemoGuard.tap(DemoAction.movementAssetLink, DemoGuard.push(context, Routes.assetDetail(a.id))),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -538,7 +537,7 @@ class SelectedAssetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = asset;
     return AppCard(
-      onTap: () => context.push(Routes.assetDetail(a.id)),
+      onTap: DemoGuard.tap(DemoAction.movementAssetLink, DemoGuard.push(context, Routes.assetDetail(a.id))),
       child: Row(
         children: [
           AssetThumb(imagePath: a.imagePath, fallbackIcon: assetIcon(a), size: 72),

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import 'package:asset360_mobile/app/feature_flags.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
@@ -26,6 +25,13 @@ class ModuleDef {
 
   /// Location prefix that marks this module as current (defaults to [route]).
   final String? prefix;
+
+  /// Whether the client demo allows the tile (client_demo.dart). Logout is always on.
+  bool get enabled => switch (action) {
+    ModuleAction.go => demoCanOpen(route),
+    ModuleAction.profile => demoCanOpen(Routes.profileFrom(Routes.home)),
+    ModuleAction.logout => true,
+  };
 
   bool matches(String location) {
     if (action == ModuleAction.profile) return location.endsWith('/${Routes.profileSegment}');
@@ -65,6 +71,7 @@ const moreModules = [
 
 /// Opens a tile's module: go to its route, push Profile on the current tab, or confirm Logout.
 void openModule(BuildContext context, WidgetRef ref, ModuleDef m, {required String from}) {
+  if (!m.enabled) return;
   switch (m.action) {
     case ModuleAction.go:
       GoRouter.of(context).go(m.route);
@@ -151,7 +158,7 @@ class AllModulesGrid extends ConsumerWidget {
             module: m,
             selected: identical(m, current),
             badge: m.route == Routes.alerts ? unread : 0,
-            onTap: DemoGate.tap(() => onSelect(m)),
+            onTap: m.enabled ? () => onSelect(m) : null,
           ),
       ],
     );
@@ -160,14 +167,9 @@ class AllModulesGrid extends ConsumerWidget {
       children: [
         grid(allModules),
         const SizedBox(height: 18),
-        // Client demo: the only "More" entry is Logout, so the login can be replayed.
-        if (kClientDemo)
-          _LogoutRow(onTap: () => onSelect(moreModules.firstWhere((m) => m.action == ModuleAction.logout)))
-        else ...[
-          Text('More', style: AppText.sectionTitle),
-          const SizedBox(height: 10),
-          grid(moreModules),
-        ],
+        Text('More', style: AppText.sectionTitle),
+        const SizedBox(height: 10),
+        grid(moreModules),
       ],
     );
   }
@@ -179,7 +181,7 @@ class _ModuleTile extends StatelessWidget {
   final ModuleDef module;
   final bool selected;
 
-  /// Null keeps the tile visible but inert (client demo mode).
+  /// Null keeps the tile visible but inert (module switched off).
   final VoidCallback? onTap;
   final int badge;
 
@@ -243,42 +245,6 @@ class _ModuleTile extends StatelessWidget {
                     ),
                   ),
                 ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Single "Logout" row shown under the grid in client demo mode.
-class _LogoutRow extends StatelessWidget {
-  const _LogoutRow({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(AppRadius.tile);
-    return Material(
-      color: AppColors.tileLavender,
-      borderRadius: radius,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              const Icon(Icons.logout_rounded, color: AppColors.red, size: 24),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Logout',
-                  style: AppText.body.copyWith(fontWeight: FontWeight.w600, color: AppColors.red),
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
             ],
           ),
         ),
