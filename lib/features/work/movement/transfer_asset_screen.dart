@@ -560,9 +560,6 @@ class _TransferAssetScreenState extends ConsumerState<TransferAssetScreen> {
   );
 
   Widget _toStep() {
-    final buildings = _site == null ? const <String>[] : locationTree[_site]!.keys.toList();
-    final floors = _building == null ? const <String>[] : locationTree[_site]![_building]!.keys.toList();
-    final zones = _floor == null ? const <String>[] : locationTree[_site]![_building]![_floor]!;
     final people = ref.watch(peopleProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -594,37 +591,16 @@ class _TransferAssetScreenState extends ConsumerState<TransferAssetScreen> {
         ),
         const SizedBox(height: 14),
         if (_dest == DestKind.location) ...[
-          FieldPair(
-            _dropdown(
-              'Site',
-              _site,
-              locationTree.keys.toList(),
-              (v) => setState(() {
-                _site = v;
-                _building = _floor = _zone = null;
-              }),
-            ),
-            _dropdown(
-              'Building',
-              _building,
-              buildings,
-              (v) => setState(() {
-                _building = v;
-                _floor = _zone = null;
-              }),
-            ),
-          ),
-          FieldPair(
-            _dropdown(
-              'Floor',
-              _floor,
-              floors,
-              (v) => setState(() {
-                _floor = v;
-                _zone = null;
-              }),
-            ),
-            _dropdown('Room / Zone', _zone, zones, (v) => setState(() => _zone = v)),
+          // A location tag (QR, NFC or the scanner trigger) fills the "To" location.
+          LocationField(
+            value: LocationValue(site: _site, building: _building, floor: _floor, room: _zone),
+            onChanged: (v) => setState(() {
+              _site = v.site;
+              _building = v.building;
+              _floor = v.floor;
+              _zone = v.room;
+              _toError = null;
+            }),
           ),
         ] else if (_dest == DestKind.department)
           _dropdown('Department', _department, departments, (v) => setState(() => _department = v))

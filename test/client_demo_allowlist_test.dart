@@ -50,6 +50,15 @@ final _allowedLocations = [
 final _blockedLocations = [
   Routes.approvals,
   Routes.myTasks,
+  // Home drill-downs: the Home links stay inert in the client demo.
+  Routes.assetOverview,
+  Routes.maintenancePerformance,
+  Routes.activitiesView('calendar'),
+  Routes.recentAlerts,
+  Routes.assetLocation,
+  Routes.assetHealth,
+  Routes.costSummary,
+  Routes.recentAssets,
   for (final tab in Routes.tabRoots) ...[
     Routes.scanResultFrom(tab, 'CNC-00123'),
     Routes.scanHistoryFrom(tab),

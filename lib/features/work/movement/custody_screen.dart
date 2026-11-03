@@ -10,7 +10,6 @@ import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/models/movement.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/movements_repository.dart';
-import 'package:asset360_mobile/data/repositories/scans_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 import 'package:asset360_mobile/features/work/movement/movement_widgets.dart';
@@ -45,7 +44,7 @@ class _CustodyScreenState extends ConsumerState<CustodyScreen> {
   String? _custodian;
   String? _personId;
   DateTime? _date;
-  String? _location;
+  LocationValue _loc = LocationValue.empty;
   String? _condition;
   final _text = TextEditingController();
   List<String> _photos = [];
@@ -57,6 +56,20 @@ class _CustodyScreenState extends ConsumerState<CustodyScreen> {
   void dispose() {
     _text.dispose();
     super.dispose();
+  }
+
+  /// An asset tag scanned while the location field is showing selects the asset.
+  void _scannedAsset(String id) {
+    final allowed = _candidates;
+    if (allowed != null && !allowed.contains(id)) {
+      context.showSnack('$id is not checked out');
+      return;
+    }
+    setState(() {
+      _assetId = id;
+      _errors.remove('asset');
+    });
+    context.showSnack('Asset filled from tag: $id');
   }
 
   List<String>? get _candidates => switch (_a) {
@@ -86,7 +99,7 @@ class _CustodyScreenState extends ConsumerState<CustodyScreen> {
           _errors['person'] = '${p.name} is already the custodian';
         }
       case CustodyAction.returnAsset:
-        if (_location == null) _errors['location'] = 'Choose where it is returned to';
+        if (_loc.floor == null) _errors['location'] = 'Choose where it is returned to (site, building and floor)';
         if (_condition == null) _errors['condition'] = 'Choose the condition';
     }
     if (_date != null && _date!.isBefore(DemoClock.today)) _errors['date'] = 'The date cannot be in the past';
@@ -102,12 +115,16 @@ class _CustodyScreenState extends ConsumerState<CustodyScreen> {
     final remarks = _text.text.trim().isEmpty ? null : _text.text.trim();
     final (to, custodian, summary) = switch (_a) {
       CustodyAction.checkOut => (here, _custodian, '${asset.id} checked out to $_custodian'),
-      CustodyAction.checkIn => (here, null, '${asset.id} checked in (custodian cleared)'),
+      CustodyAction.checkIn => (
+        _loc.path == null ? here : MovePlace(_loc.path!, null, null, _loc.path),
+        null,
+        '${asset.id} checked in${_loc.path == null ? '' : ' at ${_loc.path}'} (custodian cleared)',
+      ),
       CustodyAction.assign => (here, person!.labelWithRole, '${person.name} is now custodian of ${asset.id}'),
       CustodyAction.returnAsset => (
-        MovePlace(_location!, null, null, _location),
+        MovePlace(_loc.path!, null, null, _loc.path),
         null,
-        '${asset.id} returned to $_location',
+        '${asset.id} returned to ${_loc.path}',
       ),
     };
     final ok = await showConfirmDialog(
@@ -284,6 +301,13 @@ class _CustodyScreenState extends ConsumerState<CustodyScreen> {
             CustodyAction.checkIn => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                section('Checked in at (optional)'),
+                LocationField(
+                  value: _loc,
+                  required: const {},
+                  onAsset: _scannedAsset,
+                  onChanged: (v) => setState(() => _loc = v),
+                ),
                 section('Condition'),
                 conditionChips(),
                 section('Remarks'),
@@ -322,10 +346,15 @@ class _CustodyScreenState extends ConsumerState<CustodyScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 section('Return to'),
-                dropdown('location', _location, [
-                  for (final l in scanLocations)
-                    if (l != asset?.location) (l, l),
-                ], (v) => _location = v),
+                LocationField(
+                  value: _loc,
+                  errorText: _errors['location'],
+                  onAsset: _scannedAsset,
+                  onChanged: (v) => setState(() {
+                    _loc = v;
+                    _errors.remove('location');
+                  }),
+                ),
                 section('Condition'),
                 conditionChips(),
                 section('Remarks'),

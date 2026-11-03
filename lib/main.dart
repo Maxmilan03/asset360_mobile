@@ -6,6 +6,7 @@ import 'package:image_picker_platform_interface/image_picker_platform_interface.
 
 import 'package:asset360_mobile/app/app.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
+import 'package:asset360_mobile/core/scanning/scan_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,5 +16,6 @@ void main() {
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(AppTheme.headerOverlay);
+  loadDeviceLabel(); // model + OS saved with each scan (Local Data)
   runApp(const ProviderScope(child: Asset360App()));
 }

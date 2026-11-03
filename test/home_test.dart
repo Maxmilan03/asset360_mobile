@@ -108,8 +108,10 @@ void main() {
 
     await tester.tap(find.text('More Actions'));
     await tester.pumpAndSettle();
-    expect(find.text('Tracking & IoT'), findsOneWidget);
-    await tester.tapAt(const Offset(20, 20));
+    expect(c.read(routerProvider).state.uri.toString(), Routes.moreActionsFrom(Routes.home));
+    expect(find.text('Additional asset actions'), findsOneWidget);
+    expect(find.text('Select an asset'), findsOneWidget);
+    await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
 
     await tester.fling(find.byType(CustomScrollView), const Offset(0, 400), 1000);
@@ -143,11 +145,19 @@ void main() {
     expect(c.read(workOrdersProvider).first.title, 'Spindle noise');
   });
 
-  testWidgets('Maintenance Calendar lists the day items', (tester) async {
-    await _pumpHome(tester);
+  testWidgets('View Calendar opens Upcoming Activities on today; Maintenance Calendar lists the day items', (
+    tester,
+  ) async {
+    final c = await _pumpHome(tester);
     await tester.ensureVisible(find.text('View Calendar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('View Calendar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Upcoming Activities'), findsOneWidget);
+    expect(find.text('Fri, 25 Sep 2026'), findsOneWidget);
+    expect(find.text('Today'), findsWidgets);
+
+    c.read(routerProvider).go(Routes.maintenanceCalendar);
     await tester.pumpAndSettle();
     expect(find.text('Maintenance Calendar'), findsOneWidget);
     expect(find.textContaining('Fri, 25 Sep 2026 ('), findsOneWidget);

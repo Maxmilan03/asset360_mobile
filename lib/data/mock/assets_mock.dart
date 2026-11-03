@@ -147,6 +147,7 @@ List<Asset> seedAssets() {
       salvageValue: 24500,
       imagePath: '$_img/generator.webp',
       favorite: true,
+      favoriteGroup: 'Critical Equipment',
       iot: _iot('Teltonika FMB920', 'Engine Monitor', '45', 92, -61),
       telemetry: const [
         TelemetryReading(key: 'temperature', label: 'Engine Temperature', value: 85, unit: '°C'),
@@ -252,6 +253,7 @@ List<Asset> seedAssets() {
       salvageValue: 20000,
       imagePath: '$_img/forklift.webp',
       favorite: true,
+      favoriteGroup: 'My Assets',
       iot: _iot('Teltonika FMB140', 'Vehicle Tracker', '12', 78, -62),
     ),
     Asset(

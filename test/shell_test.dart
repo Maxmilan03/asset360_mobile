@@ -22,6 +22,7 @@ const _params = {
   'unitId': 'PCB-A-4587',
   'moId': 'MO-2026-0018',
   'partId': 'BR-6205',
+  'action': 'print-tag',
 };
 
 /// Every concrete path in the router, with parameters filled in.

@@ -161,10 +161,16 @@ extension MovementQueries on List<MovementRequest> {
   List<MovementRequest> forAsset(String assetId) => where((m) => m.assetId == assetId).toList();
 
   /// Assets currently checked out (latest record per asset is a Check Out).
+  /// Same time → list order decides (new records are added at the front).
   List<String> get checkedOutAssetIds {
+    final newestFirst = [...indexed]
+      ..sort((a, b) {
+        final byTime = b.$2.createdAt.compareTo(a.$2.createdAt);
+        return byTime != 0 ? byTime : a.$1.compareTo(b.$1);
+      });
     final latest = <String, MovementRequest>{};
-    for (final m in [...this]..sort((a, b) => a.createdAt.compareTo(b.createdAt))) {
-      if (m.status == MoveStatus.completed) latest[m.assetId] = m;
+    for (final (_, m) in newestFirst) {
+      if (m.status == MoveStatus.completed) latest.putIfAbsent(m.assetId, () => m);
     }
     return [
       for (final e in latest.entries)

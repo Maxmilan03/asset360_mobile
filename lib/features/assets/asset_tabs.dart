@@ -9,7 +9,6 @@ import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/models/document.dart';
-import 'package:asset360_mobile/data/models/tracking.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/documents_repository.dart';
 import 'package:asset360_mobile/data/repositories/inspections_repository.dart';
@@ -18,6 +17,7 @@ import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
 import 'package:asset360_mobile/data/repositories/movements_repository.dart';
 import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/data/repositories/sync_repository.dart';
 import 'package:asset360_mobile/data/repositories/tracking_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 
@@ -119,19 +119,7 @@ class AssetLocationTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tracked = ref.watch(trackingProvider).entities.firstWhereOrNull((e) => e.assetId == asset.id);
-    // Assets without a live tag get a fixed pin from their ID so it stays put between visits.
-    final h = asset.id.codeUnits.fold<int>(7, (s, c) => (s * 31 + c) % 997);
-    final pin =
-        tracked ??
-        TrackedEntity(
-          id: asset.id,
-          label: asset.id,
-          kind: TrackedKind.equipment,
-          x: .40 + (h % 28) / 100,
-          y: .32 + (h % 38) / 100,
-          zone: locationArea(asset.location),
-          assetId: asset.id,
-        );
+    final pin = assetFloorPin(asset, tracked);
     final parts = locationParts(asset);
     final history = asset.locationHistory;
     return Column(
@@ -629,6 +617,37 @@ class AssetDocumentsTab extends ConsumerWidget {
             children: [for (final d in docs) _DocRow(doc: d)],
           ),
         ),
+        const SizedBox(height: 12),
+        SectionCard(
+          title: 'Photos & Videos (${asset.gallery.length + asset.videos.length})',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (asset.gallery.isEmpty && asset.videos.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Text('No photos or videos yet.', textAlign: TextAlign.center, style: AppText.secondary),
+                ),
+              if (asset.gallery.isNotEmpty) PhotoStrip(photos: asset.gallery, thumbWidth: 96, thumbHeight: 72),
+              for (final v in asset.videos)
+                _Row(
+                  leading: IconSquare(icon: Icons.play_circle_outline_rounded, tone: TileTone.peach, size: 36),
+                  title: v.caption ?? syncFileName(v.path),
+                  subtitle: 'Video · ${DemoClock.formatDateTime(v.at)} · ${v.by}',
+                  onTap: () => showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (context) => sheetFrame(context, [
+                      SheetTitle(v.caption ?? 'Video', subtitle: '${asset.id} · ${DemoClock.formatDateTime(v.at)}'),
+                      VideoPreview(path: v.path),
+                      const SizedBox(height: 14),
+                      FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                    ]),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -728,7 +747,8 @@ class AssetHistoryTab extends ConsumerWidget {
         ),
     ]..sort((a, b) => b.at.compareTo(a.at));
 
-    return SectionCard(
+    final conditions = asset.conditionHistory;
+    final history = SectionCard(
       title: 'History (${events.length})',
       child: events.isEmpty
           ? Padding(
@@ -759,6 +779,37 @@ class AssetHistoryTab extends ConsumerWidget {
                 ],
               ),
             ),
+    );
+    if (conditions.isEmpty) return history;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionCard(
+          title: 'Condition History (${conditions.length})',
+          child: Column(
+            children: [
+              for (var i = 0; i < conditions.length; i++)
+                _TimelineRow(
+                  icon: Icons.fact_check_outlined,
+                  color: ChipTone.forStatus(conditions[i].condition).foreground,
+                  title: conditions[i].previous == null || conditions[i].previous == conditions[i].condition
+                      ? conditions[i].condition
+                      : '${conditions[i].previous} → ${conditions[i].condition}',
+                  subtitle: [
+                    DemoClock.formatDate(conditions[i].at),
+                    conditions[i].by,
+                    ?conditions[i].comments,
+                    if (conditions[i].photos.isNotEmpty) '${conditions[i].photos.length} photo(s)',
+                  ].join(' · '),
+                  last: i == conditions.length - 1,
+                  onTap: conditions[i].photos.isEmpty ? null : () => openPhotoViewer(context, conditions[i].photos),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        history,
+      ],
     );
   }
 }

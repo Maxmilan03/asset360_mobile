@@ -18,7 +18,11 @@
    All "5 mins ago", "Due in 1h 20m", "Overdue" etc. are computed from DemoClock, never DateTime.now().
 7. STACK: Flutter stable, Dart 3, Material 3, flutter_riverpod (hand-written Notifier classes, no code
    generation), go_router, fl_chart, mobile_scanner, image_picker, file_picker, intl, shimmer.
-   No freezed, no build_runner. Add other packages only when a prompt names them.
+   No freezed. build_runner for drift only (`dart run build_runner build --delete-conflicting-outputs --force-jit`).
+   Add other packages only when a prompt names them (also: drift, drift_flutter, sqlite3_flutter_libs,
+   path_provider, nfc_manager, shared_preferences, printing, pdf, share_plus, video_player).
+   Scans, locations and tag links are stored in SQLite via drift (lib/data/db/). Screens read them through
+   Riverpod StreamProviders using .watch(). Every scan from any source goes through ScanService.
 8. QUALITY: `flutter analyze` must be clean after every prompt. Reuse shared widgets from
    lib/core/widgets/. Don't duplicate UI code.
 9. After finishing each prompt: run `flutter analyze`, fix everything, then give me a short summary
@@ -175,6 +179,19 @@
   `passwordRules`, Switch Site, Logout via `confirmLogout` in core/session_actions.dart), `features/more/account/` (settings) (Appearance =
   `AppColors.dark`, Developer section only in `kDebugMode`, `resetDemoData`), `features/more/account/help_screen.dart` (`helpFaqs`,
   `ReportBugScreen`). Tests: `test/profile_settings_test.dart`.
+- Home drill-downs: `features/home/drilldowns/` (one screen per file, frame = `DrilldownPage`: back arrow, title,
+  pull-to-refresh shimmer) at `/home/asset-overview`, `maintenance-performance`, `activities?view=list|calendar`,
+  `recent-alerts`, `asset-location`, `asset-health`, `cost-summary`, `recent-assets` (not in the client demo allow-list,
+  so the Home links stay inert there). Home sections live in `features/home/sections/` (one widget per card); shared
+  colours / icons in `features/home/home_style.dart`. Data: `home_mock.dart` + `home_repository.dart` —
+  `assetBreakdownProvider` (by type / by site-building, each split Healthy ≥80 / Warning 60–79 / Critical <60; kept in
+  step by `AssetsNotifier.add/delete`), `assetTypeGroup` / `assetLocationGroup` map a detailed asset to a breakdown row
+  (Assets list `?type=` / `?location=`), `maintenanceMonthsProvider` (Oct 2025 – Sep 2026 per site × type; last 6 =
+  236 / 24 / 11), `mttrPerMonth` / `mtbfPerMonth`, `costYearsProvider` (YTD 2026 = org costs, 2025; 3 cards = `CostGroup`),
+  `plannedActivitiesProvider` (21 Sep – 4 Oct from WOs, inspections, audits, my approvals), `criticalHealthAssetsProvider`
+  (`healthReasons`), `assetLastActivityProvider`, `mapPinsProvider` (`mapFloors` / `mapPins`, live for tracked assets).
+  Shared: `core/widgets/insight_widgets.dart` (`DonutChart`, `DonutWithLegend`, `LegendRow`, `CountCard`, `ChangeChip`,
+  `StackedMiniBar`, `WeekStrip`, `SeriesLegend`). Data check group "Home drill-downs"; tests in `test/drilldowns/`.
 - Lists (prompt 19 QA): every list shows a shimmer first and has an `EmptyState`. Shared in `core/widgets/loading_list.dart`:
   `ListSkeleton`, `LoadingGate` (box lists; `LoadingGate.delay` = 350 ms), `SliverLoadingGate`, `SliverCardList` (rows of
   one card, lazy), `GatedSliverList` (gate + empty state + lazy rows) and `LazyListPage` (header widgets + lazy sliver list).
@@ -183,6 +200,17 @@
 - Consistency: issues and alerts copy their asset's location (`seedLocationOf` in assets_mock.dart);
   `AssetsNotifier.setLocation` carries open issues / active alerts along (`followAsset`). Data check has the rule; tests in
   `test/data_check_test.dart`. Cross-module flows: `test/flows_test.dart`. QA report: `docs/QA_REPORT.md` + `docs/qa/`.
+- More Actions: `features/assets/more_actions/` — `more_actions_screen.dart` (`/<tab>/more-actions?asset=`, under every
+  tab like Scan; `Routes.moreActionsFrom` / `moreActionFrom(location, slug, id)`; `openMoreActions` / `openMoreAction` in
+  asset_actions.dart; a `ScanTarget` selects the asset from any scan), one screen per action (`MoreAction` enum + shared
+  `MoreActionPage`, `MoreActionAssetCard`, `SelectField`, `finishAction` in `more_action_widgets.dart`). Entry points:
+  Home "More Actions" tile (inert in the client demo), Asset detail tile + ⋮, Scan result tile. Data:
+  `Asset.conditionHistory` / `videos` / `favoriteGroup`, `favoriteGroupsProvider`, `AssetsNotifier.updateCondition` /
+  `setFavorite` / `addVideo`, `disposalsProvider` (disposals_repository.dart; approver = signed-in user; counted in Home
+  Approvals + My Approvals; approve → `AssetStatus.disposed`). Options in `data/mock/more_actions_mock.dart`. Print =
+  `buildTagPdf` + printing; Share = share_plus; Email = `AppLauncher.openUrl` (mailto, platform channel). Shared:
+  `showPersonPicker` / `PersonField` / `PersonAvatar` (core/widgets/person_picker.dart), `VideoPreview` (video_player),
+  `showReasonDialog` (dialogs.dart), `FloorPlan(variant:, showLabels:)`, `DocumentUploadBox`. Tests: test/more_actions_test.dart.
 - Transfer approver: the Transfer form's Details step has an Approver dropdown (Ahmed Ali by default; the signed-in user
   can pick themselves, "self-approve (demo)", so the request appears in My Approvals). Multi-step forms jump to the top on
   every step change (`_goTo`).
@@ -199,3 +227,15 @@
   resource shrinking (`android/app/proguard-rules.pro`), the unbundled ML Kit barcode model
   (`dev.steenbakker.mobile_scanner.useUnbundled=true` in android/gradle.properties) and
   `--obfuscate --split-debug-info=build/symbols` (keep build/symbols, see README).
+- Local storage & scanning: `lib/data/db/` (drift `AppDatabase`: ScanLog, Locations (seeded from `locationTree`,
+  codes like `BLD-A-F2`), TagLinks; `db_providers.dart` StreamProviders). `lib/core/scanning/`: `scan_service.dart`
+  (`ScanService.submit` = 2 s duplicate guard + match order links → `LOC:` code → asset → part → none; `ScanTarget` /
+  `ScanTargets`), `scan_dispatch.dart` (`handleScanEvent`, `deliverScan`, `ScanTargetScope`, unknown-tag / link /
+  location sheets, `readNfcWithSheet`), `nfc_reader.dart` (nfc_manager, `nfcReaderProvider` — tests override it),
+  `hht_scanner.dart` (presets, `scannerSettingsProvider` in shared_preferences, `KeyboardWedgeDetector`, broadcast
+  channel), `hardware_scan_listener.dart` (wraps the shell; `ScanFieldScope` marks scan text fields). Kotlin
+  receiver in MainActivity.kt. Shared: `LocationField` / `LocationSelector` / `LocationValue`
+  (core/widgets/location_field.dart; used in Registration step 3, Transfer step 3, Audit Scanned Location, Report
+  Issue, Check In / Return), `LocalDataBadge`. Screens: `features/more/local_data/` (`/more/local-data`),
+  `features/more/account/scanner_settings_screen.dart` (`/more/scanner`). Tests use an in-memory database
+  (test/flutter_test_config.dart); scans use real time (`DateTime.now`), demo data keeps DemoClock.

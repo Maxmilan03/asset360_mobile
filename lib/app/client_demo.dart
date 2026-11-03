@@ -45,6 +45,9 @@ const Set<String> kDemoScreens = {
   '/more/inventory/part/:partId',
   // 12_stock_movement (Stock History tab only, see DemoAction.stockOtherTabs)
   '/more/inventory/part/:partId/movement',
+  // Local storage & scanning: Local Data and Settings → Scanner
+  '/more/local-data',
+  '/more/scanner',
 };
 
 /// Named in-screen actions: the controls that open a sheet, dialog, picker or form,
@@ -56,10 +59,8 @@ enum DemoAction {
   homeSiteSelector,
   homeCustomize,
   homeMoreActions,
-  homeInsightSheets, // Maintenance KPI, Asset Health and Cost Summary sheets
   homeLegendFilters, // Asset Overview legend rows → filtered Assets list
   homeActivityRows, // Upcoming Activities rows
-  homeRecentAssetsViewAll,
   // Header
   headerUserMenu,
   // Assets list

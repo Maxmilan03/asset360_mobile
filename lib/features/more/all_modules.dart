@@ -65,6 +65,7 @@ const moreModules = [
   ModuleDef('Offline Sync', Icons.cloud_sync_rounded, AppColors.iconTeal, Routes.offlineSync),
   ModuleDef('Profile', Icons.person_rounded, AppColors.iconViolet, '', action: ModuleAction.profile),
   ModuleDef('Settings', Icons.settings_rounded, Color(0xFF5B5A74), Routes.settings),
+  ModuleDef('Local Data', Icons.storage_rounded, AppColors.iconTeal, Routes.localData),
   ModuleDef('Help & Support', Icons.help_rounded, AppColors.iconBlue, Routes.help),
   ModuleDef('Logout', Icons.logout_rounded, AppColors.red, '', action: ModuleAction.logout),
 ];

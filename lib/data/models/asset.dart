@@ -81,6 +81,36 @@ class LocationRecord {
   final String by;
 }
 
+/// One "Update Condition" record (More Actions), newest first on the asset.
+class ConditionRecord {
+  const ConditionRecord({
+    required this.at,
+    required this.condition,
+    required this.by,
+    this.previous,
+    this.comments,
+    this.photos = const [],
+  });
+
+  /// Condition date chosen on the form.
+  final DateTime at;
+  final String condition;
+  final String? previous;
+  final String by;
+  final String? comments;
+  final List<String> photos;
+}
+
+/// A video added from More Actions → Add Photo / Video.
+class AssetVideo {
+  const AssetVideo({required this.path, required this.at, required this.by, this.caption});
+
+  final String path;
+  final DateTime at;
+  final String by;
+  final String? caption;
+}
+
 class Asset {
   const Asset({
     required this.id,
@@ -112,6 +142,10 @@ class Asset {
     this.imagePath,
     this.photos = const [],
     this.favorite = false,
+    this.favoriteGroup,
+    this.favoriteNote,
+    this.videos = const [],
+    this.conditionHistory = const [],
     this.iot,
     this.telemetry = const [],
     this.trends = const {},
@@ -166,6 +200,14 @@ class Asset {
   /// Extra photos added by users (the main photo is [imagePath]).
   final List<String> photos;
   final bool favorite;
+
+  /// Favorite group (More Actions → Add to Favorites), e.g. "Critical Equipment".
+  final String? favoriteGroup;
+  final String? favoriteNote;
+  final List<AssetVideo> videos;
+
+  /// Update Condition records, newest first.
+  final List<ConditionRecord> conditionHistory;
   final IotDevice? iot;
   final List<TelemetryReading> telemetry;
 
@@ -215,6 +257,10 @@ class Asset {
     DateTime? amcExpiry,
     List<String>? photos,
     bool? favorite,
+    String? favoriteGroup,
+    String? favoriteNote,
+    List<AssetVideo>? videos,
+    List<ConditionRecord>? conditionHistory,
     IotDevice? iot,
     List<TelemetryReading>? telemetry,
     List<LocationRecord>? locationHistory,
@@ -251,6 +297,10 @@ class Asset {
       imagePath: imagePath,
       photos: photos ?? this.photos,
       favorite: favorite ?? this.favorite,
+      favoriteGroup: favoriteGroup ?? this.favoriteGroup,
+      favoriteNote: favoriteNote ?? this.favoriteNote,
+      videos: videos ?? this.videos,
+      conditionHistory: conditionHistory ?? this.conditionHistory,
       iot: iot ?? this.iot,
       telemetry: telemetry ?? this.telemetry,
       trends: trends,

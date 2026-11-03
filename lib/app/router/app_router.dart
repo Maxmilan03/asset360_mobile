@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_detail_screen.dart';
 import 'package:asset360_mobile/features/assets/assets_list_screen.dart';
+import 'package:asset360_mobile/features/assets/more_actions/more_actions_screen.dart';
 import 'package:asset360_mobile/features/auth/authenticator_screen.dart';
 import 'package:asset360_mobile/features/auth/forgot_password_screen.dart';
 import 'package:asset360_mobile/features/auth/login_screen.dart';
@@ -14,6 +15,14 @@ import 'package:asset360_mobile/features/more/documents/document_detail_screen.d
 import 'package:asset360_mobile/features/more/documents/document_viewer_screen.dart';
 import 'package:asset360_mobile/features/more/documents/documents_screen.dart';
 import 'package:asset360_mobile/features/more/account/help_screen.dart';
+import 'package:asset360_mobile/features/home/drilldowns/activities_screen.dart';
+import 'package:asset360_mobile/features/home/drilldowns/asset_health_screen.dart';
+import 'package:asset360_mobile/features/home/drilldowns/asset_location_screen.dart';
+import 'package:asset360_mobile/features/home/drilldowns/asset_overview_screen.dart';
+import 'package:asset360_mobile/features/home/drilldowns/cost_summary_screen.dart';
+import 'package:asset360_mobile/features/home/drilldowns/maintenance_performance_screen.dart';
+import 'package:asset360_mobile/features/home/drilldowns/recent_alerts_screen.dart';
+import 'package:asset360_mobile/features/home/drilldowns/recent_assets_screen.dart';
 import 'package:asset360_mobile/features/home/home_screen.dart';
 import 'package:asset360_mobile/features/more/account/profile_screen.dart';
 import 'package:asset360_mobile/features/work/inspection/create_inspection_screen.dart';
@@ -63,7 +72,9 @@ import 'package:asset360_mobile/features/more/tracking/telemetry_view.dart';
 import 'package:asset360_mobile/features/more/tracking/tracking_hub_screen.dart';
 import 'package:asset360_mobile/features/more/tracking/tracking_pages.dart';
 import 'package:asset360_mobile/features/more/account/demo_tags_screen.dart';
+import 'package:asset360_mobile/features/more/account/scanner_settings_screen.dart';
 import 'package:asset360_mobile/features/more/account/settings_screen.dart';
+import 'package:asset360_mobile/features/more/local_data/local_data_screen.dart';
 import 'package:asset360_mobile/features/assets/scan/scan_history_screen.dart';
 import 'package:asset360_mobile/features/assets/scan/scan_result_screen.dart';
 import 'package:asset360_mobile/features/assets/scan/scan_screen.dart';
@@ -169,8 +180,8 @@ CustomTransitionPage<void> _fade(GoRouterState state, Widget child) => CustomTra
   ),
 );
 
-/// Notifications, Profile and Scan exist under every tab, so the header bell,
-/// avatar and the centre Scan button open them without switching tabs.
+/// Notifications, Profile, Scan and More Actions exist under every tab, so the header bell,
+/// avatar, the centre Scan button and asset actions open them without switching tabs.
 List<RouteBase> _shared() => [
   GoRoute(
     path: Routes.notificationsSegment,
@@ -189,6 +200,16 @@ List<RouteBase> _shared() => [
       GoRoute(path: 'history', builder: (_, _) => const ScanHistoryScreen()),
     ],
   ),
+  GoRoute(
+    path: Routes.moreActionsSegment,
+    builder: (_, state) => MoreActionsScreen(assetId: state.uri.queryParameters['asset']),
+    routes: [
+      GoRoute(
+        path: ':action',
+        builder: (_, state) => moreActionScreen(state.pathParameters['action']!, state.uri.queryParameters['asset']),
+      ),
+    ],
+  ),
 ];
 
 GoRoute _homeRoute() => GoRoute(
@@ -200,13 +221,29 @@ GoRoute _homeRoute() => GoRoute(
       path: 'tasks',
       builder: (_, state) => MyTasksScreen(initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0),
     ),
+    // Drill-downs of the Home cards (not in the client demo allow-list).
+    GoRoute(path: 'asset-overview', builder: (_, _) => const AssetOverviewScreen()),
+    GoRoute(path: 'maintenance-performance', builder: (_, _) => const MaintenancePerformanceScreen()),
+    GoRoute(
+      path: 'activities',
+      builder: (_, state) => ActivitiesScreen(calendar: state.uri.queryParameters['view'] == 'calendar'),
+    ),
+    GoRoute(path: 'recent-alerts', builder: (_, _) => const RecentAlertsScreen()),
+    GoRoute(path: 'asset-location', builder: (_, _) => const AssetLocationScreen()),
+    GoRoute(path: 'asset-health', builder: (_, _) => const AssetHealthScreen()),
+    GoRoute(path: 'cost-summary', builder: (_, _) => const CostSummaryScreen()),
+    GoRoute(path: 'recent-assets', builder: (_, _) => const RecentAssetsScreen()),
     ..._shared(),
   ],
 );
 
 GoRoute _assetsRoute() => GoRoute(
   path: Routes.assets,
-  builder: (_, state) => AssetsListScreen(initialStatus: state.uri.queryParameters['status']),
+  builder: (_, state) => AssetsListScreen(
+    initialStatus: state.uri.queryParameters['status'],
+    initialType: state.uri.queryParameters['type'],
+    initialLocation: state.uri.queryParameters['location'],
+  ),
   routes: [
     GoRoute(
       path: 'detail/:assetId',
@@ -366,6 +403,8 @@ GoRoute _moreRoute() => GoRoute(
   path: Routes.more,
   builder: (_, _) => const AllModulesScreen(),
   routes: [
+    GoRoute(path: 'local-data', builder: (_, _) => const LocalDataScreen()),
+    GoRoute(path: 'scanner', builder: (_, _) => const ScannerSettingsScreen()),
     GoRoute(path: 'contracts', builder: (_, _) => const ContractsWarrantyScreen()),
     GoRoute(path: 'financial', builder: (_, _) => const FinancialScreen()),
     GoRoute(

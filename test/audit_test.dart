@@ -168,11 +168,12 @@ void main() {
 
     await _tap(tester, find.text('Wrong\nLocation'));
     expect(find.text('Update asset location to scanned location'), findsOneWidget);
-    await _tap(tester, find.byTooltip('Pick from location tree'));
-    await _tap(tester, find.text('Building B'));
-    await _tap(tester, find.text('Ground Floor'));
-    await _tap(tester, find.text('Workshop'));
-    expect(find.text('Building B / Ground Floor – Workshop'), findsOneWidget);
+    // Scanned Location: Site is the audit's; Building → Floor → Room dropdowns.
+    for (final option in ['Building B', 'Ground Floor', 'Workshop']) {
+      await _tap(tester, find.text('Select').first);
+      await _tap(tester, find.text(option).last);
+    }
+    expect(find.text('Recorded: Building B / Ground Floor – Workshop'), findsOneWidget);
     await _tap(tester, find.text('Update asset location to scanned location'));
     await _tap(tester, find.text('Save & Next'));
 

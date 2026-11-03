@@ -2,6 +2,8 @@ import 'package:asset360_mobile/app/app.dart';
 import 'package:asset360_mobile/app/router/app_router.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/core/scanning/scan_dispatch.dart';
+import 'package:asset360_mobile/data/db/db_providers.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/mock/scans_mock.dart';
 import 'package:asset360_mobile/data/models/scan_record.dart';
@@ -18,13 +20,40 @@ class _SignedIn extends SessionNotifier {
   SessionState build() => super.build().copyWith(loggedIn: true, rememberMe: true);
 }
 
+/// NFC without hardware: every read returns a tag whose first text record is MTR-00123.
+class _FakeNfc implements NfcReader {
+  static const text = 'MTR-00123';
+
+  @override
+  Future<NfcState> availability() async => NfcState.enabled;
+
+  @override
+  Future<ScanEvent> readOnce({Duration timeout = const Duration(seconds: 30)}) async {
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    final records = [const NdefRecordInfo(kind: NdefKind.text, type: 'T', value: text, language: 'en')];
+    return ScanEvent(
+      value: nfcValue('04:A2:3B:4C', records),
+      format: 'nfc',
+      source: ScanSource.nfc,
+      nfcUid: '04:A2:3B:4C',
+      nfcRecords: records,
+    );
+  }
+
+  @override
+  Future<void> cancel() async {}
+}
+
 Future<ProviderContainer> _openScan(WidgetTester tester, {Size size = const Size(1170, 2532)}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   // ProviderScope (not an uncontrolled container) so the clock timer is disposed with the tree.
   await tester.pumpWidget(
-    ProviderScope(overrides: [sessionProvider.overrideWith(_SignedIn.new)], child: const Asset360App()),
+    ProviderScope(
+      overrides: [sessionProvider.overrideWith(_SignedIn.new), nfcReaderProvider.overrideWithValue(_FakeNfc())],
+      child: const Asset360App(),
+    ),
   );
   await tester.pump(SplashScreen.duration);
   await tester.pumpAndSettle();
@@ -71,6 +100,7 @@ void main() {
       'Move Asset': Routes.withAsset(Routes.transferAsset, 'MTR-00123'),
       'Report Issue': Routes.withAsset(Routes.reportIssue, 'MTR-00123'),
       'View on Map': Routes.trackAsset('MTR-00123'),
+      'More Actions': Routes.moreActionsFrom(Routes.home, assetId: 'MTR-00123'),
     };
     for (final e in expected.entries) {
       await tester.tap(find.text(e.key));
@@ -80,7 +110,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Asset Identified'), findsOneWidget);
     }
-    for (final (tile, sheet) in [('Check Out', 'Check Out MTR-00123'), ('More Actions', 'Print QR Tag')]) {
+    for (final (tile, sheet) in [('Check Out', 'Check Out MTR-00123')]) {
       await tester.tap(find.text(tile));
       await tester.pumpAndSettle();
       expect(find.text(sheet), findsOneWidget, reason: tile);
@@ -111,22 +141,28 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Find Asset'));
     await tester.pumpAndSettle();
-    expect(find.text('Tag not registered'), findsOneWidget);
-    await tester.tap(find.text('Register this asset'));
+    expect(find.text("This tag isn't linked yet"), findsOneWidget);
+    await tester.tap(find.text('Register as new asset'));
     await tester.pumpAndSettle();
     expect(c.read(routerProvider).state.uri.path, Routes.newRegistration);
   });
 
-  testWidgets('NFC reads a tag after 2 s; BLE lists 4 beacons over 3 s', (tester) async {
+  testWidgets('NFC: Tap to Read reads a tag (saved with its UID); BLE lists 4 beacons over 3 s', (tester) async {
     final c = await _openScan(tester);
     await tester.tap(find.text('NFC'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ready to read'), findsOneWidget);
+    await tester.tap(find.text('Tap to Read'));
     await tester.pump();
     expect(find.text('Hold your phone near the tag'), findsOneWidget);
-    await tester.pump(ScanScreen.tagReadTime);
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
     expect(find.text('Asset Identified'), findsOneWidget);
     expect(c.read(scanHistoryProvider).first.method, 'NFC');
+    final saved = (await tester.runAsync(() => c.read(appDatabaseProvider).watchScans().first))!;
+    expect(saved.first.nfcUid, '04:A2:3B:4C');
+    expect(saved.first.matchId, 'MTR-00123');
+    expect(NdefRecordInfo.decodeList(saved.first.nfcRecords).single.value, 'MTR-00123');
 
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
@@ -214,6 +250,10 @@ void main() {
       final c = await _openScan(tester, size: size);
       for (final mode in ['NFC', 'RFID', 'BLE', 'QR / Barcode']) {
         await tester.tap(find.text(mode));
+        if (mode == 'NFC') {
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Tap to Read'));
+        }
         await tester.pump(ScanScreen.bleSearchTime);
         await tester.pump(const Duration(seconds: 1));
         await tester.pumpAndSettle();

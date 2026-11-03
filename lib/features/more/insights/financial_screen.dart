@@ -10,7 +10,7 @@ import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
-import 'package:asset360_mobile/features/home/home_screen.dart' show CostSummaryCard;
+import 'package:asset360_mobile/features/home/sections/cost_summary_card.dart';
 
 /// Value, book value and depreciation of one category.
 class _CategoryValue {

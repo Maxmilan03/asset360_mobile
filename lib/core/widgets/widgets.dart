@@ -31,3 +31,8 @@ export 'package:asset360_mobile/core/widgets/signature_pad.dart';
 export 'package:asset360_mobile/core/widgets/asset_picker.dart';
 export 'package:asset360_mobile/core/widgets/location_picker.dart';
 export 'package:asset360_mobile/core/widgets/scan_capture.dart';
+export 'package:asset360_mobile/core/widgets/location_field.dart';
+export 'package:asset360_mobile/core/widgets/local_data_badge.dart';
+export 'package:asset360_mobile/core/widgets/person_picker.dart';
+export 'package:asset360_mobile/core/widgets/video_preview.dart';
+export 'package:asset360_mobile/core/widgets/insight_widgets.dart';

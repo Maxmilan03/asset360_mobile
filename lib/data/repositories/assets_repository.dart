@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/data/mock/assets_mock.dart';
+import 'package:asset360_mobile/data/mock/more_actions_mock.dart';
 import 'package:asset360_mobile/data/mock/registration_mock.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/models/common.dart';
+import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
 import 'package:asset360_mobile/data/repositories/issues_repository.dart';
 import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
@@ -35,6 +37,7 @@ class AssetsNotifier extends Notifier<List<Asset>> {
       ...state,
     ];
     ref.read(orgSummaryProvider.notifier).addAsset(asset.status);
+    ref.read(assetBreakdownProvider.notifier).addAsset(asset);
     ref.read(sessionRegistrationsProvider.notifier).record(asset.id);
     _q(asset.id, 'Asset Registered');
   }
@@ -115,6 +118,8 @@ class AssetsNotifier extends Notifier<List<Asset>> {
         barcode: newId,
         favorite: false,
         photos: const [],
+        videos: const [],
+        conditionHistory: const [],
         events: const [],
         locationHistory: [LocationRecord(at: DemoClock.now, location: src.location, by: _me)],
       ),
@@ -166,7 +171,73 @@ class AssetsNotifier extends Notifier<List<Asset>> {
     _q(id, 'AMC Renewed');
   }
 
-  void toggleFavorite(String id) => _update(id, (a) => a.copyWith(favorite: !a.favorite));
+  /// ☆ on the list / detail. A new favorite goes into the first group ("My Assets").
+  void toggleFavorite(String id) => _update(
+    id,
+    (a) => a.copyWith(favorite: !a.favorite, favoriteGroup: a.favoriteGroup ?? defaultFavoriteGroups.first),
+  );
+
+  /// More Actions → Add to Favorites → Save.
+  void setFavorite(String id, {required bool favorite, required String group, String? note}) {
+    _update(
+      id,
+      (a) => a.copyWith(
+        favorite: favorite,
+        favoriteGroup: group,
+        favoriteNote: note ?? '',
+        events: [_event(favorite ? 'Added to Favorites ($group)' : 'Removed from Favorites', note), ...a.events],
+      ),
+    );
+    _q(id, 'Favorites Update');
+  }
+
+  /// More Actions → Update Condition: sets the condition and adds a [ConditionRecord].
+  void updateCondition(
+    String id, {
+    required String condition,
+    required DateTime date,
+    String? comments,
+    List<String> photos = const [],
+  }) {
+    _update(
+      id,
+      (a) => a.copyWith(
+        condition: condition,
+        photos: [...a.photos, ...photos],
+        conditionHistory: [
+          ConditionRecord(
+            at: date,
+            condition: condition,
+            previous: a.condition,
+            by: _me,
+            comments: comments,
+            photos: photos,
+          ),
+          ...a.conditionHistory,
+        ],
+        events: [_event('Condition changed from ${a.condition} to $condition', comments), ...a.events],
+      ),
+    );
+    _q(id, 'Condition Update');
+    for (final p in photos) {
+      ref.queueOffline(SyncKind.photo, syncFileName(p), 'Condition Photo', refId: id);
+    }
+  }
+
+  /// More Actions → Add Photo / Video → Save Video.
+  void addVideo(String id, String path, {String? caption}) {
+    _update(
+      id,
+      (a) => a.copyWith(
+        videos: [
+          ...a.videos,
+          AssetVideo(path: path, at: DemoClock.now, by: _me, caption: caption),
+        ],
+        events: [_event('Video added', caption), ...a.events],
+      ),
+    );
+    ref.queueOffline(SyncKind.photo, syncFileName(path), 'Asset Video', refId: id);
+  }
 
   void setCustodian(String id, String custodian) {
     _update(
@@ -196,8 +267,8 @@ class AssetsNotifier extends Notifier<List<Asset>> {
     }
   }
 
-  void addPhoto(String id, String path) {
-    _update(id, (a) => a.copyWith(photos: [...a.photos, path], events: [_event('Photo added'), ...a.events]));
+  void addPhoto(String id, String path, {String? caption}) {
+    _update(id, (a) => a.copyWith(photos: [...a.photos, path], events: [_event('Photo added', caption), ...a.events]));
     ref.queueOffline(SyncKind.photo, syncFileName(path), 'Asset Photo', refId: id);
   }
 
@@ -218,6 +289,7 @@ class AssetsNotifier extends Notifier<List<Asset>> {
     if (old == null) return;
     state = state.where((a) => a.id != id).toList();
     ref.read(orgSummaryProvider.notifier).removeAsset(old.status);
+    ref.read(assetBreakdownProvider.notifier).removeAsset(old);
     _q(id, 'Asset Deleted');
   }
 }
@@ -235,6 +307,22 @@ class SessionRegistrationsNotifier extends Notifier<List<LogEntry>> {
 final sessionRegistrationsProvider = NotifierProvider<SessionRegistrationsNotifier, List<LogEntry>>(
   SessionRegistrationsNotifier.new,
 );
+
+/// Favorite groups (More Actions → Add to Favorites; "New group…" adds one in memory).
+class FavoriteGroupsNotifier extends Notifier<List<String>> {
+  @override
+  List<String> build() => defaultFavoriteGroups;
+
+  /// Returns false when the name is empty or already exists (case-insensitive).
+  bool add(String name) {
+    final n = name.trim();
+    if (n.isEmpty || state.any((g) => g.toLowerCase() == n.toLowerCase())) return false;
+    state = [...state, n];
+    return true;
+  }
+}
+
+final favoriteGroupsProvider = NotifierProvider<FavoriteGroupsNotifier, List<String>>(FavoriteGroupsNotifier.new);
 
 /// Store devices not yet paired with any asset.
 final unlinkedIotDevicesProvider = Provider<List<IotDevice>>((ref) {
@@ -342,6 +430,10 @@ final myAssetsProvider = Provider<List<Asset>>((ref) {
 extension AssetQueries on List<Asset> {
   List<Asset> withStatus(String s) => where((a) => a.status == s).toList();
   List<Asset> get favorites => where((a) => a.favorite).toList();
+
+  /// Favorites in [group] (null = every group).
+  List<Asset> favoritesIn(String? group) =>
+      where((a) => a.favorite && (group == null || (a.favoriteGroup ?? defaultFavoriteGroups.first) == group)).toList();
   List<Asset> atSite(String site) => site == 'All Sites' ? this : where((a) => a.site == site).toList();
 
   /// "Nearby" = in the Main Plant (the demo user is on the factory floor).

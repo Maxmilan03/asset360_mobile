@@ -92,7 +92,13 @@ class _MaintenanceHubScreenState extends ConsumerState<MaintenanceHubScreen> {
         DemoGuard.push(context, Routes.pmSchedules),
       ),
       (Icons.warning_rounded, 'Breakdown Requests', TileTone.pink, null, DemoGuard.push(context, Routes.breakdowns)),
-      (Icons.history_edu_rounded, 'Service History', TileTone.sky, null, DemoGuard.push(context, Routes.serviceHistory)),
+      (
+        Icons.history_edu_rounded,
+        'Service History',
+        TileTone.sky,
+        null,
+        DemoGuard.push(context, Routes.serviceHistory),
+      ),
       (Icons.inventory_2_rounded, 'Spare Parts', TileTone.sky, null, DemoGuard.go(context, Routes.inventory)),
       (
         Icons.calendar_month_rounded,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +6,8 @@ import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/core/scanning/hardware_scan_listener.dart';
+import 'package:asset360_mobile/core/scanning/scan_dispatch.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/models/audit.dart';
@@ -14,7 +15,6 @@ import 'package:asset360_mobile/data/models/scan_record.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/audits_repository.dart';
 import 'package:asset360_mobile/data/repositories/scans_repository.dart';
-import 'package:asset360_mobile/data/repositories/settings_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 import 'package:asset360_mobile/features/more/registration/registration_widgets.dart';
@@ -27,82 +27,55 @@ abstract final class ScanMethod {
   static const rfid = 'RFID';
   static const ble = 'BLE';
   static const manual = 'Manual';
+  static const scanner = 'Scanner';
+
+  static String of(ScanEvent e) => switch (e.source) {
+    ScanSource.nfc => nfc,
+    ScanSource.manual => manual,
+    ScanSource.hht => scanner,
+    ScanSource.camera => e.format == 'qr' ? qr : barcode,
+  };
 }
 
-/// Handles one scanned code from any mode: a known asset / part / location is added to
-/// the top of Scan History and opened (asset → Asset Identified); an unknown code shows
-/// the "Tag not registered" sheet. Completes when the user comes back to the scanner.
-/// Returns the target, or null when the code was not registered.
-Future<ScanTarget?> openScannedCode(BuildContext context, WidgetRef ref, String code, {required String method}) async {
-  final history = ref.read(scanHistoryProvider.notifier);
-  final target = history.resolve(code);
-  scanFeedback(ref, recognised: target != null);
-  if (target == null) {
-    await _showUnregisteredSheet(context, code.trim(), method);
-    return null;
+/// What the Scan screen does with a result: a known asset / part / location is added to the top of
+/// Scan History and opened (asset → Asset Identified, location → location sheet); an unknown tag
+/// shows "This tag isn't linked yet" (link it, save it, or register a new asset). Completes when the
+/// user comes back to the scanner.
+Future<void> openScanFromScanScreen(BuildContext context, WidgetRef ref, ScanResult r, {String? method}) async {
+  var result = r;
+  if (!result.isKnown) {
+    final linked = await showUnknownTagSheet(
+      context,
+      ref,
+      result,
+      onRegister: demoCanOpen(Routes.newRegistration) ? () => _register(context, result.event) : null,
+    );
+    if (linked == null || !context.mounted) return;
+    result = linked;
   }
-  history.add(target.kind, target.refId, method: method);
-  final here = GoRouterState.of(context).uri.path;
-  switch (target.kind) {
-    case ScanKind.asset:
-      // The client demo skips Asset Identified and opens the asset itself.
-      final result = Routes.scanResultFrom(here, target.refId);
-      await context.push(demoCanOpen(result) ? result : Routes.assetDetail(target.refId));
-    case ScanKind.part:
-      if (!demoCanOpen(Routes.partDetail(target.refId))) break;
-      await context.push(Routes.partDetail(target.refId));
-    case ScanKind.location:
-      // Locations open in Tracking; without it the scan is only recorded in history.
-      if (!demoCanOpen(Routes.tracking)) break;
-      context.showSnack('Location ${target.refId} – showing assets on the floor plan');
-      await context.push(Routes.tracking);
+  final kind = switch (result.matchType) {
+    MatchType.asset => ScanKind.asset,
+    MatchType.part => ScanKind.part,
+    _ => ScanKind.location,
+  };
+  final refId = result.location?.path ?? result.matchId!;
+  ref.read(scanHistoryProvider.notifier).add(kind, refId, method: method ?? ScanMethod.of(result.event));
+  if (result.matchType == MatchType.asset) {
+    final here = GoRouterState.of(context).uri.path;
+    // The client demo skips Asset Identified and opens the asset itself.
+    final route = Routes.scanResultFrom(here, result.matchId!);
+    await context.push(demoCanOpen(route) ? route : Routes.assetDetail(result.matchId!));
+    return;
   }
-  return target;
+  await openScanResult(context, result);
 }
 
-/// Settings → Scanning: beep and / or vibrate when a code is read.
-void scanFeedback(WidgetRef ref, {bool recognised = true}) {
-  final s = ref.read(appSettingsProvider);
-  if (s.beep) SystemSound.play(recognised ? SystemSoundType.click : SystemSoundType.alert);
-  if (s.vibrate) recognised ? HapticFeedback.mediumImpact() : HapticFeedback.heavyImpact();
-}
-
-/// "Tag not registered" with Register this asset (→ registration, prefilled) and Scan again.
-Future<void> _showUnregisteredSheet(BuildContext context, String code, String method) async {
-  final register = await showModalBottomSheet<bool>(
-    context: context,
-    builder: (context) => sheetFrame(context, [
-      Icon(Icons.qr_code_2_rounded, size: 52, color: AppColors.textSecondary),
-      const SizedBox(height: 10),
-      Text('Tag not registered', textAlign: TextAlign.center, style: AppText.sectionTitle),
-      const SizedBox(height: 6),
-      Text(
-        'No asset, part or location in Asset360 matches "$code".',
-        textAlign: TextAlign.center,
-        style: AppText.secondary,
-      ),
-      const SizedBox(height: 20),
-      DemoGuard(
-        route: Routes.newRegistration,
-        child: FilledButton.icon(
-          onPressed: () => Navigator.pop(context, true),
-          icon: const Icon(Icons.add_box_outlined),
-          label: const Text('Register this asset'),
-        ),
-      ),
-      const SizedBox(height: 10),
-      OutlinedButton.icon(
-        onPressed: () => Navigator.pop(context, false),
-        icon: const Icon(Icons.qr_code_scanner_rounded),
-        label: const Text('Scan again'),
-      ),
-    ]),
-  );
-  if (register != true || !context.mounted) return;
-  final rfid = method == ScanMethod.nfc || method == ScanMethod.rfid;
-  await context.push(
+/// Register this asset (→ registration, prefilled with the tag or barcode).
+void _register(BuildContext context, ScanEvent e) {
+  final code = e.value.trim();
+  context.push(
     Routes.newRegistration,
-    extra: rfid ? RegistrationPrefill(tagId: code) : RegistrationPrefill(barcode: code.toUpperCase()),
+    extra: e.isNfc ? RegistrationPrefill(tagId: e.nfcUid ?? code) : RegistrationPrefill(barcode: code.toUpperCase()),
   );
 }
 
@@ -144,25 +117,29 @@ class _ManualEntrySheetState extends ConsumerState<_ManualEntrySheet> {
     final matches = q.isEmpty ? const <Asset>[] : ref.watch(assetsProvider).search(q).take(5).toList();
     return sheetFrame(context, [
       const SheetTitle('Manual Entry', subtitle: 'Type the asset ID printed on the tag'),
-      TextField(
-        controller: _text,
-        autofocus: true,
-        textCapitalization: TextCapitalization.characters,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          labelText: 'Asset ID',
-          hintText: 'e.g. MTR-00123',
-          prefixIcon: const Icon(Icons.keyboard_alt_outlined),
-          suffixIcon: q.isEmpty
-              ? null
-              : IconButton(
-                  tooltip: 'Clear',
-                  onPressed: () => setState(_text.clear),
-                  icon: const Icon(Icons.close_rounded),
-                ),
+      // A keyboard-wedge scanner may type into this field: its read is submitted at once.
+      ScanFieldScope(
+        onScan: _submit,
+        child: TextField(
+          controller: _text,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            labelText: 'Asset ID',
+            hintText: 'e.g. MTR-00123',
+            prefixIcon: const Icon(Icons.keyboard_alt_outlined),
+            suffixIcon: q.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear',
+                    onPressed: () => setState(_text.clear),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+          ),
+          onChanged: (_) => setState(() {}),
+          onSubmitted: _submit,
         ),
-        onChanged: (_) => setState(() {}),
-        onSubmitted: _submit,
       ),
       if (matches.isNotEmpty) ...[
         const SizedBox(height: 8),

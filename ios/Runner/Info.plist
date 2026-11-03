@@ -6,6 +6,12 @@
 	<array>
 		<string>otpauth</string>
 	</array>
+	<key>NFCReaderUsageDescription</key>
+	<string>Asset360 reads NFC asset and location tags to identify assets and fill in locations.</string>
+	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+	<array>
+		<string>D2760000850101</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Asset360 uses the camera to scan asset QR codes and barcodes and to take asset photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

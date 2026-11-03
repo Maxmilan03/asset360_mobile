@@ -779,70 +779,22 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
   // ---------------------------------------------------------------- step 3
 
   Widget _locationStep() {
-    final buildings = d.site == null ? const <String>[] : locationTree[d.site]!.keys.toList();
-    final floors = d.building == null ? const <String>[] : locationTree[d.site]![d.building]!.keys.toList();
-    final zones = d.floor == null ? const <String>[] : locationTree[d.site]![d.building]![d.floor]!;
-    Widget dd(
-      String label,
-      String? value,
-      List<String> options,
-      ValueChanged<String?> onChanged, {
-      bool required = true,
-      String hint = 'Select',
-    }) => LabeledField(
-      label: label,
-      required: required,
-      child: DropdownButtonFormField<String>(
-        key: ValueKey('$label-${options.join()}'),
-        initialValue: value,
-        isExpanded: true,
-        hint: Text(options.isEmpty ? '—' : hint, style: hintStyle),
-        items: [
-          for (final o in options)
-            DropdownMenuItem(
-              value: o,
-              child: Text(o, overflow: TextOverflow.ellipsis),
-            ),
-        ],
-        onChanged: options.isEmpty ? null : onChanged,
-      ),
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _section('Location & Custody'),
-        FieldPair(
-          dd(
-            'Site',
-            d.site,
-            locationTree.keys.toList(),
-            (v) => setState(() {
-              d.site = v;
-              d.building = d.floor = d.zone = null;
-            }),
-          ),
-          dd(
-            'Building',
-            d.building,
-            buildings,
-            (v) => setState(() {
-              d.building = v;
-              d.floor = d.zone = null;
-            }),
-          ),
+        // Cascading dropdowns; a location tag (QR, NFC or the scanner trigger) fills them.
+        LocationField(
+          value: LocationValue(site: d.site, building: d.building, floor: d.floor, room: d.zone),
+          onChanged: (v) => setState(() {
+            d.site = v.site;
+            d.building = v.building;
+            d.floor = v.floor;
+            d.zone = v.room;
+            if (v.floor != null) _locationError = null;
+          }),
         ),
-        FieldPair(
-          dd(
-            'Floor',
-            d.floor,
-            floors,
-            (v) => setState(() {
-              d.floor = v;
-              d.zone = null;
-            }),
-          ),
-          dd('Room / Zone', d.zone, zones, (v) => setState(() => d.zone = v), required: false),
-        ),
+        const SizedBox(height: 14),
         _error(_locationError),
         if (d.building != null)
           Padding(

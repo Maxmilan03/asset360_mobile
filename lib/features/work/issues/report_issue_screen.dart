@@ -5,16 +5,14 @@ import 'package:go_router/go_router.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
-import 'package:asset360_mobile/data/mock/scans_mock.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/models/issue.dart';
-import 'package:asset360_mobile/data/models/scan_record.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/issues_repository.dart';
-import 'package:asset360_mobile/data/repositories/scans_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/db/db_providers.dart';
 import 'package:asset360_mobile/features/work/maintenance/create_work_order_screen.dart';
 
 /// Report Issue opened from another module (e.g. a production order / unit on the shop floor).
@@ -58,13 +56,18 @@ class _ReportIssueScreenState extends ConsumerState<ReportIssueScreen> {
   String? _priority;
   late final _title = TextEditingController(text: widget.prefill?.title);
   late final _description = TextEditingController(text: widget.prefill?.description);
-  late final _location = TextEditingController(text: widget.prefill?.location ?? _asset?.location ?? '');
+
+  /// Picked or scanned location; until then the issue takes the asset's (or the prefill's) location.
+  LocationValue _location = LocationValue.empty;
   bool _locationEdited = false;
   late String _reporterId = ref.read(currentUserProvider).id;
   List<String> _photos = [];
   final _errors = <String, String>{};
 
   Asset? get _asset => _assetId == null ? null : ref.read(assetByIdProvider(_assetId!));
+
+  /// The prefill's or the asset's location text.
+  String? get _defaultLocation => widget.prefill?.location ?? _asset?.location;
 
   static const _priorities = [
     ('Critical', Icons.error_rounded),
@@ -77,7 +80,6 @@ class _ReportIssueScreenState extends ConsumerState<ReportIssueScreen> {
   void dispose() {
     _title.dispose();
     _description.dispose();
-    _location.dispose();
     super.dispose();
   }
 
@@ -90,11 +92,9 @@ class _ReportIssueScreenState extends ConsumerState<ReportIssueScreen> {
       _photos.isNotEmpty;
 
   void _setAsset(String id) {
-    final a = ref.read(assetByIdProvider(id));
     setState(() {
       _assetId = id;
       _errors.remove('asset');
-      if (!_locationEdited && a != null) _location.text = a.location;
     });
   }
 
@@ -107,23 +107,6 @@ class _ReportIssueScreenState extends ConsumerState<ReportIssueScreen> {
       return;
     }
     _setAsset(a.id);
-  }
-
-  Future<void> _scanLocation() async {
-    final code = await showScanCapture(
-      context,
-      title: 'Scan Location Tag',
-      suggestions: ['$locationCodePrefix${scanLocations.first}', '$locationCodePrefix${scanLocations[5]}'],
-    );
-    if (code == null || !mounted) return;
-    final t = ref.read(scanHistoryProvider.notifier).resolve(code);
-    final text = t?.kind == ScanKind.location
-        ? t!.refId
-        : code.replaceFirst(RegExp(locationCodePrefix, caseSensitive: false), '').trim();
-    setState(() {
-      _location.text = text;
-      _locationEdited = true;
-    });
   }
 
   Future<void> _pickReporter() async {
@@ -191,7 +174,7 @@ class _ReportIssueScreenState extends ConsumerState<ReportIssueScreen> {
       type: _type!,
       priority: _priority!,
       description: _description.text.trim(),
-      location: _location.text.trim().isEmpty ? (_asset?.location ?? '') : _location.text.trim(),
+      location: (_locationEdited ? _location.path : null) ?? _defaultLocation ?? '',
       photos: _photos,
       reporterId: _reporterId,
     );
@@ -395,25 +378,29 @@ class _ReportIssueScreenState extends ConsumerState<ReportIssueScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            LabeledField(
-              label: 'Location',
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _location,
-                      onChanged: (_) => _locationEdited = true,
-                      decoration: const InputDecoration(
-                        hintText: 'Building / Floor',
-                        prefixIcon: Icon(Icons.location_on_outlined, size: 20),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ScanSuffix(onTap: _scanLocation, tooltip: 'Scan location tag'),
-                ],
-              ),
+            Text('Location', style: AppText.body.copyWith(fontSize: 12.5, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 6),
+            // A location tag (QR, NFC or the scanner trigger) fills it; an asset tag fills the asset.
+            LocationField(
+              value: _locationEdited
+                  ? _location
+                  : LocationValue.parse(_defaultLocation, ref.watch(locationsProvider).value ?? const []) ??
+                        LocationValue.empty,
+              required: const {},
+              onAsset: (id) {
+                _setAsset(id);
+                context.showSnack('Asset filled from tag: $id');
+              },
+              onChanged: (v) => setState(() {
+                _location = v;
+                _locationEdited = true;
+              }),
             ),
+            if (!_locationEdited && _defaultLocation != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('Defaults to: $_defaultLocation', style: AppText.caption),
+              ),
             const SizedBox(height: 14),
             LabeledField(
               label: 'Reported By',

@@ -8,7 +8,9 @@ import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/mock/home_mock.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 
@@ -18,13 +20,21 @@ const _status = 'Status';
 const _category = 'Category';
 const _location = 'Location';
 const _criticality = 'Criticality';
+const _type = 'Asset Type';
+const _building = 'Site / Building';
 
 /// Assets tab: search, scan, scope chips, filters and the asset list.
 class AssetsListScreen extends ConsumerStatefulWidget {
-  const AssetsListScreen({super.key, this.initialStatus});
+  const AssetsListScreen({super.key, this.initialStatus, this.initialType, this.initialLocation});
 
   /// Opened from Home's status legend with `?status=…`.
   final String? initialStatus;
+
+  /// Opened from Asset Overview with `?type=…` (a breakdown type, see `assetTypeGroup`).
+  final String? initialType;
+
+  /// Opened from Asset Overview with `?location=…` (a site / building, see `assetLocationGroup`).
+  final String? initialLocation;
 
   @override
   ConsumerState<AssetsListScreen> createState() => _AssetsListScreenState();
@@ -34,20 +44,46 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
   final _search = TextEditingController();
   String _query = '';
   _Scope _scope = _Scope.all;
-  late FilterSelection _filters = _statusFilter(widget.initialStatus);
 
-  static FilterSelection _statusFilter(String? status) => status == null
-      ? {}
-      : {
-          _status: {status},
-        };
+  /// Favorites: one favorite group, or null for every group.
+  String? _group;
+  late FilterSelection _filters = _initialFilters(widget);
+
+  static FilterSelection _initialFilters(AssetsListScreen w) => {
+    if (w.initialStatus != null) _status: {w.initialStatus!},
+    if (w.initialType != null) _type: {w.initialType!},
+    if (w.initialLocation != null) _building: {w.initialLocation!},
+  };
 
   @override
   void didUpdateWidget(AssetsListScreen old) {
     super.didUpdateWidget(old);
-    if (widget.initialStatus != old.initialStatus && widget.initialStatus != null) {
-      setState(() => _filters = _statusFilter(widget.initialStatus));
+    final next = _initialFilters(widget);
+    if (next.isNotEmpty &&
+        (widget.initialStatus != old.initialStatus ||
+            widget.initialType != old.initialType ||
+            widget.initialLocation != old.initialLocation)) {
+      setState(() => _filters = next);
     }
+  }
+
+  /// Org-wide count for "Showing X of Y": the summary figure of the one status / type /
+  /// site filter in use, else every asset.
+  int _orgTotal() {
+    final org = ref.watch(orgSummaryProvider);
+    final breakdown = ref.watch(assetBreakdownProvider);
+    final only = _filters.entries.where((e) => e.value.isNotEmpty).toList();
+    if (only.length == 1 && only.first.value.length == 1 && _scope == _Scope.all && _query.isEmpty) {
+      final v = only.first.value.first;
+      final n = switch (only.first.key) {
+        _status => org.statusCounts[v],
+        _type => breakdown.type(v)?.total,
+        _building => breakdown.location(v)?.total,
+        _ => null,
+      };
+      if (n != null) return n;
+    }
+    return org.totalAssets;
   }
 
   @override
@@ -58,7 +94,9 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
 
   List<FilterGroup> _groups(List<Asset> all) => [
     const FilterGroup(title: _status, options: [...AssetStatus.summary, AssetStatus.inTransit]),
+    const FilterGroup(title: _type, options: homeAssetTypes),
     FilterGroup(title: _category, options: {...all.map((a) => a.category)}.toList()..sort()),
+    FilterGroup(title: _building, options: [for (final s in ref.read(assetBreakdownProvider).byLocation) s.name]),
     FilterGroup(title: _location, options: {...all.map((a) => locationArea(a.location))}.toList()..sort()),
     const FilterGroup(title: _criticality, options: criticalities),
   ];
@@ -66,6 +104,8 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
   bool _matches(Asset a) {
     bool ok(String group, String value) => _filters[group]?.contains(value) ?? true;
     return ok(_status, a.status) &&
+        ok(_type, assetTypeGroup(a)) &&
+        ok(_building, assetLocationGroup(a)) &&
         ok(_category, a.category) &&
         ok(_location, locationArea(a.location)) &&
         ok(_criticality, a.criticality);
@@ -100,11 +140,12 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
   Widget build(BuildContext context) {
     final all = ref.watch(assetsProvider);
     final total = ref.watch(orgSummaryProvider).totalAssets;
+    final shownOf = _orgTotal();
     final base = switch (_scope) {
       _Scope.all => all,
       _Scope.mine => ref.watch(myAssetsProvider),
       _Scope.nearby => all.nearby,
-      _Scope.favorites => all.favorites,
+      _Scope.favorites => all.favoritesIn(_group),
     };
     final shown = base.search(_query).where(_matches).toList();
     final activeFilters = [
@@ -162,6 +203,33 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
                     ],
                   ),
                 ),
+                if (_scope == _Scope.favorites) ...[
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final g in [null, ...ref.watch(favoriteGroupsProvider)])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: ChoiceChip(
+                              label: Text('${g ?? 'All groups'} (${all.favoritesIn(g).length})'),
+                              labelStyle: TextStyle(
+                                fontSize: 12,
+                                color: _group == g ? Colors.white : AppColors.text,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              selected: _group == g,
+                              showCheckmark: false,
+                              selectedColor: AppColors.primary,
+                              visualDensity: VisualDensity.compact,
+                              onSelected: (_) => setState(() => _group = g),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -239,6 +307,7 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
                           _query = '';
                           _filters = {};
                           _scope = _Scope.all;
+                          _group = null;
                         }),
                       ),
                     )
@@ -253,7 +322,9 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
           SliverPadding(
             padding: EdgeInsets.fromLTRB(16, 14, 16, context.pagePadding.bottom + 64),
             sliver: SliverToBoxAdapter(
-              child: Center(child: Text('Showing ${shown.length} of ${formatCount(total)}', style: AppText.secondary)),
+              child: Center(
+                child: Text('Showing ${shown.length} of ${formatCount(shownOf)}', style: AppText.secondary),
+              ),
             ),
           ),
         ],

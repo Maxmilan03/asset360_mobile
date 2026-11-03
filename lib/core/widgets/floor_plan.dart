@@ -15,12 +15,26 @@ Color trackedKindColor(TrackedKind k) => switch (k) {
 /// Indoor floor plan drawn with CustomPaint (light-grey rooms, racks and aisles)
 /// with coloured pins for [entities]. Pin positions are 0–1 fractions.
 class FloorPlan extends StatelessWidget {
-  const FloorPlan({super.key, required this.entities, this.showZoneLabels = false, this.onPinTap, this.pinSize = 26});
+  const FloorPlan({
+    super.key,
+    required this.entities,
+    this.showZoneLabels = false,
+    this.onPinTap,
+    this.pinSize = 26,
+    this.variant = 0,
+    this.showLabels = false,
+  });
 
   final List<TrackedEntity> entities;
   final bool showZoneLabels;
   final ValueChanged<TrackedEntity>? onPinTap;
   final double pinSize;
+
+  /// Room layout ([FloorPlanPainter.layouts]); e.g. one per floor of a building.
+  final int variant;
+
+  /// A label chip above each pin.
+  final bool showLabels;
 
   @override
   Widget build(BuildContext context) {
@@ -30,8 +44,30 @@ class FloorPlan extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Positioned.fill(
-              child: CustomPaint(painter: FloorPlanPainter(showZoneLabels: showZoneLabels)),
+              child: CustomPaint(painter: FloorPlanPainter(showZoneLabels: showZoneLabels, variant: variant)),
             ),
+            if (showLabels)
+              for (final e in entities)
+                Positioned(
+                  left: e.x * c.maxWidth - 60,
+                  width: 120,
+                  top: e.y * c.maxHeight - pinSize - 24,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: trackedKindColor(e.kind),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        e.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ),
             for (final e in entities)
               Positioned(
                 left: e.x * c.maxWidth - pinSize / 2,
@@ -56,11 +92,13 @@ class FloorPlan extends StatelessWidget {
   }
 }
 
-/// Zones: Receiving (top-left), Storage (bottom-left), Zone B (middle), Dispatch (right).
+/// Zones (layout 0): Receiving (top-left), Storage (bottom-left), Zone B (middle), Dispatch (right).
+/// Layout 1 is the mirror image; layout 2 is an office floor.
 class FloorPlanPainter extends CustomPainter {
-  FloorPlanPainter({this.showZoneLabels = false});
+  FloorPlanPainter({this.showZoneLabels = false, this.variant = 0});
 
   final bool showZoneLabels;
+  final int variant;
 
   static const zones = [
     ('Receiving', Rect.fromLTWH(.02, .04, .30, .38)),
@@ -68,6 +106,24 @@ class FloorPlanPainter extends CustomPainter {
     ('Zone B', Rect.fromLTWH(.36, .20, .36, .56)),
     ('Dispatch', Rect.fromLTWH(.76, .04, .22, .92)),
   ];
+
+  static const _office = [
+    ('Offices', Rect.fromLTWH(.02, .04, .46, .40)),
+    ('Meeting', Rect.fromLTWH(.52, .04, .46, .40)),
+    ('Open Area', Rect.fromLTWH(.02, .52, .62, .44)),
+    ('Store', Rect.fromLTWH(.68, .52, .30, .44)),
+  ];
+
+  static const layoutCount = 3;
+
+  static Rect _mirror(Rect f) => Rect.fromLTWH(1 - f.left - f.width, f.top, f.width, f.height);
+
+  /// Rooms of layout [variant] (0–2, wraps).
+  static List<(String, Rect)> layouts(int variant) => switch (variant % layoutCount) {
+    0 => zones,
+    1 => [for (final (n, f) in zones) (n, _mirror(f))],
+    _ => _office,
+  };
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -89,10 +145,10 @@ class FloorPlanPainter extends CustomPainter {
 
     final rackFill = Paint()..color = const Color(0xFFE2E5EE);
     final rackSide = Paint()..color = const Color(0xFFC9CEDA);
-    for (final (name, f) in zones) {
+    for (final (name, f) in layouts(variant)) {
       final rect = r(f);
       canvas.drawRect(rect, Paint()..color = const Color(0xFFF8F9FC));
-      if (name == 'Zone B' || name == 'Storage') canvas.drawRect(rect, zoneFill);
+      if (name == 'Zone B' || name == 'Storage' || name == 'Open Area') canvas.drawRect(rect, zoneFill);
       canvas.drawRect(rect, wall);
       // Racks: rows of blocks with a darker lower-right edge (flat isometric look).
       final vertical = rect.height > rect.width;
@@ -130,11 +186,19 @@ class FloorPlanPainter extends CustomPainter {
     final aisle = Paint()
       ..color = Colors.white
       ..strokeWidth = 5;
-    canvas.drawLine(Offset(.34 * w, .02 * h), Offset(.34 * w, .98 * h), aisle);
-    canvas.drawLine(Offset(.74 * w, .02 * h), Offset(.74 * w, .98 * h), aisle);
-    canvas.drawLine(Offset(.02 * w, .45 * h), Offset(.34 * w, .45 * h), aisle);
+    switch (variant % layoutCount) {
+      case 2:
+        canvas.drawLine(Offset(.02 * w, .48 * h), Offset(.98 * w, .48 * h), aisle);
+        canvas.drawLine(Offset(.50 * w, .02 * h), Offset(.50 * w, .46 * h), aisle);
+        canvas.drawLine(Offset(.66 * w, .50 * h), Offset(.66 * w, .98 * h), aisle);
+      default:
+        double x(double v) => (variant % layoutCount == 1 ? 1 - v : v) * w;
+        canvas.drawLine(Offset(x(.34), .02 * h), Offset(x(.34), .98 * h), aisle);
+        canvas.drawLine(Offset(x(.74), .02 * h), Offset(x(.74), .98 * h), aisle);
+        canvas.drawLine(Offset(x(.02), .45 * h), Offset(x(.34), .45 * h), aisle);
+    }
   }
 
   @override
-  bool shouldRepaint(FloorPlanPainter old) => old.showZoneLabels != showZoneLabels;
+  bool shouldRepaint(FloorPlanPainter old) => old.showZoneLabels != showZoneLabels || old.variant != variant;
 }

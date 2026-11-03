@@ -63,13 +63,18 @@ const _modules = {
   'Asset Registration': Routes.registration,
   'Offline Sync': Routes.offlineSync,
   'Settings': Routes.settings,
+  'Local Data': Routes.localData,
 };
 
 /// No DemoGuard on screen blocks its control.
 void _expectNothingLocked(WidgetTester tester, String where) {
   for (final g in tester.widgetList<DemoGuard>(find.byType(DemoGuard, skipOffstage: false))) {
     expect(g.allowed ?? true, isTrue, reason: where);
-    expect(DemoGuard.allows(route: g.route, action: g.action), isTrue, reason: '$where ${g.route ?? g.action}');
+    expect(
+      DemoGuard.allows(route: g.route, action: g.action),
+      isTrue,
+      reason: '$where ${g.route ?? g.action}',
+    );
   }
 }
 
@@ -80,9 +85,7 @@ void main() {
   });
   tearDown(() => debugClientDemo = false);
 
-  testWidgets('full app: every module opens from All Modules, every screen opens, nothing is locked', (
-    tester,
-  ) async {
+  testWidgets('full app: every module opens from All Modules, every screen opens, nothing is locked', (tester) async {
     expect(clientDemoActive, isFalse);
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;

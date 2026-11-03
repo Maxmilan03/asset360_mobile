@@ -13,6 +13,7 @@ import 'package:asset360_mobile/data/repositories/audits_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/db/db_providers.dart';
 import 'package:asset360_mobile/features/work/audit/audit_widgets.dart';
 
 /// Asset Found (right screen of design/15_asset_audit.jpg). Pops the saved result.
@@ -32,6 +33,9 @@ class AuditAssetScreen extends ConsumerStatefulWidget {
 class _AuditAssetScreenState extends ConsumerState<AuditAssetScreen> {
   String _result = AuditResult.verified;
   String? _location;
+
+  /// The dropdowns while a location is being picked (it is recorded once a floor is chosen).
+  LocationValue? _picking;
   String _condition = 'Good';
   bool _updateLocation = false;
   final _remarks = TextEditingController();
@@ -52,9 +56,8 @@ class _AuditAssetScreenState extends ConsumerState<AuditAssetScreen> {
     _condition = auditConditions.contains(asset.condition) ? asset.condition : 'Good';
   }
 
-  Future<void> _pickLocation(Asset asset, Audit audit) async {
-    final l = await showLocationPicker(context, site: audit.site, selected: _location);
-    if (l == null) return;
+  void _setLocation(String? l, Asset asset) {
+    if (l == null) return setState(() => _location = null);
     setState(() {
       _location = l;
       // A different place than the register → Wrong Location (a Verified result would be wrong).
@@ -241,31 +244,33 @@ class _AuditAssetScreenState extends ConsumerState<AuditAssetScreen> {
           Text('Audit Details', style: AppText.sectionTitle),
           const SizedBox(height: 8),
           if (_result != AuditResult.notFound) ...[
-            Row(
-              children: [
-                SizedBox(width: 110, child: Text('Scanned Location', style: AppText.secondary)),
-                Expanded(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: () => _pickLocation(asset, audit),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(isDense: true),
-                      child: Text(
-                        _location ?? 'Select location',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: _location == null ? hintStyle : AppText.body.copyWith(fontSize: 13),
-                      ),
+            Text('Scanned Location', style: AppText.secondary),
+            const SizedBox(height: 6),
+            // Pick it, or scan the location tag (QR, NFC or the scanner trigger) to fill it.
+            Builder(
+              builder: (context) {
+                final rows = ref.watch(locationsProvider).value ?? const <DbLocation>[];
+                final site = rows.any((l) => l.site == audit.site) ? audit.site : null;
+                final value = _picking ?? LocationValue.parse(_location, rows, site: site) ?? LocationValue.empty;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    LocationField(
+                      value: value.isEmpty && site != null ? LocationValue(site: site) : value,
+                      site: site,
+                      onChanged: (v) {
+                        setState(() => _picking = v);
+                        if (v.floor != null) _setLocation(v.path, asset);
+                      },
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.outlined(
-                  tooltip: 'Pick from location tree',
-                  onPressed: () => _pickLocation(asset, audit),
-                  icon: Icon(Icons.location_on_outlined, color: AppColors.primary),
-                ),
-              ],
+                    if (_location != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text('Recorded: $_location', style: AppText.caption),
+                      ),
+                  ],
+                );
+              },
             ),
             if (_result == AuditResult.wrongLocation)
               CheckboxListTile(

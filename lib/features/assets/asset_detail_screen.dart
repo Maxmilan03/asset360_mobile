@@ -10,11 +10,13 @@ import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/disposals_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_actions.dart';
 import 'package:asset360_mobile/features/assets/asset_iot_tab.dart';
 import 'package:asset360_mobile/features/assets/asset_overview_tab.dart';
 import 'package:asset360_mobile/features/assets/asset_tabs.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
+import 'package:asset360_mobile/features/assets/more_actions/more_action_widgets.dart';
 
 enum AssetTab { overview, location, iot, maintenance, inspection, financial, documents, history }
 
@@ -25,7 +27,7 @@ extension on AssetTab {
   };
 }
 
-enum _Menu { edit, print, share, duplicate, retire, delete }
+enum _Menu { edit, moreActions, print, share, duplicate, linkIot, retire, delete }
 
 /// Asset 360° view: header, photo + specs, stats, actions and eight tabs.
 class AssetDetailScreen extends ConsumerStatefulWidget {
@@ -62,12 +64,16 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
           _editing = true;
         });
         context.showSnack('Edit the key information below, then tap Save');
+      case _Menu.moreActions:
+        openMoreActions(context, assetId: a.id);
       case _Menu.print:
-        showPrintTagSheet(context, a);
+        openMoreAction(context, MoreAction.printTag, a.id);
       case _Menu.share:
-        shareAsset(context, a);
+        openMoreAction(context, MoreAction.share, a.id);
       case _Menu.duplicate:
         duplicateAsset(context, ref, a);
+      case _Menu.linkIot:
+        showLinkIotSheet(context, ref, a);
       case _Menu.retire:
         retireAsset(context, ref, a);
       case _Menu.delete:
@@ -129,7 +135,7 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
   }
 }
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header({required this.asset, required this.onFavorite, required this.onMenu});
 
   final Asset asset;
@@ -137,7 +143,8 @@ class _Header extends StatelessWidget {
   final ValueChanged<_Menu> onMenu;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final disposalPending = ref.watch(disposalsProvider).pendingFor(asset.id) != null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -152,6 +159,8 @@ class _Header extends StatelessWidget {
                 children: [
                   Text(asset.id, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.pageTitle),
                   StatusChip(asset.status),
+                  if (disposalPending)
+                    const StatusChip('Disposal pending', tone: ChipTone.amber, icon: Icons.hourglass_top_rounded),
                 ],
               ),
               const SizedBox(height: 3),
@@ -174,9 +183,11 @@ class _Header extends StatelessWidget {
             itemBuilder: (_) => [
               for (final (m, icon, label) in [
                 (_Menu.edit, Icons.edit_outlined, 'Edit Asset'),
+                (_Menu.moreActions, Icons.more_horiz_rounded, 'More Actions'),
                 (_Menu.print, Icons.print_outlined, 'Print Tag'),
                 (_Menu.share, Icons.share_outlined, 'Share'),
                 (_Menu.duplicate, Icons.copy_all_rounded, 'Duplicate'),
+                (_Menu.linkIot, Icons.sensors_rounded, 'Link IoT Device'),
                 (_Menu.retire, Icons.archive_outlined, 'Retire Asset'),
                 (_Menu.delete, Icons.delete_outline_rounded, 'Delete'),
               ])

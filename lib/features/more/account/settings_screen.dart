@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/core/scanning/hht_scanner.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/models/alert.dart';
 import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
@@ -31,6 +32,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
+    final scanner = ref.watch(scannerSettingsProvider);
     final s = ref.read(appSettingsProvider.notifier);
     final notif = ref.watch(notificationSettingsProvider);
     final net = ref.watch(networkProvider);
@@ -146,6 +148,20 @@ class SettingsScreen extends ConsumerWidget {
                   'Short vibration when a tag is read',
                   settings.vibrate,
                   s.setVibrate,
+                ),
+                nav(
+                  Icons.settings_remote_outlined,
+                  TileTone.lavender,
+                  'Scanner',
+                  'HHT scanner: ${scanner.mode.label} · ${scanner.preset.label}',
+                  () => context.push(Routes.scannerSettings),
+                ),
+                nav(
+                  Icons.storage_rounded,
+                  TileTone.cyan,
+                  'Local Data',
+                  'Scans and tags saved on this device',
+                  () => context.push(Routes.localData),
                 ),
               ],
             ),

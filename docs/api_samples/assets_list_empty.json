@@ -1,0 +1,14 @@
+{
+    "items": [],
+    "totalCount": 0,
+    "page": 1,
+    "pageSize": 3,
+    "summary": {
+        "total": 0,
+        "active": 0,
+        "underMaintenance": 0,
+        "inRepair": 0,
+        "disposed": 0,
+        "other": 0
+    }
+}

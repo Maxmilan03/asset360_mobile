@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/audits_repository.dart';
+import 'package:asset360_mobile/data/repositories/disposals_repository.dart';
 import 'package:asset360_mobile/data/repositories/documents_repository.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/data/repositories/inspections_repository.dart';
@@ -81,6 +82,8 @@ void resetDemoData(WidgetRef ref) {
     orgSummaryProvider,
     masterDataProvider,
     sessionRegistrationsProvider,
+    favoriteGroupsProvider,
+    disposalsProvider,
     workOrdersProvider,
     pmSchedulesProvider,
     inspectionsProvider,

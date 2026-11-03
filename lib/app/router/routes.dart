@@ -24,6 +24,7 @@ abstract final class Routes {
   static const notificationsSegment = 'notifications';
   static const profileSegment = 'profile';
   static const scanSegment = 'scan';
+  static const moreActionsSegment = 'more-actions';
 
   /// Marker for "open Scan & Identify on top of the current screen" in route tables
   /// (e.g. Home quick actions). Resolve it with [scanFrom].
@@ -35,6 +36,19 @@ abstract final class Routes {
   // Home
   static const approvals = '/home/approvals';
   static const myTasks = '/home/tasks';
+
+  // Home drill-downs (the "View All / View Details / View Map / View Calendar" links)
+  static const assetOverview = '/home/asset-overview';
+  static const maintenancePerformance = '/home/maintenance-performance';
+  static const activities = '/home/activities';
+
+  /// Upcoming Activities on the list or calendar view.
+  static String activitiesView(String view) => '$activities?view=$view';
+  static const recentAlerts = '/home/recent-alerts';
+  static const assetLocation = '/home/asset-location';
+  static const assetHealth = '/home/asset-health';
+  static const costSummary = '/home/cost-summary';
+  static const recentAssets = '/home/recent-assets';
 
   // Assets
   static String assetDetail(String assetId, {String? tab}) =>
@@ -63,6 +77,10 @@ abstract final class Routes {
   static String inspectionTab(String tab) => '$inspection?tab=$tab';
   static String alertsTab(String tab) => '$alerts?tab=$tab';
   static String assetsWithStatus(String status) => '$assets?status=${Uri.encodeComponent(status)}';
+
+  /// Assets list filtered by a breakdown type ("IT Equipment") or site / building ("Dubai Factory · Main Plant").
+  static String assetsWithType(String type) => '$assets?type=${Uri.encodeComponent(type)}';
+  static String assetsWithLocation(String location) => '$assets?location=${Uri.encodeComponent(location)}';
 
   /// A form route prefilled with an asset, e.g. withAsset(reportIssue, 'CNC-00123').
   static String withAsset(String route, String assetId) => '$route?asset=${Uri.encodeComponent(assetId)}';
@@ -164,6 +182,8 @@ abstract final class Routes {
   static const admin = '/more/admin';
   static String adminUser(String personId) => '/more/admin/users/$personId';
   static const settings = '/more/settings';
+  static const localData = '/more/local-data';
+  static const scannerSettings = '/more/scanner';
   static const dataCheck = '/more/settings/data-check';
   static const demoTags = '/more/settings/demo-tags';
   static const help = '/more/help';
@@ -176,6 +196,14 @@ abstract final class Routes {
     }
     return home;
   }
+
+  /// Asset More Actions on the tab the user is in, optionally with an asset selected.
+  static String moreActionsFrom(String location, {String? assetId}) =>
+      '${tabRootOf(location)}/$moreActionsSegment${assetId == null ? '' : '?asset=${Uri.encodeQueryComponent(assetId)}'}';
+
+  /// One More Actions screen ([slug] from `MoreAction.slug`) for [assetId], on the current tab.
+  static String moreActionFrom(String location, String slug, String assetId) =>
+      '${tabRootOf(location)}/$moreActionsSegment/$slug?asset=${Uri.encodeQueryComponent(assetId)}';
 
   static String notificationsFrom(String location) => '${tabRootOf(location)}/$notificationsSegment';
   static String notificationSettingsFrom(String location) => '${notificationsFrom(location)}/settings';

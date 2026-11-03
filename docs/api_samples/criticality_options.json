@@ -1,0 +1,48 @@
+{
+    "likelihoodRatings": [
+        "Very Low",
+        "Low",
+        "Medium",
+        "High",
+        "Very High"
+    ],
+    "consequenceRatings": [
+        "Very Low",
+        "Low",
+        "Medium",
+        "High",
+        "Very High"
+    ],
+    "criticalityLevels": [
+        "Low",
+        "Medium",
+        "High",
+        "Critical"
+    ],
+    "criteria": [
+        {
+            "name": "Operational Impact",
+            "weight": 25
+        },
+        {
+            "name": "Safety Impact",
+            "weight": 20
+        },
+        {
+            "name": "Financial Impact",
+            "weight": 20
+        },
+        {
+            "name": "Compliance / Regulatory",
+            "weight": 15
+        },
+        {
+            "name": "Environmental Impact",
+            "weight": 10
+        },
+        {
+            "name": "Reputation Impact",
+            "weight": 10
+        }
+    ]
+}

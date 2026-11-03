@@ -10,7 +10,7 @@ import 'package:asset360_mobile/data/repositories/inventory_repository.dart';
 import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 
 /// What a scanned code points at: an asset ID, a part number or a location path.
-typedef ScanTarget = ({ScanKind kind, String refId});
+typedef ScanRef = ({ScanKind kind, String refId});
 
 class ScanHistoryNotifier extends Notifier<List<ScanRecord>> {
   @override
@@ -36,7 +36,7 @@ class ScanHistoryNotifier extends Notifier<List<ScanRecord>> {
 
   /// Matches a scanned code against assets (ID, tag, barcode, serial), parts (part number)
   /// and locations ("LOC:Building / Floor – Zone" or the bare path). Null when unknown.
-  ScanTarget? resolve(String code) {
+  ScanRef? resolve(String code) {
     final c = code.trim();
     if (c.isEmpty) return null;
     final asset = ref.read(assetsProvider).byCode(c);

@@ -32,22 +32,6 @@ final quickActionDefs = <String, QuickActionDef>{
   'offlineSync': QuickActionDef('Offline Sync', Icons.cloud_sync_outlined, TileTone.cyan, Routes.offlineSync),
 };
 
-/// The rest of the modules, shown by "More Actions".
-List<(String, IconData, TileTone, String)> get _moreModules => [
-  ('Maintenance', Icons.build_circle_outlined, TileTone.lavender, Routes.maintenance),
-  ('Inspection', Icons.fact_check_outlined, TileTone.mint, Routes.inspection),
-  ('Issues', Icons.warning_amber_rounded, TileTone.pink, Routes.issues),
-  ('WIP / Ops', Icons.precision_manufacturing_outlined, TileTone.sky, Routes.wip),
-  ('Movement', Icons.swap_horiz_rounded, TileTone.peach, Routes.movement),
-  ('Tracking & IoT', Icons.location_on_outlined, TileTone.sky, Routes.tracking),
-  ('Inventory', Icons.inventory_2_outlined, TileTone.cyan, Routes.inventory),
-  ('Documents', Icons.description_outlined, TileTone.lavender, Routes.documents),
-  ('Registration', Icons.add_box_outlined, TileTone.mint, Routes.registration),
-  ('Alerts', Icons.notifications_active_outlined, TileTone.pink, Routes.alerts),
-  ('Offline Sync', Icons.cloud_sync_outlined, TileTone.cyan, Routes.offlineSync),
-  ('Scan History', Icons.history_rounded, TileTone.grey, Routes.scanHistory),
-];
-
 /// The screen a quick-action route opens (the Scan markers resolve to Scan on Home).
 String quickActionTarget(String route) => switch (route) {
   Routes.scan => Routes.scanFrom(Routes.home),
@@ -65,47 +49,6 @@ void openRoute(BuildContext context, String route) {
   } else {
     context.go(route);
   }
-}
-
-Future<void> showMoreActionsSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('More Actions', style: AppText.sectionTitle),
-            const SizedBox(height: 12),
-            GridView.count(
-              padding: EdgeInsets.zero,
-              crossAxisCount: 4,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: .9,
-              children: [
-                for (final (label, icon, tone, route) in _moreModules)
-                  ActionTile(
-                    icon: icon,
-                    label: label,
-                    tone: tone,
-                    onTap: DemoGuard.open(quickActionTarget(route), () {
-                      Navigator.pop(ctx);
-                      openRoute(context, route);
-                    }),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }
 
 /// Reorder and toggle quick actions (kept in memory).

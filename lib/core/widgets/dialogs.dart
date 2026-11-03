@@ -126,3 +126,94 @@ Widget sheetFrame(BuildContext context, List<Widget> children) => SafeArea(
     ),
   ),
 );
+
+/// "Reject …?" style dialog with a required reason. Returns the trimmed reason, or null on Cancel.
+Future<String?> showReasonDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmLabel = 'Reject',
+  String hint = 'Reason (required)',
+  bool destructive = true,
+}) {
+  return showDialog<String>(
+    context: context,
+    useRootNavigator: false,
+    builder: (_) => _ReasonDialog(
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+      hint: hint,
+      destructive: destructive,
+    ),
+  );
+}
+
+/// Owns its text controller, so it is disposed only after the dialog's exit animation.
+class _ReasonDialog extends StatefulWidget {
+  const _ReasonDialog({
+    required this.title,
+    required this.message,
+    required this.confirmLabel,
+    required this.hint,
+    required this.destructive,
+  });
+
+  final String title;
+  final String message;
+  final String confirmLabel;
+  final String hint;
+  final bool destructive;
+
+  @override
+  State<_ReasonDialog> createState() => _ReasonDialogState();
+}
+
+class _ReasonDialogState extends State<_ReasonDialog> {
+  final _controller = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(widget.message),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            maxLines: 3,
+            decoration: InputDecoration(hintText: widget.hint, errorText: _error),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: widget.destructive ? AppColors.red : null,
+            minimumSize: const Size(96, 44),
+          ),
+          onPressed: () {
+            final r = _controller.text.trim();
+            if (r.isEmpty) {
+              setState(() => _error = 'Please enter a reason');
+            } else {
+              Navigator.pop(context, r);
+            }
+          },
+          child: Text(widget.confirmLabel),
+        ),
+      ],
+    );
+  }
+}

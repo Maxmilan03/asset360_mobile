@@ -53,7 +53,7 @@ what happened.
 |---|---|---|
 | Splash | (no taps) | Goes to Login or Home after `SplashScreen.duration` |
 
-### Home (`home/home_screen.dart`, `quick_actions.dart`, `home_sheets.dart`, `task_row.dart`)
+### Home (`home/home_screen.dart`, `quick_actions.dart`, `home_style.dart`, `task_row.dart`)
 | Screen | Element | Action |
 |---|---|---|
 | Home | Pull to refresh | Shows section skeletons for 1 s, then the content again |

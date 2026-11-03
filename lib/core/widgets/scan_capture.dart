@@ -11,15 +11,33 @@ Future<String?> showScanCapture(
   BuildContext context, {
   String title = 'Scan Asset Tag',
   List<String> suggestions = const [],
+}) async => (await captureScan(context, title: title, suggestions: suggestions))?.code;
+
+/// A code from [captureScan] and its format (qr, code128, ean13 … or manual).
+typedef CapturedCode = ({String code, String format});
+
+/// Like [showScanCapture], with the symbology the camera reported.
+Future<CapturedCode?> captureScan(
+  BuildContext context, {
+  String title = 'Scan Asset Tag',
+  List<String> suggestions = const [],
 }) {
   // Current tab's navigator: the bottom bar stays visible over the scanner.
-  return Navigator.of(context).push<String>(
+  return Navigator.of(context).push<CapturedCode>(
     MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) => _ScanCapturePage(title: title, suggestions: suggestions),
     ),
   );
 }
+
+/// mobile_scanner format → the ScanLog format name (qr, code128, ean13, datamatrix …).
+String barcodeFormatName(BarcodeFormat f) => switch (f) {
+  BarcodeFormat.qrCode => 'qr',
+  BarcodeFormat.dataMatrix => 'datamatrix',
+  BarcodeFormat.unknown || BarcodeFormat.all => 'barcode',
+  _ => f.name.toLowerCase(),
+};
 
 class _ScanCapturePage extends StatefulWidget {
   const _ScanCapturePage({required this.title, required this.suggestions});
@@ -42,10 +60,10 @@ class _ScanCapturePageState extends State<_ScanCapturePage> {
     super.dispose();
   }
 
-  void _finish(String code) {
+  void _finish(String code, String format) {
     if (_done || code.trim().isEmpty) return;
     _done = true;
-    Navigator.pop(context, code.trim());
+    Navigator.pop<CapturedCode>(context, (code: code.trim(), format: format));
   }
 
   Future<void> _enterManually() async {
@@ -54,7 +72,7 @@ class _ScanCapturePageState extends State<_ScanCapturePage> {
       useRootNavigator: false,
       builder: (_) => const _CodeDialog(),
     );
-    if (code != null) _finish(code);
+    if (code != null) _finish(code, 'manual');
   }
 
   @override
@@ -85,8 +103,8 @@ class _ScanCapturePageState extends State<_ScanCapturePage> {
                 MobileScanner(
                   controller: _controller,
                   onDetect: (capture) {
-                    final value = capture.barcodes.firstOrNull?.rawValue;
-                    if (value != null) _finish(value);
+                    final b = capture.barcodes.firstOrNull;
+                    if (b?.rawValue case final value?) _finish(value, barcodeFormatName(b!.format));
                   },
                   errorBuilder: (context, error) => Center(
                     child: Padding(
@@ -143,7 +161,7 @@ class _ScanCapturePageState extends State<_ScanCapturePage> {
                         ActionChip(
                           avatar: Icon(Icons.qr_code_2_rounded, size: 16, color: AppColors.primary),
                           label: Text(s),
-                          onPressed: () => _finish(s),
+                          onPressed: () => _finish(s, 'qr'),
                         ),
                     ],
                   ),

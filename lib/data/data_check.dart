@@ -2,6 +2,10 @@ import 'package:flutter_riverpod/misc.dart';
 
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/data/mock/inventory_mock.dart';
+import 'package:asset360_mobile/data/mock/home_mock.dart';
+import 'package:asset360_mobile/data/models/home_insights.dart';
+import 'package:asset360_mobile/data/repositories/home_repository.dart';
+import 'package:asset360_mobile/data/repositories/disposals_repository.dart';
 import 'package:asset360_mobile/data/models/alert.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/models/audit.dart';
@@ -111,6 +115,8 @@ List<DataCheckGroup> _run(Reader read) {
     _eq('CNC-00123 warranty days left', DemoClock.daysUntil(cnc.warrantyExpiry), 156),
     _info('Showing', 'Showing ${assets.length} of ${org.totalAssets}'),
   ]);
+
+  final homeGroup = _homeDrilldownChecks(read, org);
 
   // ---- Tracking
   final ts = tracking.summary;
@@ -432,6 +438,7 @@ List<DataCheckGroup> _run(Reader read) {
 
   return [
     assetGroup,
+    homeGroup,
     trackingGroup,
     maintGroup,
     inspGroup,
@@ -445,4 +452,112 @@ List<DataCheckGroup> _run(Reader read) {
     syncGroup,
     integrity,
   ];
+}
+
+/// Home drill-downs: every breakdown sums to its total (Asset Overview, Asset Health,
+/// Maintenance Performance, Cost Summary) and Upcoming Activities point at real records.
+DataCheckGroup _homeDrilldownChecks(Reader read, OrgSummary org) {
+  final b = read(assetBreakdownProvider);
+  final byLocation = b.byLocation.fold<int>(0, (n, s) => n + s.total);
+  final bandsAgree = HealthBand.values.every((h) => b.band(h) == b.byLocation.fold<int>(0, (n, s) => n + s.count(h)));
+
+  final rows = read(maintenanceMonthsProvider);
+  WoMix mix(int months) => WoMix.of(rows.where((r) => lastMonths(months).contains(r.month)));
+  final six = mix(6);
+  final perTypeOk = [3, 6, 12].every((n) {
+    final total = mix(n).total;
+    final types = homeAssetTypes.fold<int>(
+      0,
+      (a, t) => a + WoMix.of(rows.where((r) => r.type == t && lastMonths(n).contains(r.month))).total,
+    );
+    final sites = read(sitesProvider)
+        .skip(1)
+        .fold<int>(
+          0,
+          (a, site) => a + WoMix.of(rows.where((r) => r.site == site && lastMonths(n).contains(r.month))).total,
+        );
+    return types == total && sites == total;
+  });
+  final mtbfChange =
+      (mtbfPerMonth.last - mtbfPerMonth[mtbfPerMonth.length - 2]) * 100 / mtbfPerMonth[mtbfPerMonth.length - 2];
+
+  final years = read(costYearsProvider);
+  final costProblems = [
+    for (final y in years) ...[
+      if (CostGroup.values.fold<int>(0, (a, g) => a + y.groupTotal(g)) != y.total) '${y.label} cards',
+      for (final g in CostGroup.values)
+        if (y.monthly[g]!.fold<int>(0, (a, v) => a + v) != y.groupTotal(g)) '${y.label} ${g.label} months',
+      if (y.byType.values.fold<int>(0, (a, v) => a + v) != y.total) '${y.label} by type',
+    ],
+  ];
+
+  final activities = read(plannedActivitiesProvider);
+  final wos = read(workOrdersProvider).map((w) => w.id).toSet();
+  final ins = read(inspectionsProvider).map((i) => i.id).toSet();
+  final audits = read(auditsProvider).map((a) => a.id).toSet();
+  final approvals = {...read(movementsProvider).map((m) => m.id), ...read(disposalsProvider).map((d) => d.id)};
+  final badActivities = [
+    for (final a in activities)
+      if (!a.end.isAfter(a.start) ||
+          a.start.isBefore(activityWindowStart) ||
+          !a.start.isBefore(activityWindowEnd) ||
+          !switch (a.kind) {
+            ActivityKind.workOrder => wos.contains(a.refId),
+            ActivityKind.inspection => ins.contains(a.refId),
+            ActivityKind.audit => audits.contains(a.refId),
+            ActivityKind.approval => approvals.contains(a.refId),
+          })
+        a.refId,
+  ];
+  final assetIds = read(assetsProvider).map((a) => a.id).toSet();
+  final critical = read(criticalHealthAssetsProvider);
+  final unknownRefs = [
+    for (final id in healthReasons.keys)
+      if (!assetIds.contains(id)) id,
+    for (final id in mapPins.keys)
+      if (!assetIds.contains(id)) id,
+  ];
+
+  return DataCheckGroup('Home drill-downs', [
+    _rule('Assets by type sum to the org total', b.total == org.totalAssets, '${b.total} = ${org.totalAssets}'),
+    _rule('Assets by location sum to the org total', byLocation == org.totalAssets, '$byLocation = ${org.totalAssets}'),
+    _rule('Health bands agree by type and by location', bandsAgree, bandsAgree ? 'OK' : 'mismatch'),
+    for (final h in HealthBand.values) _info('  ${h.label}', '${b.band(h)} (${b.bandPct(h).round()}%)'),
+    _eq('Healthy % = Home health ring', b.bandPct(HealthBand.healthy).round(), org.health),
+    _rule(
+      'Top critical-health assets exist and are below Healthy',
+      critical.isNotEmpty && critical.every((c) => HealthBand.of(c.$1.healthScore) != HealthBand.healthy),
+      critical.map((c) => '${c.$1.id} ${c.$2}').join(', '),
+    ),
+    _eq('Maintenance last 6 months: planned', six.planned, 236),
+    _eq('Maintenance last 6 months: unplanned', six.unplanned, 24),
+    _eq('Maintenance last 6 months: overdue', six.overdue, 11),
+    _eq('Planned share %', six.pct(six.planned).round(), 87),
+    _rule(
+      'Maintenance by type and by site sum to the totals (3 / 6 / 12 months)',
+      perTypeOk,
+      perTypeOk ? 'OK' : 'mismatch',
+    ),
+    _eq('MTTR (hrs) = Home KPI', mttrPerMonth.last, org.mttrHours),
+    _eq('MTBF (days)', mtbfPerMonth.last.round(), 120),
+    _eq('MTBF change %', mtbfChange.round(), 12),
+    _eq('Cost YTD = Home total (AED)', years.first.total, org.totalCost),
+    _rule(
+      'Cost cards, months and asset types sum to each year',
+      costProblems.isEmpty,
+      costProblems.isEmpty ? 'OK' : costProblems.join(', '),
+    ),
+    for (final y in years) _info('  ${y.label}', '${y.total} (${y.changePct.toStringAsFixed(1)}% vs last year)'),
+    _info('Upcoming activities (21 Sep – 4 Oct)', activities.length),
+    _rule(
+      'Activities: real records, inside the window, end after start',
+      badActivities.isEmpty,
+      badActivities.isEmpty ? 'OK' : badActivities.join(', '),
+    ),
+    _rule(
+      'Health reasons and map pins name real assets',
+      unknownRefs.isEmpty,
+      unknownRefs.isEmpty ? 'OK' : unknownRefs.join(', '),
+    ),
+  ]);
 }

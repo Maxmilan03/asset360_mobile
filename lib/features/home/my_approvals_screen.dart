@@ -7,8 +7,10 @@ import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/models/disposal.dart';
 import 'package:asset360_mobile/data/models/movement.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/disposals_repository.dart';
 import 'package:asset360_mobile/data/repositories/movements_repository.dart';
 import 'package:asset360_mobile/features/work/movement/movement_widgets.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
@@ -21,21 +23,22 @@ class MyApprovalsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(currentUserProvider).id;
     final pending = ref.watch(movementsProvider).toApprove(me);
+    final disposals = ref.watch(disposalsProvider).toApprove(me);
+    final total = pending.length + disposals.length;
     return AppScaffold(
       body: ListView(
         padding: context.pagePadding,
         children: [
           PageTitle(
             title: 'My Approvals',
-            subtitle: pending.isEmpty
-                ? 'Nothing is waiting for you'
-                : '${pending.length} requests waiting for your approval',
+            subtitle: total == 0 ? 'Nothing is waiting for you' : '$total requests waiting for your approval',
             help:
-                'Asset movement requests where you are the approver. Approve to let the move go ahead, '
-                'or reject with a reason. The Home "Approvals" tile updates immediately.',
+                'Asset movement and disposal requests where you are the approver. Approve to let the move '
+                'go ahead (or dispose of the asset), or reject with a reason. The Home "Approvals" tile '
+                'updates immediately.',
           ),
           const SizedBox(height: 16),
-          if (pending.isEmpty)
+          if (total == 0)
             AppCard(
               child: EmptyState(
                 icon: Icons.verified_rounded,
@@ -50,6 +53,11 @@ class MyApprovalsScreen extends ConsumerWidget {
               rows: 2,
               child: Column(
                 children: [
+                  for (final d in disposals)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _DisposalCard(request: d),
+                    ),
                   for (final m in pending)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -126,6 +134,98 @@ class _ApprovalCard extends ConsumerWidget {
                   onPressed: () {
                     ref.read(movementsProvider.notifier).approve(request.id);
                     context.showSnack('${request.id} approved');
+                  },
+                  child: const Text('Approve'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A disposal request: Approve → the asset becomes Disposed; Reject asks for a reason.
+class _DisposalCard extends ConsumerWidget {
+  const _DisposalCard({required this.request});
+
+  final DisposalRequest request;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final d = request;
+    final asset = ref.watch(assetByIdProvider(d.assetId));
+    final requester = ref.watch(personByIdProvider(d.requesterId));
+    return AppCard(
+      onTap: () => context.push(Routes.assetDetail(d.assetId)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              AssetThumb(imagePath: asset?.imagePath, size: 56),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(d.id, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.cardTitle),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${d.assetId} – ${asset?.name ?? ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body.copyWith(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              StatusChip(d.status),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const InfoRow(label: 'Type', value: 'Disposal', labelWidth: 96),
+          InfoRow(label: 'Reason', value: d.reason, labelWidth: 96),
+          InfoRow(label: 'Requested for', value: DemoClock.formatDate(d.requestedDate), labelWidth: 96),
+          InfoRow(label: 'Requested by', value: requester?.labelWithRole ?? '—', labelWidth: 96),
+          InfoRow(label: 'Submitted', value: DemoClock.formatDateTime(d.createdAt), labelWidth: 96),
+          if (d.notes != null) InfoRow(label: 'Notes', value: d.notes!, labelWidth: 96),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.red,
+                    side: const BorderSide(color: AppColors.red),
+                  ),
+                  onPressed: () async {
+                    final reason = await showReasonDialog(
+                      context,
+                      title: 'Reject ${d.id}?',
+                      message: 'Tell the requester why ${d.assetId} should not be disposed.',
+                    );
+                    if (reason == null || !context.mounted) return;
+                    ref.read(disposalsProvider.notifier).reject(d.id, reason);
+                    context.showSnack('${d.id} rejected');
+                  },
+                  child: const Text('Reject'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () async {
+                    final ok = await showConfirmDialog(
+                      context,
+                      title: 'Approve ${d.id}?',
+                      message: '${d.assetId} will be marked Disposed.',
+                      confirmLabel: 'Approve',
+                    );
+                    if (!ok || !context.mounted) return;
+                    ref.read(disposalsProvider.notifier).approve(d.id);
+                    context.showSnack('${d.id} approved – ${d.assetId} is now Disposed');
                   },
                   child: const Text('Approve'),
                 ),

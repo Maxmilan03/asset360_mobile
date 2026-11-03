@@ -244,6 +244,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('LAP-0098'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Good'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Good'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Confirm Check In'));

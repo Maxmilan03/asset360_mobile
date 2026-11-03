@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:asset360_mobile/core/scanning/hardware_scan_listener.dart';
 import 'package:asset360_mobile/core/widgets/demo_guard.dart';
 import 'package:asset360_mobile/features/more/all_modules.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
@@ -82,10 +83,14 @@ class _MainShellState extends ConsumerState<MainShell> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && !onHome) _shell.goBranch(0);
       },
-      child: Scaffold(
-        extendBody: true,
-        body: _shell,
-        bottomNavigationBar: AppBottomBar(currentIndex: active, onTap: _onTap),
+      // The HHT scanner works on every screen; reads open on the current tab.
+      child: HardwareScanListener(
+        navigatorContext: () => _branchContext,
+        child: Scaffold(
+          extendBody: true,
+          body: _shell,
+          bottomNavigationBar: AppBottomBar(currentIndex: active, onTap: _onTap),
+        ),
       ),
     );
   }

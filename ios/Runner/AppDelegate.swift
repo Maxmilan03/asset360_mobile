@@ -25,6 +25,20 @@ import UIKit
             return
           }
           UIApplication.shared.open(url, options: [:]) { ok in result(ok) }
+        case "openUrl":
+          guard let args = call.arguments as? [String: Any], let raw = args["url"] as? String,
+                let url = URL(string: raw) else {
+            result(false)
+            return
+          }
+          UIApplication.shared.open(url, options: [:]) { ok in result(ok) }
+        case "deviceInfo":
+          var info = utsname()
+          uname(&info)
+          let model = withUnsafePointer(to: &info.machine) {
+            $0.withMemoryRebound(to: CChar.self, capacity: 1) { String(cString: $0) }
+          }
+          result("Apple \(model) · iOS \(UIDevice.current.systemVersion)")
         default:
           result(FlutterMethodNotImplemented)
         }

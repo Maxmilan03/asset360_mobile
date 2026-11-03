@@ -13,6 +13,7 @@ import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/platform/app_launcher.dart';
+import 'package:asset360_mobile/core/scanning/scan_dispatch.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/mock/demo_ids.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
@@ -36,16 +37,17 @@ enum ScanMode {
   final IconData icon;
 }
 
-/// Simulated NFC / RFID read: hold → read → (opened) idle.
+/// NFC (real) / RFID (simulated) read: hold → read → (opened) idle.
 enum _TagRead { reading, read, idle }
 
 /// Scan & Identify (left screen of design/05_scan_identify.jpg): QR / Barcode with the live
-/// camera, simulated NFC / RFID reads and a BLE beacon search. Manual Entry and Multi Scan
-/// work in every mode.
+/// camera, real NFC reads (nfc_manager), simulated RFID reads and BLE beacon search. Manual Entry
+/// and Multi Scan work in every mode. Camera, NFC, Manual Entry and HHT reads go through
+/// ScanService (saved in Local Data); while visible the screen is the scan target for the HHT.
 class ScanScreen extends ConsumerStatefulWidget {
   const ScanScreen({super.key});
 
-  /// How long the simulated NFC / RFID read takes.
+  /// How long the simulated RFID read takes.
   static const tagReadTime = Duration(seconds: 2);
 
   /// How long the simulated BLE search takes to list every nearby beacon.
@@ -68,6 +70,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
 
   /// Last code the camera saw (Tap to Scan uses it) and the code just handled (not re-opened at once).
   (String, DateTime)? _lastSeen;
+  BarcodeFormat _lastFormat = BarcodeFormat.qrCode;
   (String, DateTime)? _cooldown;
   bool _seeking = false;
   Timer? _seekTimer;
@@ -75,7 +78,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   // NFC / RFID
   _TagRead _tagRead = _TagRead.idle;
   String? _tagCode;
+  String? _tagUid;
+  int _tagRecords = 0;
+  NfcState? _nfcState;
   Timer? _tagTimer;
+  late final NfcReader _nfc;
+  late final _target = ScanTarget(accepts: ScanTarget.all, onScan: _onResult, debugLabel: 'Scan screen');
 
   // BLE
   int _bleFound = 0;
@@ -91,6 +99,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _nfc = ref.read(nfcReaderProvider);
     // Settings → Scanning → Default scan mode.
     final start = ScanMode.values.byName(ref.read(appSettingsProvider).scanMode.name);
     if (start != ScanMode.qr) WidgetsBinding.instance.addPostFrameCallback((_) => mounted ? _setMode(start) : null);
@@ -141,6 +150,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   void _stopSimulations() {
     _tagTimer?.cancel();
     _bleTimer?.cancel();
+    if (_mode == ScanMode.nfc && _tagRead == _TagRead.reading) _nfc.cancel();
     if (_tagRead != _TagRead.idle) _tagRead = _TagRead.idle;
   }
 
@@ -155,6 +165,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       case ScanMode.qr:
         break; // The MobileScanner widget starts the camera when it is built.
       case ScanMode.nfc:
+        _checkNfc();
       case ScanMode.rfid:
         _startTagRead();
       case ScanMode.ble:
@@ -164,16 +175,37 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
 
   // ---------------------------------------------------------------- Handling a code
 
-  /// Opens (or, in Multi Scan, collects) a scanned code from any mode.
-  Future<void> _handle(String code, String method) async {
-    if (_busy || code.trim().isEmpty) return;
+  /// Saves [e] through ScanService and opens (or, in Multi Scan, collects) the result.
+  Future<void> _handle(ScanEvent e) async {
+    if (_busy || e.value.trim().isEmpty) return;
     _endSeek();
-    if (_multi) return _collect(code, method);
+    final r = await ref.read(scanServiceProvider).submit(e);
+    if (r == null || !mounted) return;
+    scanFeedback(ref, recognised: r.isKnown);
+    await _onResult(r);
+  }
+
+  /// RFID / BLE are simulated: matched like any code, but not saved in Local Data.
+  Future<void> _handleSimulated(String code, String method) async {
+    if (_busy || code.trim().isEmpty) return;
+    final r = await ref
+        .read(scanServiceProvider)
+        .resolve(ScanEvent(value: code.trim(), format: method.toLowerCase(), source: ScanSource.manual));
+    if (!mounted) return;
+    scanFeedback(ref, recognised: r.isKnown);
+    await _onResult(r, method: method);
+  }
+
+  /// A result from this screen or from the HHT trigger while this screen is showing.
+  Future<void> _onResult(ScanResult r, {String? method}) async {
+    if (_busy || !mounted) return;
+    _endSeek();
+    if (_multi) return _collect(r, method ?? ScanMethod.of(r.event));
     setState(() => _busy = true);
     _syncCamera();
-    await openScannedCode(context, ref, code, method: method);
+    await openScanFromScanScreen(context, ref, r, method: method);
     if (!mounted) return;
-    _cooldown = (code, DateTime.now());
+    _cooldown = (r.event.value, DateTime.now());
     setState(() {
       _busy = false;
       if (_tagRead == _TagRead.read) _tagRead = _TagRead.idle;
@@ -182,21 +214,20 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   }
 
   /// Multi Scan: each asset is added once to the counter list (and to Scan History).
-  void _collect(String code, String method) {
-    final history = ref.read(scanHistoryProvider.notifier);
-    final target = history.resolve(code);
-    if (target == null) {
-      context.showSnack('"$code" is not registered – skipped');
+  void _collect(ScanResult r, String method) {
+    if (!r.isKnown) {
+      context.showSnack('"${r.event.value}" is not registered – skipped');
       return;
     }
-    if (target.kind != ScanKind.asset) {
-      context.showSnack('${target.refId} is not an asset – Multi Scan collects assets only');
+    if (r.matchType != MatchType.asset) {
+      context.showSnack('${r.matchLabel} is not an asset – Multi Scan collects assets only');
       return;
     }
-    if (_batch.contains(target.refId)) return;
-    history.add(target.kind, target.refId, method: method);
+    final id = r.matchId!;
+    if (_batch.contains(id)) return;
+    ref.read(scanHistoryProvider.notifier).add(ScanKind.asset, id, method: method);
     HapticFeedback.lightImpact();
-    setState(() => _batch.add(target.refId));
+    setState(() => _batch.add(id));
   }
 
   void _onDetect(BarcodeCapture capture) {
@@ -205,6 +236,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     if (barcode == null || code == null || code.isEmpty) return;
     final now = DateTime.now();
     _lastSeen = (code, now);
+    _lastFormat = barcode.format;
     // The code that was just opened stays in view when the user comes back: ignore it for a few
     // seconds (Tap to Scan opens it again straight away).
     final cool = _cooldown;
@@ -212,17 +244,18 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     if (_multi && _batch.isNotEmpty && ref.read(scanHistoryProvider.notifier).resolve(code)?.refId == _batch.last) {
       return;
     }
-    _handle(code, _methodOf(barcode.format));
+    _handle(_cameraEvent(code, barcode.format));
   }
 
-  String _methodOf(BarcodeFormat f) => f == BarcodeFormat.qrCode ? ScanMethod.qr : ScanMethod.barcode;
+  ScanEvent _cameraEvent(String code, BarcodeFormat f) =>
+      ScanEvent(value: code, format: barcodeFormatName(f), source: ScanSource.camera);
 
   /// Tap to Scan: opens the code in view now, or waits up to 3 s for one.
   void _tapToScan() {
     final seen = _lastSeen;
     if (seen != null && DateTime.now().difference(seen.$2) < const Duration(milliseconds: 1500)) {
       _cooldown = null;
-      _handle(seen.$1, ScanMethod.qr);
+      _handle(_cameraEvent(seen.$1, _lastFormat));
       return;
     }
     if (!_controller.value.isRunning) {
@@ -266,10 +299,66 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       return;
     }
     _cooldown = null;
-    await _handle(code, _methodOf(barcode.format));
+    await _handle(_cameraEvent(code, barcode.format));
   }
 
-  // ---------------------------------------------------------------- NFC / RFID
+  // ---------------------------------------------------------------- NFC
+
+  Future<void> _checkNfc() async {
+    final st = await _nfc.availability();
+    if (mounted) setState(() => _nfcState = st);
+  }
+
+  /// Tap to Read: one real NFC session; any tag (blank tags give their UID).
+  Future<void> _startNfcRead() async {
+    final st = await _nfc.availability();
+    if (!mounted || _mode != ScanMode.nfc) return;
+    setState(() => _nfcState = st);
+    if (st == NfcState.unsupported) {
+      context.showSnack('This device has no NFC reader. Use the camera or Manual Entry.');
+      return;
+    }
+    if (st == NfcState.disabled) {
+      await showNfcOffDialog(context);
+      return;
+    }
+    setState(() {
+      _tagRead = _TagRead.reading;
+      _tagCode = _tagUid = null;
+    });
+    try {
+      final e = await _nfc.readOnce();
+      if (!mounted || _mode != ScanMode.nfc) return;
+      HapticFeedback.selectionClick();
+      setState(() {
+        _tagRead = _TagRead.read;
+        _tagCode = e.value;
+        _tagUid = e.nfcUid;
+        _tagRecords = e.nfcRecords?.length ?? 0;
+      });
+      await _handle(e);
+      if (mounted && _tagRead == _TagRead.read) setState(() => _tagRead = _TagRead.idle);
+      // Multi Scan keeps reading tags until Done.
+      if (mounted && _multi && _mode == ScanMode.nfc && _visible) _startNfcRead();
+    } on NfcReadException catch (x) {
+      if (!mounted) return;
+      setState(() => _tagRead = _TagRead.idle);
+      switch (x.failure) {
+        case NfcFailure.timeout:
+          context.showSnack('No NFC tag found. Tap to Read and hold the phone on the tag.');
+        case NfcFailure.disabled:
+          await showNfcOffDialog(context);
+        case NfcFailure.unsupported:
+          context.showSnack('This device has no NFC reader.');
+        case NfcFailure.error:
+          context.showSnack('Could not read the tag. Try again.');
+        case NfcFailure.cancelled:
+          break;
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- RFID (simulated)
 
   void _startTagRead() {
     final assets = ref.read(assetsProvider);
@@ -288,9 +377,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       setState(() => _tagRead = _TagRead.read);
       _tagTimer = Timer(const Duration(milliseconds: 700), () async {
         if (!mounted) return;
-        await _handle(_tagCode!, _mode == ScanMode.nfc ? ScanMethod.nfc : ScanMethod.rfid);
+        await _handleSimulated(_tagCode!, ScanMethod.rfid);
         // Multi Scan keeps reading tags until Done.
-        if (mounted && _multi && (_mode == ScanMode.nfc || _mode == ScanMode.rfid) && _visible) _startTagRead();
+        if (mounted && _multi && _mode == ScanMode.rfid && _visible) _startTagRead();
       });
     });
   }
@@ -314,7 +403,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
 
   Future<void> _manualEntry() async {
     final code = await showManualEntrySheet(context);
-    if (code != null && mounted) await _handle(code, ScanMethod.manual);
+    if (code != null && mounted) {
+      await _handle(ScanEvent(value: code, format: 'manual', source: ScanSource.manual));
+    }
   }
 
   void _toggleMulti() {
@@ -323,7 +414,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       return;
     }
     setState(() => _multi = true);
-    if ((_mode == ScanMode.nfc || _mode == ScanMode.rfid) && _tagRead == _TagRead.idle) _startTagRead();
+    if (_mode == ScanMode.nfc && _tagRead == _TagRead.idle) _startNfcRead();
+    if (_mode == ScanMode.rfid && _tagRead == _TagRead.idle) _startTagRead();
   }
 
   Future<void> _finishMulti() async {
@@ -352,6 +444,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       case ScanMode.qr:
         _tapToScan();
       case ScanMode.nfc:
+        if (_tagRead == _TagRead.idle) _startNfcRead();
       case ScanMode.rfid:
         if (_tagRead == _TagRead.idle) _startTagRead();
       case ScanMode.ble:
@@ -372,102 +465,113 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     final history = ref.watch(scanHistoryProvider);
     return AppScaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
-            child: PageTitle(
-              title: 'Scan & Identify',
-              subtitle: 'Scan asset tag to instantly view details',
-              trailing: DemoGuard(
-                route: Routes.scanHistoryFrom(Routes.home),
-                child: IconButton(
-                  tooltip: 'Scan History (${history.length})',
-                  onPressed: () => context.push(Routes.scanHistoryFrom(GoRouterState.of(context).uri.path)),
-                  icon: Badge(
-                    isLabelVisible: history.isNotEmpty,
-                    backgroundColor: AppColors.primary,
-                    label: Text('${history.length}'),
-                    child: Icon(Icons.history_rounded, color: AppColors.text),
+      body: ScanTargetScope(
+        target: _target,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+              child: PageTitle(
+                title: 'Scan & Identify',
+                subtitle: 'Scan asset tag to instantly view details',
+                trailing: DemoGuard(
+                  route: Routes.scanHistoryFrom(Routes.home),
+                  child: IconButton(
+                    tooltip: 'Scan History (${history.length})',
+                    onPressed: () => context.push(Routes.scanHistoryFrom(GoRouterState.of(context).uri.path)),
+                    icon: Badge(
+                      isLabelVisible: history.isNotEmpty,
+                      backgroundColor: AppColors.primary,
+                      label: Text('${history.length}'),
+                      child: Icon(Icons.history_rounded, color: AppColors.text),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          _ModeTabs(selected: _mode, onChanged: _setMode),
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                switch (_mode) {
-                  ScanMode.qr => _cameraView(),
-                  ScanMode.nfc || ScanMode.rfid => _TagReadPane(mode: _mode, state: _tagRead, code: _tagCode),
-                  ScanMode.ble => _BlePane(found: _bleFound, onTap: (a) => _handle(a.id, ScanMethod.ble)),
-                },
-                Positioned(
-                  left: 16,
-                  right: 16,
-                  bottom: context.bottomInset + 14,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (_multi) ...[
-                        _MultiScanStrip(
-                          ids: _batch,
-                          onRemove: (id) => setState(() => _batch.remove(id)),
-                          onDone: _finishMulti,
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 22),
-                            child: DemoGuard(
-                              action: DemoAction.scanManualEntry,
-                              child: ScanSideButton(
-                                icon: Icons.keyboard_alt_outlined,
-                                label: 'Manual Entry',
-                                onTap: _manualEntry,
-                              ),
-                            ),
+            const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: LocalDataBadge()),
+            _ModeTabs(selected: _mode, onChanged: _setMode),
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  switch (_mode) {
+                    ScanMode.qr => _cameraView(),
+                    ScanMode.nfc || ScanMode.rfid => _TagReadPane(
+                      mode: _mode,
+                      state: _tagRead,
+                      code: _tagCode,
+                      uid: _tagUid,
+                      records: _tagRecords,
+                      nfcState: _nfcState,
+                    ),
+                    ScanMode.ble => _BlePane(found: _bleFound, onTap: (a) => _handleSimulated(a.id, ScanMethod.ble)),
+                  },
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: context.bottomInset + 14,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_multi) ...[
+                          _MultiScanStrip(
+                            ids: _batch,
+                            onRemove: (id) => setState(() => _batch.remove(id)),
+                            onDone: _finishMulti,
                           ),
-                          Flexible(
-                            child: DemoGuard(
-                              action: DemoAction.scanTap,
-                              child: ScanShutterButton(
-                                label: _shutterLabel,
-                                icon: _mode.icon,
-                                busy: _seeking,
-                                onTap: _onShutter,
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 22),
-                            child: DemoGuard(
-                              action: DemoAction.scanMultiScan,
-                              child: ScanSideButton(
-                                icon: _multi ? Icons.done_all_rounded : Icons.library_add_check_outlined,
-                                label: _multi ? 'Done' : 'Multi Scan',
-                                active: _multi,
-                                onTap: _toggleMulti,
-                              ),
-                            ),
-                          ),
+                          const SizedBox(height: 12),
                         ],
-                      ),
-                    ],
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 22),
+                              child: DemoGuard(
+                                action: DemoAction.scanManualEntry,
+                                child: ScanSideButton(
+                                  icon: Icons.keyboard_alt_outlined,
+                                  label: 'Manual Entry',
+                                  onTap: _manualEntry,
+                                ),
+                              ),
+                            ),
+                            Flexible(
+                              child: DemoGuard(
+                                action: DemoAction.scanTap,
+                                child: ScanShutterButton(
+                                  label: _shutterLabel,
+                                  icon: _mode.icon,
+                                  busy: _seeking,
+                                  onTap: _onShutter,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 22),
+                              child: DemoGuard(
+                                action: DemoAction.scanMultiScan,
+                                child: ScanSideButton(
+                                  icon: _multi ? Icons.done_all_rounded : Icons.library_add_check_outlined,
+                                  label: _multi ? 'Done' : 'Multi Scan',
+                                  active: _multi,
+                                  onTap: _toggleMulti,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -526,7 +630,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
               tooltip: 'Pretend ${DemoIds.scannedAsset} was scanned (debug builds only)',
               onPressed: () {
                 _cooldown = null;
-                _handle(DemoIds.scannedAsset, ScanMethod.qr);
+                _handle(const ScanEvent(value: DemoIds.scannedAsset, format: 'qr', source: ScanSource.camera));
               },
             ),
           ),
@@ -571,6 +675,11 @@ class _ModeTabs extends StatelessWidget {
                         fontWeight: m == selected ? FontWeight.w600 : FontWeight.w500,
                         color: m == selected ? AppColors.primary : AppColors.textSecondary,
                       ),
+                    ),
+                    // RFID and BLE are simulated.
+                    Text(
+                      m == ScanMode.rfid || m == ScanMode.ble ? 'Demo' : '',
+                      style: TextStyle(fontSize: 10, height: 1.2, color: AppColors.textMuted),
                     ),
                   ],
                 ),
@@ -663,11 +772,21 @@ class _CameraError extends StatelessWidget {
 // ---------------------------------------------------------------- NFC / RFID
 
 class _TagReadPane extends StatelessWidget {
-  const _TagReadPane({required this.mode, required this.state, required this.code});
+  const _TagReadPane({
+    required this.mode,
+    required this.state,
+    required this.code,
+    this.uid,
+    this.records = 0,
+    this.nfcState,
+  });
 
   final ScanMode mode;
   final _TagRead state;
   final String? code;
+  final String? uid;
+  final int records;
+  final NfcState? nfcState;
 
   @override
   Widget build(BuildContext context) {
@@ -679,46 +798,64 @@ class _TagReadPane extends StatelessWidget {
             ? 'Keep the back of the phone within 4 cm of the NFC tag'
             : 'Point the phone at the RFID tag, up to 1 m away',
       ),
-      _TagRead.read => ('Tag read', code ?? ''),
+      _TagRead.read => (
+        'Tag read',
+        [
+          code ?? '',
+          if (uid != null) 'UID $uid',
+          if (uid != null) records == 0 ? 'No NDEF records' : '$records NDEF record${records == 1 ? '' : 's'}',
+        ].join('\n'),
+      ),
+      _TagRead.idle when nfc && nfcState == NfcState.unsupported => (
+        'NFC not available',
+        'This device has no NFC reader. Use the camera or Manual Entry.',
+      ),
+      _TagRead.idle when nfc && nfcState == NfcState.disabled => (
+        'NFC is turned off',
+        'Tap to Read to turn on NFC in the system settings',
+      ),
       _TagRead.idle => ('Ready to read', 'Tap to Read, then hold your phone near the ${nfc ? 'NFC' : 'RFID'} tag'),
     };
     return DecoratedBox(
       decoration: const BoxDecoration(gradient: AppColors.headerGradient),
-      child: Align(
-        alignment: const Alignment(0, -.45),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox.square(
-                dimension: 180,
-                child: state == _TagRead.read
-                    ? Icon(Icons.check_circle_rounded, size: 96, color: AppColors.greenBg)
-                    : PulseRings(
-                        icon: mode.icon,
-                        size: 180,
-                        active: state == _TagRead.reading,
-                        color: AppColors.illustration,
-                      ),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: AppText.sectionTitle.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: state == _TagRead.read ? Colors.white : AppColors.onDarkMuted,
-                  fontWeight: state == _TagRead.read ? FontWeight.w600 : FontWeight.w400,
-                  height: 1.4,
+      // Small phones: the rings shrink so the text clears the buttons below.
+      child: LayoutBuilder(
+        builder: (context, box) => Align(
+          alignment: const Alignment(0, -.45),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox.square(
+                  dimension: (box.maxHeight * .4).clamp(96, 180).toDouble(),
+                  child: state == _TagRead.read
+                      ? Icon(Icons.check_circle_rounded, size: 96, color: AppColors.greenBg)
+                      : PulseRings(
+                          icon: mode.icon,
+                          size: (box.maxHeight * .4).clamp(96, 180).toDouble(),
+                          active: state == _TagRead.reading,
+                          color: AppColors.illustration,
+                        ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 18),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: AppText.sectionTitle.copyWith(color: Colors.white),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: state == _TagRead.read ? Colors.white : AppColors.onDarkMuted,
+                    fontWeight: state == _TagRead.read ? FontWeight.w600 : FontWeight.w400,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

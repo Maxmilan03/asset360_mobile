@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -14,6 +13,7 @@ import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
 import 'package:asset360_mobile/data/repositories/movements_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
+import 'package:asset360_mobile/features/assets/more_actions/more_action_widgets.dart';
 
 // ---------------------------------------------------------------- Action grid
 
@@ -72,7 +72,7 @@ List<AssetAction> assetActions(BuildContext context, WidgetRef ref, Asset asset)
       Icons.more_horiz_rounded,
       'More Actions',
       plain,
-      DemoGuard.tap(DemoAction.assetMoreActions, () => showMoreActionsSheet(context, ref, asset)),
+      DemoGuard.tap(DemoAction.assetMoreActions, () => openMoreActions(context, assetId: id)),
     ),
   ];
 }
@@ -247,130 +247,6 @@ class _CheckOutSheetState extends ConsumerState<_CheckOutSheet> {
   }
 }
 
-// ---------------------------------------------------------------- Transfer ownership
-
-Future<void> showTransferOwnershipSheet(BuildContext context, WidgetRef ref, Asset a) async {
-  final options = custodianOptions(ref).where((c) => c != a.custodian).toList();
-  final chosen = await showModalBottomSheet<String>(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) => SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .7),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: SheetTitle('Transfer Ownership', subtitle: 'Current custodian: ${a.custodian}'),
-            ),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: options.length,
-                itemBuilder: (_, i) => ListTile(
-                  leading: Icon(Icons.person_outline_rounded, color: AppColors.primary),
-                  title: Text(options[i], maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.body),
-                  onTap: () => Navigator.pop(context, options[i]),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-  if (chosen == null || !context.mounted) return;
-  ref
-      .read(movementsProvider.notifier)
-      .submit(
-        assetId: a.id,
-        type: MoveType.assign,
-        from: MovePlace(a.location),
-        to: MovePlace(a.location),
-        newCustodian: chosen,
-        reason: 'Transfer Ownership',
-      );
-  context.showSnack('Custodian changed to $chosen');
-}
-
-// ---------------------------------------------------------------- Print tag
-
-Future<void> showPrintTagSheet(BuildContext context, Asset a) {
-  const printers = ['Zebra ZD421 – Store', 'Zebra ZT411 – Main Plant', 'Brother QL-820 – Office'];
-  var printer = printers.first;
-  var copies = 1;
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => sheetFrame(context, [
-        const SheetTitle('Print Asset Tag', subtitle: 'QR / barcode label for the asset'),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Image.asset('assets/images/logo_on_light.webp', width: 36, height: 36),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(a.id, style: AppText.cardTitle),
-                    Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.caption),
-                    const SizedBox(height: 6),
-                    Code39Barcode(data: a.barcode ?? a.id, height: 36),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              QrCode(data: a.id, size: 72),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        DropdownButtonFormField<String>(
-          initialValue: printer,
-          decoration: const InputDecoration(labelText: 'Printer'),
-          items: [for (final p in printers) DropdownMenuItem(value: p, child: Text(p))],
-          onChanged: (v) => setState(() => printer = v ?? printer),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(child: Text('Copies', style: AppText.bodyStrong)),
-            IconButton(
-              tooltip: 'Fewer',
-              onPressed: copies > 1 ? () => setState(() => copies--) : null,
-              icon: const Icon(Icons.remove_circle_outline_rounded),
-            ),
-            Text('$copies', style: AppText.bodyStrong),
-            IconButton(
-              tooltip: 'More',
-              onPressed: copies < 10 ? () => setState(() => copies++) : null,
-              icon: const Icon(Icons.add_circle_outline_rounded),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        FilledButton.icon(
-          onPressed: () {
-            Navigator.pop(context);
-            context.showSnack('$copies tag${copies > 1 ? 's' : ''} for ${a.id} sent to $printer (demo)');
-          },
-          icon: const Icon(Icons.print_rounded),
-          label: const Text('Print'),
-        ),
-      ]),
-    ),
-  );
-}
-
 // ---------------------------------------------------------------- Link IoT device
 
 Future<void> showLinkIotSheet(BuildContext context, WidgetRef ref, Asset a) async {
@@ -445,7 +321,7 @@ Future<IotDevice?> showIotDevicePicker(
   );
 }
 
-// ---------------------------------------------------------------- Duplicate / share
+// ---------------------------------------------------------------- Duplicate
 
 Future<void> duplicateAsset(BuildContext context, WidgetRef ref, Asset a) async {
   final ok = await showConfirmDialog(
@@ -460,57 +336,15 @@ Future<void> duplicateAsset(BuildContext context, WidgetRef ref, Asset a) async 
   context.push(Routes.assetDetail(id));
 }
 
-Future<void> shareAsset(BuildContext context, Asset a) async {
-  await Clipboard.setData(
-    ClipboardData(
-      text: '${a.id} – ${a.name}\n${a.location}\nStatus: ${a.status}\nhttps://asset360.purpleiq.ae/assets/${a.id}',
-    ),
-  );
-  if (context.mounted) context.showSnack('Asset link copied. The share sheet would open here (demo).');
-}
-
 // ---------------------------------------------------------------- More actions
 
-Future<void> showMoreActionsSheet(BuildContext context, WidgetRef ref, Asset a) async {
-  final action = await showModalBottomSheet<String>(
-    context: context,
-    builder: (context) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text('More Actions', style: AppText.sectionTitle),
-          ),
-          for (final (key, icon, label) in const [
-            ('print', Icons.qr_code_2_rounded, 'Print QR Tag'),
-            ('owner', Icons.swap_horizontal_circle_outlined, 'Transfer Ownership'),
-            ('iot', Icons.sensors_rounded, 'Link IoT Device'),
-            ('clone', Icons.copy_all_rounded, 'Clone'),
-          ])
-            ListTile(
-              leading: Icon(icon, color: AppColors.primary),
-              title: Text(label),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => Navigator.pop(context, key),
-            ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    ),
-  );
-  if (action == null || !context.mounted) return;
-  switch (action) {
-    case 'print':
-      await showPrintTagSheet(context, a);
-    case 'owner':
-      await showTransferOwnershipSheet(context, ref, a);
-    case 'iot':
-      await showLinkIotSheet(context, ref, a);
-    case 'clone':
-      await duplicateAsset(context, ref, a);
-  }
-}
+/// Opens More Actions on the current tab, with [assetId] selected (null = choose one there).
+void openMoreActions(BuildContext context, {String? assetId}) =>
+    context.push(Routes.moreActionsFrom(GoRouterState.of(context).uri.path, assetId: assetId));
+
+/// Opens one More Actions screen (Print Asset Tag, Share …) for [assetId] on the current tab.
+void openMoreAction(BuildContext context, MoreAction action, String assetId) =>
+    context.push(Routes.moreActionFrom(GoRouterState.of(context).uri.path, action.slug, assetId));
 
 /// Retire (confirm) → status Retired.
 Future<void> retireAsset(BuildContext context, WidgetRef ref, Asset a) async {

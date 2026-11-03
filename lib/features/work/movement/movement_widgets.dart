@@ -350,70 +350,14 @@ class MoveStatusTimeline extends StatelessWidget {
 
 /// "Reject MOV-…?" with a required reason. Rejects the request and shows a SnackBar.
 Future<void> rejectMovement(BuildContext context, WidgetRef ref, MovementRequest request) async {
-  final reason = await showDialog<String>(
-    context: context,
-    useRootNavigator: false,
-    builder: (_) => _RejectDialog(id: request.id),
+  final reason = await showReasonDialog(
+    context,
+    title: 'Reject ${request.id}?',
+    message: 'Tell the requester why this request is rejected.',
   );
   if (reason == null || !context.mounted) return;
   ref.read(movementsProvider.notifier).reject(request.id, reason);
   context.showSnack('${request.id} rejected');
-}
-
-/// Owns its text controller, so it is disposed only after the dialog's exit animation.
-class _RejectDialog extends StatefulWidget {
-  const _RejectDialog({required this.id});
-
-  final String id;
-
-  @override
-  State<_RejectDialog> createState() => _RejectDialogState();
-}
-
-class _RejectDialogState extends State<_RejectDialog> {
-  final _controller = TextEditingController();
-  String? _error;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('Reject ${widget.id}?'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Tell the requester why this request is rejected.'),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            maxLines: 3,
-            decoration: InputDecoration(hintText: 'Reason (required)', errorText: _error),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: AppColors.red, minimumSize: const Size(96, 44)),
-          onPressed: () {
-            final r = _controller.text.trim();
-            if (r.isEmpty) {
-              setState(() => _error = 'Please enter a reason');
-            } else {
-              Navigator.pop(context, r);
-            }
-          },
-          child: const Text('Reject'),
-        ),
-      ],
-    );
-  }
 }
 
 /// Resolves a scanned / typed code to an asset ID, or shows a SnackBar and returns null.

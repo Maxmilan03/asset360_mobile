@@ -1,0 +1,10 @@
+# build_runner is used for drift only (lib/data/db/).
+targets:
+  $default:
+    builders:
+      drift_dev:
+        generate_for:
+          - lib/data/db/**
+      drift_dev:preparing_builder:
+        generate_for:
+          - lib/data/db/**
