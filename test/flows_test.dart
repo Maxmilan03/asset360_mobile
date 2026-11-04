@@ -144,7 +144,7 @@ void main() {
     c.read(routerProvider).go(Routes.movementRequest(id));
     await tester.pumpAndSettle();
     await _tap(tester, find.text('Mark In Transit'));
-    expect(c.read(assetByIdProvider(asset))!.status, AssetStatus.inTransit);
+    expect(c.read(movementByIdProvider(id))!.status, MoveStatus.inTransit);
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
     await _tap(tester, find.text('Mark as Received'));

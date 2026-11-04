@@ -24,6 +24,7 @@ import 'package:asset360_mobile/data/repositories/scans_repository.dart';
 import 'package:asset360_mobile/data/mock/scans_mock.dart';
 import 'package:asset360_mobile/data/mock/tracking_mock.dart';
 import 'package:asset360_mobile/data/models/scan_record.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/data/repositories/sync_repository.dart';
 import 'package:asset360_mobile/data/repositories/tracking_repository.dart';
@@ -54,6 +55,10 @@ class DataCheckGroup {
 DataCheck _eq(String label, num actual, num expected) => DataCheck(label, '$actual', expected: '$expected');
 DataCheck _info(String label, Object actual) => DataCheck(label, '$actual');
 DataCheck _rule(String label, bool ok, String detail) => DataCheck(label, detail, ok: ok);
+
+extension on String {
+  String orIfEmpty(String other) => isEmpty ? other : this;
+}
 
 /// Every count used by the screens, computed from the repositories, plus the
 /// rules that must always hold ("All = sum of the tabs", balances add up …).
@@ -93,17 +98,33 @@ List<DataCheckGroup> _run(Reader read) {
   final peopleIds = people.map((p) => p.id).toSet();
 
   // ---- Assets
-  final statusSum = AssetStatus.summary.fold<int>(0, (int s, k) => s + (org.statusCounts[k] ?? 0));
+  final statusSum = AssetStatus.all.fold<int>(0, (int s, k) => s + (org.statusCounts[k] ?? 0));
   final cnc = assets.firstWhere((a) => a.id == 'CNC-00123');
   final assetGroup = DataCheckGroup('Assets', [
     _eq('Detailed asset records', assets.length, 21),
     _eq('Org total assets', org.totalAssets, 12458),
     _rule(
-      'Org total = Active + Under Maint. + Inactive + Retired + Disposed',
+      'Org total = Active + Under Maint. + In Repair + Disposed + Other',
       statusSum == org.totalAssets,
       '$statusSum = ${org.totalAssets}',
     ),
-    for (final s in AssetStatus.summary)
+    _rule(
+      'Org summary uses exactly the asset_options statuses',
+      org.statusCounts.keys.toSet().containsAll(AssetOptions.statuses) &&
+          AssetOptions.statuses.toSet().containsAll(org.statusCounts.keys),
+      org.statusCounts.keys.join(', '),
+    ),
+    for (final (label, values, of) in [
+      ('status', AssetOptions.statuses, (Asset a) => a.status),
+      ('condition', AssetOptions.conditions, (Asset a) => a.condition),
+      ('criticality', AssetOptions.criticalityLevels, (Asset a) => a.criticality),
+    ])
+      _rule(
+        'Every asset $label is an asset_options value',
+        assets.every((a) => values.contains(of(a))),
+        [for (final a in assets) if (!values.contains(of(a))) '${a.id}: ${of(a)}'].join(', ').orIfEmpty('all valid'),
+      ),
+    for (final s in AssetStatus.all)
       _info('  $s', '${org.statusCounts[s]} (${org.statusPct(s).toStringAsFixed(0)}%)'),
     _eq('Asset health %', org.health, 87),
     _eq('Total cost (AED)', org.totalCost, 1250000),

@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/data/mock/movements_mock.dart';
-import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/models/common.dart';
 import 'package:asset360_mobile/data/models/movement.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
@@ -97,12 +96,10 @@ class MovementsNotifier extends Notifier<List<MovementRequest>> {
   void cancel(String id) =>
       _update(id, (m) => m.copyWith(status: MoveStatus.cancelled, timeline: [...m.timeline, _log('Cancelled')]));
 
-  /// Approved → In Transit (the asset shows In Transit until received).
-  void dispatch(String id) {
-    _update(id, (m) => m.copyWith(status: MoveStatus.inTransit, timeline: [...m.timeline, _log('In Transit')]));
-    final m = byId(id)!;
-    ref.read(assetsProvider.notifier).setStatus(m.assetId, AssetStatus.inTransit);
-  }
+  /// Approved → In Transit. The request carries "In Transit"; the asset keeps its status
+  /// (In Transit is not one of the backend's asset statuses, see asset_options.dart).
+  void dispatch(String id) =>
+      _update(id, (m) => m.copyWith(status: MoveStatus.inTransit, timeline: [...m.timeline, _log('In Transit')]));
 
   /// "Mark as Received": completes the move and updates the asset.
   void markReceived(String id) {
@@ -126,8 +123,6 @@ class MovementsNotifier extends Notifier<List<MovementRequest>> {
     } else if (m.newCustodian != null) {
       assets.setCustodian(m.assetId, m.newCustodian!);
     }
-    final asset = ref.read(assetByIdProvider(m.assetId));
-    if (asset?.status == AssetStatus.inTransit) assets.setStatus(m.assetId, AssetStatus.active);
   }
 }
 

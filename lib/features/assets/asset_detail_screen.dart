@@ -382,7 +382,7 @@ class _StatCards extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(clockTickProvider); // age / warranty labels follow the demo clock
-    final crit = ChipTone.forPriority(asset.criticality);
+    final crit = ChipTone.forAsset(asset.criticality);
     final healthColor = asset.healthScore >= 80
         ? AppColors.green
         : asset.healthScore >= 60

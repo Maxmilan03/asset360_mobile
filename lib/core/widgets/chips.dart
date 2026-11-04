@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
 
 enum ChipTone {
   green,
@@ -68,6 +69,7 @@ enum ChipTone {
       'fair' ||
       'idle' ||
       'under repair' ||
+      'in repair' ||
       'partial' ||
       'paused' ||
       'wrong location' => amber,
@@ -92,6 +94,15 @@ enum ChipTone {
       _ => grey,
     };
   }
+
+  /// Tone for an asset status, condition or criticality value (asset_options.dart); unknown
+  /// values are grey.
+  static ChipTone forAsset(String value) => switch (AssetOptions.toneOf(value)) {
+    OptionTone.green => green,
+    OptionTone.amber => amber,
+    OptionTone.red => red,
+    OptionTone.grey => grey,
+  };
 
   static ChipTone forPriority(String priority) {
     return switch (priority.toLowerCase()) {

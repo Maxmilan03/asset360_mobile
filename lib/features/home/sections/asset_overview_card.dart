@@ -24,8 +24,8 @@ class AssetOverviewCard extends ConsumerWidget {
       child: Row(
         children: [
           DonutChart(
-            values: [for (final s in AssetStatus.summary) (org.statusCounts[s] ?? 0).toDouble()],
-            colors: [for (final s in AssetStatus.summary) assetStatusColors[s]!],
+            values: [for (final s in AssetStatus.all) (org.statusCounts[s] ?? 0).toDouble()],
+            colors: [for (final s in AssetStatus.all) assetStatusColors[s]!],
             center: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -38,7 +38,7 @@ class AssetOverviewCard extends ConsumerWidget {
           Expanded(
             child: Column(
               children: [
-                for (final s in AssetStatus.summary)
+                for (final s in AssetStatus.all)
                   LegendRow(
                     color: assetStatusColors[s]!,
                     label: s,

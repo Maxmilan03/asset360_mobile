@@ -13,6 +13,7 @@ import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
 
 enum _Scope { all, mine, nearby, favorites }
 
@@ -20,6 +21,7 @@ const _status = 'Status';
 const _category = 'Category';
 const _location = 'Location';
 const _criticality = 'Criticality';
+const _condition = 'Condition';
 const _type = 'Asset Type';
 const _building = 'Site / Building';
 
@@ -93,17 +95,19 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
   }
 
   List<FilterGroup> _groups(List<Asset> all) => [
-    const FilterGroup(title: _status, options: [...AssetStatus.summary, AssetStatus.inTransit]),
+    const FilterGroup(title: _status, options: AssetStatus.all),
+    const FilterGroup(title: _condition, options: AssetOptions.conditions),
     const FilterGroup(title: _type, options: homeAssetTypes),
     FilterGroup(title: _category, options: {...all.map((a) => a.category)}.toList()..sort()),
     FilterGroup(title: _building, options: [for (final s in ref.read(assetBreakdownProvider).byLocation) s.name]),
     FilterGroup(title: _location, options: {...all.map((a) => locationArea(a.location))}.toList()..sort()),
-    const FilterGroup(title: _criticality, options: criticalities),
+    const FilterGroup(title: _criticality, options: AssetOptions.criticalityLevels),
   ];
 
   bool _matches(Asset a) {
     bool ok(String group, String value) => _filters[group]?.contains(value) ?? true;
     return ok(_status, a.status) &&
+        ok(_condition, a.condition) &&
         ok(_type, assetTypeGroup(a)) &&
         ok(_building, assetLocationGroup(a)) &&
         ok(_category, a.category) &&

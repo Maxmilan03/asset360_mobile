@@ -11,6 +11,7 @@ import 'package:asset360_mobile/data/models/movement.dart';
 import 'package:asset360_mobile/data/repositories/movements_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/assets/more_actions/more_action_widgets.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
 
 /// Check Out (to a person until a return date) or Check In (condition, notes, photo).
 /// Both add a completed movement record through MovementsNotifier, which updates the custodian.
@@ -205,7 +206,7 @@ class _CheckInOutScreenState extends ConsumerState<CheckInOutScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final c in moveConditions)
+                for (final c in AssetOptions.conditions)
                   IconFilterChip(
                     label: c,
                     selected: _condition == c,

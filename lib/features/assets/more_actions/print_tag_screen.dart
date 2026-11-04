@@ -45,11 +45,7 @@ class _PrintTagScreenState extends ConsumerState<PrintTagScreen> {
     }
     setState(() => _busy = true);
     try {
-      final bytes = await buildTagPdf(a, type: _type, copies: _copies);
-      final name = 'Asset_Tag_${a.id}';
-      final printed = PrintTagScreen.debugLayoutPdf != null
-          ? await PrintTagScreen.debugLayoutPdf!(bytes, name)
-          : await Printing.layoutPdf(name: name, format: tagPageFormat(_type), onLayout: (_) async => bytes);
+      final printed = await printAssetTag(a, type: _type, copies: _copies);
       if (!mounted) return;
       if (printed) {
         ref.read(assetsProvider.notifier).addEvent(a.id, 'Asset tag printed', note: '$labels · $_type · $_printer');
@@ -214,6 +210,15 @@ PdfPageFormat tagPageFormat(String type) => switch (type) {
 };
 
 /// One page per copy, laid out like [TagPreview].
+/// Builds the label PDF and opens the system print dialog. Returns true when printed.
+Future<bool> printAssetTag(Asset a, {required String type, int copies = 1}) async {
+  final bytes = await buildTagPdf(a, type: type, copies: copies);
+  final name = 'Asset_Tag_${a.id}';
+  return PrintTagScreen.debugLayoutPdf != null
+      ? PrintTagScreen.debugLayoutPdf!(bytes, name)
+      : Printing.layoutPdf(name: name, format: tagPageFormat(type), onLayout: (_) async => bytes);
+}
+
 Future<Uint8List> buildTagPdf(Asset a, {required String type, int copies = 1}) async {
   final regular = pw.Font.ttf(await rootBundle.load('assets/fonts/Inter-Regular.ttf'));
   final bold = pw.Font.ttf(await rootBundle.load('assets/fonts/Inter-Bold.ttf'));

@@ -4,8 +4,6 @@ library;
 /// Check Out → Purpose.
 const checkOutPurposes = ['Project Work', 'Site Visit', 'Field Service', 'Training', 'Temporary Use', 'Other'];
 
-/// Update Condition → Condition (segmented control, best first).
-const conditionChoices = ['New', 'Good', 'Fair', 'Poor'];
 
 /// Add to Favorites → Favorite Group (users can add more; kept in memory).
 const defaultFavoriteGroups = ['My Assets', 'Critical Equipment', 'IT Equipment'];

@@ -47,12 +47,12 @@ void main() {
 
     test('favorite, retire and duplicate update the register and org summary', () {
       final assets = c.read(assetsProvider.notifier);
-      final retired = c.read(orgSummaryProvider).statusCounts[AssetStatus.retired]!;
+      final retired = c.read(orgSummaryProvider).statusCounts[AssetStatus.other]!;
       assets.toggleFavorite('CNC-00123');
       expect(c.read(assetsProvider).favorites.map((a) => a.id), contains('CNC-00123'));
 
-      assets.setStatus('CNC-00123', AssetStatus.retired);
-      expect(c.read(orgSummaryProvider).statusCounts[AssetStatus.retired], retired + 1);
+      assets.setStatus('CNC-00123', AssetStatus.other);
+      expect(c.read(orgSummaryProvider).statusCounts[AssetStatus.other], retired + 1);
 
       final id = assets.duplicate('CNC-00123');
       expect(id, 'CNC-00124');

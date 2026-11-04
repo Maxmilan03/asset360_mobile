@@ -67,7 +67,7 @@ class _AssetOverviewScreenState extends ConsumerState<AssetOverviewScreen> {
     final breakdown = ref.watch(assetBreakdownProvider);
     return switch (_tab) {
       _Tab.status => [
-        for (final s in AssetStatus.summary)
+        for (final s in AssetStatus.all)
           _Row(s, org.statusCounts[s] ?? 0, assetStatusColors[s]!, assetStatusIcon(s), Routes.assetsWithStatus(s)),
       ],
       _Tab.type => [

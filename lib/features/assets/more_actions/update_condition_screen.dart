@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
-import 'package:asset360_mobile/data/mock/more_actions_mock.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/features/assets/more_actions/more_action_widgets.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
 
 /// Condition (New / Good / Fair / Poor), date, comments and photos → a condition-history record.
 class UpdateConditionScreen extends ConsumerStatefulWidget {
@@ -67,24 +66,24 @@ class _UpdateConditionScreenState extends ConsumerState<UpdateConditionScreen> {
         // The current condition is preselected once (when it is one of the choices).
         if (!_preset) {
           _preset = true;
-          if (conditionChoices.contains(a.condition)) _condition = a.condition;
+          if (AssetOptions.conditions.contains(a.condition)) _condition = a.condition;
         }
         return [
           const FieldLabel('Condition', required: true),
-          SegmentedButton<String>(
-            segments: [for (final c in conditionChoices) ButtonSegment(value: c, label: Text(c))],
-            selected: {?_condition},
-            emptySelectionAllowed: true,
-            showSelectedIcon: false,
-            style: SegmentedButton.styleFrom(
-              selectedBackgroundColor: AppColors.primary,
-              selectedForegroundColor: Colors.white,
-              textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-            onSelectionChanged: (s) => setState(() {
-              if (s.isNotEmpty) _condition = s.first;
-              _errors.remove('condition');
-            }),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final c in AssetOptions.conditions)
+                IconFilterChip(
+                  label: c,
+                  selected: _condition == c,
+                  onTap: () => setState(() {
+                    _condition = c;
+                    _errors.remove('condition');
+                  }),
+                ),
+            ],
           ),
           fieldError(_errors['condition']),
           Padding(

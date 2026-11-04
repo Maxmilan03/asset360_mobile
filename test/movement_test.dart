@@ -80,7 +80,7 @@ void main() {
 
     n.approve(id);
     n.dispatch(id);
-    expect(c.read(assetByIdProvider('LAP-0098'))!.status, 'In Transit');
+    expect(c.read(assetByIdProvider('LAP-0098'))!.status, 'Active'); // the request is In Transit, not the asset
     n.markReceived(id);
     final lap = c.read(assetByIdProvider('LAP-0098'))!;
     expect(lap.location, 'Head Office / Building A – Room 102');
@@ -189,7 +189,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
-    expect(c.read(assetByIdProvider('PRJ-0042'))!.status, 'In Transit');
+    expect(c.read(movementByIdProvider('MOV-2026-0046'))!.status, MoveStatus.inTransit);
+    expect(c.read(assetByIdProvider('PRJ-0042'))!.status, 'Active'); // the request is In Transit, not the asset
     await tester.tap(find.text('Mark as Received'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Received'));

@@ -346,21 +346,21 @@ void openMoreActions(BuildContext context, {String? assetId}) =>
 void openMoreAction(BuildContext context, MoreAction action, String assetId) =>
     context.push(Routes.moreActionFrom(GoRouterState.of(context).uri.path, action.slug, assetId));
 
-/// Retire (confirm) → status Retired.
+/// Retire (confirm) → status Other (the backend has no "Retired" status; the event says Retired).
 Future<void> retireAsset(BuildContext context, WidgetRef ref, Asset a) async {
-  if (a.status == AssetStatus.retired) {
-    context.showSnack('${a.id} is already retired');
+  if (a.status == AssetStatus.other || a.status == AssetStatus.disposed) {
+    context.showSnack('${a.id} is already out of service (${a.status})');
     return;
   }
   final ok = await showConfirmDialog(
     context,
     title: 'Retire ${a.id}?',
-    message: 'The asset is taken out of service and its status changes to Retired.',
+    message: 'The asset is taken out of service and its status changes to Other (Retired).',
     confirmLabel: 'Retire',
     destructive: true,
   );
   if (!ok || !context.mounted) return;
-  ref.read(assetsProvider.notifier).setStatus(a.id, AssetStatus.retired, note: 'Retired from asset detail');
+  ref.read(assetsProvider.notifier).setStatus(a.id, AssetStatus.other, note: 'Retired from asset detail');
   context.showSnack('${a.id} retired');
 }
 

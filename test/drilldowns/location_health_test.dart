@@ -80,12 +80,13 @@ void main() {
     await _tap(tester, find.text('Show all'));
     expect(find.byKey(const ValueKey('pin-FL-012')), findsOneWidget);
 
-    // Floor switch → Building A & B: GEN-00045 / AHU-03 are Under Maintenance.
+    // Floor switch → Building A & B: GEN-00045 is Under Maintenance, AHU-03 In Repair.
     await _tap(tester, find.byTooltip('Select site / floor'));
     await tester.tap(find.text('Dubai Factory · Building A & B · Ground Floor').last);
     await tester.pumpAndSettle();
-    expect(find.text('Under Maintenance (2)'), findsOneWidget);
-    await _tap(tester, find.text('Under Maintenance (2)'));
+    expect(find.text('Under Maintenance (1)'), findsOneWidget);
+    expect(find.text('In Repair (1)'), findsOneWidget);
+    await _tap(tester, find.text('Under Maintenance (1)'));
     expect(find.byKey(const ValueKey('pin-GEN-00046')), findsNothing);
     expect(find.byKey(const ValueKey('pin-GEN-00045')), findsOneWidget);
 

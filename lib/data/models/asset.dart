@@ -1,16 +1,6 @@
 import 'package:asset360_mobile/data/models/common.dart';
 
-abstract final class AssetStatus {
-  static const active = 'Active';
-  static const underMaintenance = 'Under Maintenance';
-  static const inactive = 'Inactive';
-  static const retired = 'Retired';
-  static const disposed = 'Disposed';
-  static const inTransit = 'In Transit';
-
-  /// The five statuses of the org-wide summary, in legend order.
-  static const summary = [active, underMaintenance, inactive, retired, disposed];
-}
+export 'package:asset360_mobile/data/reference/asset_options.dart' show AssetStatus;
 
 class IotDevice {
   const IotDevice({
@@ -329,7 +319,7 @@ class OrgSummary {
     required this.costs,
   });
 
-  /// Keys follow [AssetStatus.summary].
+  /// Keys follow [AssetStatus.all].
   final Map<String, int> statusCounts;
   final int health;
   final Map<String, int> healthBreakdown;

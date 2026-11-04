@@ -15,6 +15,7 @@ import 'package:asset360_mobile/features/assets/asset_ui.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/db/db_providers.dart';
 import 'package:asset360_mobile/features/work/audit/audit_widgets.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
 
 /// Asset Found (right screen of design/15_asset_audit.jpg). Pops the saved result.
 class AuditAssetScreen extends ConsumerStatefulWidget {
@@ -53,7 +54,7 @@ class _AuditAssetScreenState extends ConsumerState<AuditAssetScreen> {
     _init = true;
     // Blind count: the auditor records where the asset is without seeing the register.
     _location = audit.blindCount ? null : asset.location;
-    _condition = auditConditions.contains(asset.condition) ? asset.condition : 'Good';
+    _condition = AssetOptions.conditions.contains(asset.condition) ? asset.condition : 'Good';
   }
 
   void _setLocation(String? l, Asset asset) {
@@ -290,7 +291,7 @@ class _AuditAssetScreenState extends ConsumerState<AuditAssetScreen> {
                     initialValue: _condition,
                     isExpanded: true,
                     decoration: const InputDecoration(isDense: true),
-                    items: [for (final c in auditConditions) DropdownMenuItem(value: c, child: Text(c))],
+                    items: [for (final c in AssetOptions.conditions) DropdownMenuItem(value: c, child: Text(c))],
                     onChanged: (v) => setState(() => _condition = v ?? _condition),
                   ),
                 ),

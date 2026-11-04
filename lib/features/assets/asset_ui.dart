@@ -46,9 +46,7 @@ String locationArea(String location) => location.split(RegExp(r' / | – |, ')).
 /// Location path as breadcrumb parts: site first, then each level.
 List<String> locationParts(Asset a) => [a.site, ...a.location.split(RegExp(r' / | – ')).map((s) => s.trim())];
 
-const assetConditions = ['New', 'Excellent', 'Good', 'Fair', 'Poor'];
 const operationalStatuses = ['Running', 'Idle', 'Stopped', 'Under Repair', 'Not Starting'];
-const criticalities = ['Critical', 'High', 'Medium', 'Low'];
 
 /// Everyone and every department that can hold an asset ("Ramesh Kumar (Production)", "Facilities" …).
 List<String> custodianOptions(WidgetRef ref) {

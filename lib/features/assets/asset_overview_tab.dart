@@ -8,6 +8,8 @@ import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
+import 'package:asset360_mobile/features/assets/criticality_sheet.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
 
 /// Overview → Key Information. "Edit" turns the values into dropdowns and date
 /// pickers; Save writes them through [AssetsNotifier.editKeyInfo].
@@ -23,7 +25,7 @@ class KeyInformationCard extends ConsumerStatefulWidget {
 }
 
 class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
-  late String _status, _condition, _opStatus, _location, _custodian;
+  late String _status, _condition, _criticality, _opStatus, _location, _custodian;
   late DateTime _purchase, _warranty;
   DateTime? _commissioned;
   late bool _hasAmc;
@@ -51,6 +53,7 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
     final a = widget.asset;
     _status = a.status;
     _condition = a.condition;
+    _criticality = a.criticality;
     _opStatus = a.operationalStatus;
     _location = a.location;
     _custodian = a.custodian;
@@ -88,6 +91,7 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
           widget.asset.id,
           status: _status,
           condition: _condition,
+          criticality: _criticality,
           operationalStatus: _opStatus,
           location: _location,
           custodian: _custodian,
@@ -98,6 +102,22 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
         );
     widget.onEditingChanged(false);
     context.showSnack('Key information saved');
+  }
+
+  /// Assess sheet: while editing it fills the dropdown, otherwise it saves straight away.
+  Future<void> _assess() async {
+    final r = await showCriticalityAssessment(context);
+    final result = r?.result;
+    if (result == null || !mounted) return;
+    if (widget.editing) {
+      setState(() => _criticality = result.level);
+      return;
+    }
+    final a = widget.asset;
+    ref
+        .read(assetsProvider.notifier)
+        .setCriticality(a.id, result.level, note: 'Assessed: score ${result.score.toStringAsFixed(1)} / 5');
+    context.showSnack('${a.id} criticality set to ${result.level}');
   }
 
   @override
@@ -143,17 +163,31 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
       (
         Icons.person_outline_rounded,
         'Asset Status',
-        e ? dropdown(_status, [...AssetStatus.summary, AssetStatus.inTransit], (v) => _status = v) : _chip(a.status),
+        e ? dropdown(_status, AssetStatus.all, (v) => _status = v) : _chip(a.status),
       ),
       (
         Icons.settings_outlined,
         'Condition',
-        e ? dropdown(_condition, assetConditions, (v) => _condition = v) : _chip(a.condition),
+        e ? dropdown(_condition, AssetOptions.conditions, (v) => _condition = v) : _chip(a.condition),
+      ),
+      (
+        Icons.warning_amber_rounded,
+        'Criticality',
+        Row(
+          children: [
+            Expanded(
+              child: e
+                  ? dropdown(_criticality, AssetOptions.criticalityLevels, (v) => _criticality = v)
+                  : Align(alignment: Alignment.centerLeft, child: CriticalityChip(a.criticality)),
+            ),
+            AssessLink(onTap: DemoGuard.tap(DemoAction.assetAssessCriticality, _assess)),
+          ],
+        ),
       ),
       (
         Icons.speed_rounded,
         'Operational Status',
-        e ? dropdown(_opStatus, operationalStatuses, (v) => _opStatus = v) : _chip(a.operationalStatus),
+        e ? dropdown(_opStatus, operationalStatuses, (v) => _opStatus = v) : Align(alignment: Alignment.centerLeft, child: StatusChip(a.operationalStatus)),
       ),
       (
         Icons.location_on_outlined,
@@ -272,7 +306,9 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
 
 TextStyle get _valueStyle => TextStyle(fontSize: 12.5, color: AppColors.text);
 
-Widget _chip(String label) => Align(alignment: Alignment.centerLeft, child: StatusChip(label));
+/// Status / condition chip in asset_options colours.
+Widget _chip(String label) =>
+    Align(alignment: Alignment.centerLeft, child: StatusChip(label, tone: ChipTone.forAsset(label)));
 
 Widget _iconValue(IconData icon, String text, {Color? color}) => Row(
   crossAxisAlignment: CrossAxisAlignment.start,

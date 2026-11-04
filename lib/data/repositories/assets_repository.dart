@@ -70,12 +70,21 @@ class AssetsNotifier extends Notifier<List<Asset>> {
     _q(id, 'Status Update');
   }
 
+  /// Criticality picked directly or from the Assess sheet ([note] = e.g. "Assessed: score 3.4 / 5").
+  void setCriticality(String id, String level, {String? note}) {
+    final old = byId(id);
+    if (old == null || (old.criticality == level && note == null)) return;
+    _update(id, (a) => a.copyWith(criticality: level, events: [_event('Criticality set to $level', note), ...a.events]));
+    _q(id, 'Criticality Update');
+  }
+
   /// Key Information "Edit → Save". Status and location go through [setStatus] / [setLocation]
   /// so the org summary and location history stay in step.
   void editKeyInfo(
     String id, {
     required String status,
     required String condition,
+    String? criticality,
     required String operationalStatus,
     required String location,
     required String custodian,
@@ -93,6 +102,7 @@ class AssetsNotifier extends Notifier<List<Asset>> {
       id,
       (a) => a.copyWith(
         condition: condition,
+        criticality: criticality,
         operationalStatus: operationalStatus,
         purchaseDate: purchaseDate,
         commissionedDate: commissionedDate,

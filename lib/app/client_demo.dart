@@ -80,6 +80,7 @@ enum DemoAction {
   assetGeneratePm,
   assetPhotoViewer,
   assetLinkIot,
+  assetAssessCriticality, // Key Information → Criticality → Assess sheet
   // Scan
   scanTap,
   scanFlash,

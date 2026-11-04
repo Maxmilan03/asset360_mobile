@@ -2,7 +2,7 @@ import 'package:asset360_mobile/core/csv.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/data/mock/registration_mock.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
-import 'package:asset360_mobile/features/assets/asset_ui.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
 
 /// One CSV data row after validation: an [asset] when valid, otherwise the [errors].
 class BulkRow {
@@ -64,9 +64,9 @@ List<BulkRow> validateBulkCsv(String text, String? Function(String value) ownerO
       seen.putIfAbsent(key, () => line);
     }
     final status = v('status').isEmpty ? AssetStatus.active : v('status');
-    if (![...AssetStatus.summary, AssetStatus.inTransit].contains(status)) errors.add('unknown status "$status"');
+    if (!AssetStatus.all.contains(status)) errors.add('unknown status "$status"');
     final criticality = v('criticality').isEmpty ? 'Medium' : v('criticality');
-    if (!criticalities.contains(criticality)) errors.add('unknown criticality "$criticality"');
+    if (!AssetOptions.criticalityLevels.contains(criticality)) errors.add('unknown criticality "$criticality"');
     if (v('site').isNotEmpty && !locationTree.containsKey(v('site'))) errors.add('unknown site "${v('site')}"');
     final purchase = v('purchase_date').isEmpty ? DemoClock.today : DateTime.tryParse(v('purchase_date'));
     if (purchase == null) errors.add('purchase_date must be YYYY-MM-DD');

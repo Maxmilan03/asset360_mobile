@@ -14,8 +14,6 @@ abstract final class AuditResult {
   static const all = [verified, wrongLocation, notFound, unregistered];
 }
 
-/// Condition options on the Asset Found screen.
-const auditConditions = ['Good', 'Fair', 'Poor', 'Damaged'];
 
 /// How the asset was identified during the audit (the Tag ID label shows the scanned technology).
 abstract final class AuditMethod {

@@ -125,7 +125,7 @@ void main() {
     assets.updateCondition(_id, condition: 'Fair', date: DemoClock.today, comments: 'Scratched lid');
     final a = c.read(assetByIdProvider(_id))!;
     expect(a.condition, 'Fair');
-    expect(a.conditionHistory.single.previous, 'Good');
+    expect(a.conditionHistory.single.previous, 'Excellent');
     expect(a.conditionHistory.single.comments, 'Scratched lid');
 
     expect(c.read(favoriteGroupsProvider.notifier).add('Loan Pool'), isTrue);

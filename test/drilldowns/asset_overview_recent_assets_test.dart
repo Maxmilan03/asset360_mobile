@@ -90,7 +90,7 @@ void main() {
     // By Status → a row opens the Assets list filtered by status.
     await _tap(tester, find.text('By Status'));
     await _tap(tester, find.text('Under Maintenance').last);
-    expect(find.text('Showing 2 of 423'), findsOneWidget);
+    expect(find.text('Showing 1 of 303'), findsOneWidget); // GEN-00045 (AHU-03 is In Repair)
   });
 
   testWidgets('Recent Assets: org-count chips, sort by last activity, search and row tap', (tester) async {
@@ -98,7 +98,7 @@ void main() {
     _expectBar();
     expect(find.text('All (12,458)'), findsOneWidget);
     expect(find.text('Active (10,842)'), findsOneWidget);
-    expect(find.text('Under Maintenance (423)'), findsOneWidget);
+    expect(find.text('Under Maintenance (303)'), findsOneWidget);
     // Newest activity first: GEN-00046 (10:27) above GEN-00045 (10:26).
     final y46 = tester.getTopLeft(find.text('GEN-00046')).dy;
     final y45 = tester.getTopLeft(find.text('GEN-00045')).dy;

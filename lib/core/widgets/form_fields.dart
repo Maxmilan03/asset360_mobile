@@ -160,10 +160,11 @@ class DateBox extends StatelessWidget {
 
 /// Violet square scan button used as a text-field suffix.
 class ScanSuffix extends StatelessWidget {
-  const ScanSuffix({super.key, required this.onTap, this.tooltip = 'Scan'});
+  const ScanSuffix({super.key, required this.onTap, this.tooltip = 'Scan', this.icon = Icons.qr_code_scanner_rounded});
 
   final VoidCallback onTap;
   final String tooltip;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -178,7 +179,7 @@ class ScanSuffix extends StatelessWidget {
           message: tooltip,
           child: SizedBox.square(
             dimension: 32,
-            child: Icon(Icons.qr_code_scanner_rounded, size: 20, color: AppColors.primary),
+            child: Icon(icon, size: 20, color: AppColors.primary),
           ),
         ),
       ),

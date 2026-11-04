@@ -40,8 +40,6 @@ class MovePlace {
 /// Why an asset is transferred (Transfer → Details).
 const moveReasons = ['Department Transfer', 'Repair', 'Project', 'Return', 'Other'];
 
-/// Condition options at check-in / return.
-const moveConditions = ['Good', 'Fair', 'Damaged', 'Needs Repair'];
 
 class MovementRequest {
   const MovementRequest({

@@ -8,11 +8,13 @@ import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/registration_drafts_repository.dart';
 import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 import 'package:asset360_mobile/data/repositories/scans_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/features/more/registration/bulk_registration_panel.dart';
+import 'package:asset360_mobile/features/more/registration/registration_logic.dart';
 import 'package:asset360_mobile/features/more/registration/registration_widgets.dart';
 
 /// Existing assets shown under Recent Scans as examples (labelled "Existing").
@@ -74,8 +76,10 @@ class _RegistrationHubScreenState extends ConsumerState<RegistrationHubScreen> {
             subtitle: 'Register a new asset in the system',
             help:
                 'Register one asset by scanning its tag, reading an RFID / NFC tag, taking a photo or typing the '
-                'details. The 5-step form checks that the Asset ID, Tag ID and Barcode are not used by another '
-                'asset. Use Bulk Registration to import many assets from a CSV file.',
+                'details. The form follows the web app: Basic Information, Classification, Location & Assignment, '
+                'Purchase & Warranty and Additional Information, then Review. It checks that the Asset Tag, RFID '
+                'Tag and Barcode are not used by another asset. Save as Draft keeps an unfinished form under '
+                'My Drafts. Use Bulk Registration to import many assets from a CSV file.',
           ),
           const SizedBox(height: 16),
           Row(
@@ -158,6 +162,7 @@ class _RegistrationHubScreenState extends ConsumerState<RegistrationHubScreen> {
               ),
             ),
             const SizedBox(height: 14),
+            const _MyDrafts(),
             const _RecentScans(),
           ],
         ],
@@ -262,6 +267,63 @@ class _RecentScans extends ConsumerWidget {
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// Saved Register Asset drafts: tap to resume on the step it was saved on, delete with confirm.
+class _MyDrafts extends ConsumerWidget {
+  const _MyDrafts();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final drafts = ref.watch(registrationDraftsProvider);
+    if (drafts.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: SectionCard(
+        title: 'My Drafts (${drafts.length})',
+        padding: const EdgeInsets.fromLTRB(14, 12, 6, 4),
+        child: Column(
+          children: [
+            for (var i = 0; i < drafts.length; i++) ...[
+              if (i > 0) const Divider(indent: 52),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: IconSquare(icon: Icons.edit_note_rounded, tone: TileTone.lavender, size: 40),
+                title: Text(drafts[i].title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.bodyStrong),
+                subtitle: Text(
+                  [
+                    'Step ${drafts[i].step + 1} · ${registrationStepTitles[drafts[i].step.clamp(0, 5)]}',
+                    if (drafts[i].savedAt != null) 'Saved ${DemoClock.formatDateTime(drafts[i].savedAt!)}',
+                  ].join('\n'),
+                  style: AppText.caption,
+                ),
+                trailing: IconButton(
+                  tooltip: 'Delete draft',
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  onPressed: () async {
+                    final ok = await showConfirmDialog(
+                      context,
+                      title: 'Delete draft?',
+                      message: '"${drafts[i].title}" will be removed from My Drafts.',
+                      confirmLabel: 'Delete',
+                      destructive: true,
+                    );
+                    if (!ok) return;
+                    await ref.read(registrationDraftsProvider.notifier).delete(drafts[i].draftId);
+                    if (context.mounted) context.showSnack('Draft deleted');
+                  },
+                ),
+                onTap: () => context.push(
+                  Routes.newRegistration,
+                  extra: RegistrationPrefill(draftId: drafts[i].draftId),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

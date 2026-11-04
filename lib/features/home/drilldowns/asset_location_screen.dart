@@ -21,7 +21,7 @@ import 'package:asset360_mobile/features/home/drilldowns/drilldown_page.dart';
 import 'package:asset360_mobile/features/home/home_style.dart';
 
 /// Status chips of the map (null = All).
-const _statusChips = <String?>[null, AssetStatus.active, AssetStatus.underMaintenance, AssetStatus.inactive];
+const _statusChips = <String?>[null, AssetStatus.active, AssetStatus.underMaintenance, AssetStatus.inRepair];
 
 Color _pinColor(String status) => assetStatusColors[status] ?? AppColors.blue;
 
@@ -281,10 +281,7 @@ class _AssetLocationScreenState extends ConsumerState<AssetLocationScreen> {
         ),
         const SizedBox(height: 8),
         SeriesLegend(
-          items: [
-            for (final s in _statusChips.whereType<String>()) (s, _pinColor(s)),
-            (AssetStatus.inTransit, _pinColor(AssetStatus.inTransit)),
-          ],
+          items: [for (final s in AssetStatus.all) (s, _pinColor(s))],
         ),
         const SizedBox(height: 12),
         if (shown.isEmpty)

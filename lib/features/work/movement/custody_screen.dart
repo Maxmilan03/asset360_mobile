@@ -13,6 +13,7 @@ import 'package:asset360_mobile/data/repositories/movements_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 import 'package:asset360_mobile/features/work/movement/movement_widgets.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
 
 enum CustodyAction {
   checkOut(MoveType.checkOut, 'Check Out', 'Hand an asset to a person until a return date', Icons.person_rounded),
@@ -194,7 +195,7 @@ class _CustodyScreenState extends ConsumerState<CustodyScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final c in moveConditions)
+            for (final c in AssetOptions.conditions)
               IconFilterChip(
                 label: c,
                 selected: _condition == c,

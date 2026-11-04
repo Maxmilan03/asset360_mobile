@@ -38,9 +38,10 @@ String compactAed(int v) {
 const assetStatusColors = {
   AssetStatus.active: Color(0xFF22B35E),
   AssetStatus.underMaintenance: Color(0xFFF5B800),
-  AssetStatus.inactive: Color(0xFF3B82F6),
-  AssetStatus.retired: Color(0xFF7C8595),
+  // A darker amber, so the two amber statuses stay apart in the donut.
+  AssetStatus.inRepair: Color(0xFFE08A00),
   AssetStatus.disposed: Color(0xFFEF4444),
+  AssetStatus.other: Color(0xFF7C8595),
 };
 
 const healthBandColors = {
@@ -85,7 +86,7 @@ IconData assetTypeIcon(String type) => switch (type) {
 IconData assetStatusIcon(String status) => switch (status) {
   AssetStatus.active => Icons.check_circle_rounded,
   AssetStatus.underMaintenance => Icons.build_circle_rounded,
-  AssetStatus.inactive => Icons.pause_circle_rounded,
-  AssetStatus.retired => Icons.archive_rounded,
-  _ => Icons.delete_rounded,
+  AssetStatus.inRepair => Icons.handyman_rounded,
+  AssetStatus.disposed => Icons.delete_rounded,
+  _ => Icons.more_horiz_rounded,
 };

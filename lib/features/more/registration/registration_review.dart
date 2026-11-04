@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
@@ -7,45 +6,38 @@ import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
-import 'package:asset360_mobile/data/repositories/assets_repository.dart';
-import 'package:asset360_mobile/features/assets/asset_ui.dart';
-import 'package:asset360_mobile/features/more/registration/register_asset_screen.dart';
+import 'package:asset360_mobile/data/models/registration_form.dart';
+import 'package:asset360_mobile/features/more/registration/registration_logic.dart';
+import 'package:asset360_mobile/features/more/registration/step_purchase.dart';
 
-/// Step 5: ready banner, summary card, details grid and collapsible sections.
-class RegistrationReview extends ConsumerWidget {
-  const RegistrationReview({super.key, required this.draft, required this.onEdit});
+/// Step 6 Review: ready banner, asset card, then one card per step with Edit.
+class RegistrationReview extends StatelessWidget {
+  const RegistrationReview({super.key, required this.form, required this.onEdit});
 
-  final RegistrationDraft draft;
+  final RegistrationForm form;
 
-  /// Jumps to a form step (0 = Basic … 3 = Additional).
+  /// Jumps to a form step (0 = Basic Information … 4 = Additional Information).
   final ValueChanged<int> onEdit;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final d = draft;
-    String date(DateTime? v) => v == null ? '—' : DemoClock.formatDate(v);
-    String or(String v) => v.isEmpty ? '—' : v;
-    final parent = d.parentId == null ? null : ref.watch(assetByIdProvider(d.parentId!));
-    final left = [
-      ('Asset ID', d.id),
-      ('Serial Number', or(d.serial)),
-      ('Tag ID (RFID)', or(d.tagId)),
-      ('Barcode / QR', d.barcode.isEmpty ? d.id : d.barcode),
-      ('Status', d.status),
-      ('Condition', d.condition),
-      ('Operational Status', d.operationalStatus),
-      ('Criticality', d.criticality),
-    ];
-    final right = [
-      ('Category', d.category ?? '—'),
-      ('Asset Type', d.type ?? '—'),
-      ('Model', or(d.model)),
-      ('Manufacturer', or(d.manufacturer)),
-      ('Purchase Date', date(d.purchase)),
-      ('Commissioned', date(d.commissioned)),
-      ('Warranty Expiry', date(d.warranty)),
-      ('AMC', d.amc ? 'Yes (${d.amcVendor})' : 'No'),
-    ];
+  Widget build(BuildContext context) {
+    final f = form;
+    final b = f.basicInformation, c = f.classification;
+    final l = f.locationAssignment.location, a = f.locationAssignment.assignment;
+    final p = f.purchaseWarranty.purchase, w = f.purchaseWarranty.warranty;
+    final t = f.additionalInformation.technical, o = f.additionalInformation.operational;
+    String or(Object? v) => switch (v) {
+      null => '—',
+      final String s when s.trim().isEmpty => '—',
+      final DateTime d => DemoClock.formatDate(d),
+      final List<String> list => list.isEmpty ? '—' : list.join(', '),
+      final double n => n == n.roundToDouble() ? n.toInt().toString() : n.toString(),
+      _ => '$v',
+    };
+    String unit(Object? v, String? u) => v == null ? '—' : '${or(v)} ${u ?? ''}'.trim();
+    final dims = [t.dimensionLength, t.dimensionWidth, t.dimensionHeight];
+    final assessed = f.criticalityAssessment?.result;
+    final tag = (b.assetTag ?? '').trim().toUpperCase();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -66,11 +58,11 @@ class RegistrationReview extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Asset details are ready to be registered',
+                      'Asset details are ready to be submitted',
                       style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.green),
                     ),
                     const SizedBox(height: 2),
-                    Text('Please review the information below and click Register.', style: AppText.caption),
+                    Text('Please review the information below and tap Submit.', style: AppText.caption),
                   ],
                 ),
               ),
@@ -82,7 +74,7 @@ class RegistrationReview extends ConsumerWidget {
           onTap: () => onEdit(0),
           child: Row(
             children: [
-              AssetThumb(imagePath: d.photo, size: 76, fallbackIcon: Icons.add_photo_alternate_outlined),
+              AssetThumb(imagePath: b.images.firstOrNull, size: 76, fallbackIcon: Icons.add_photo_alternate_outlined),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -92,31 +84,21 @@ class RegistrationReview extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            d.id,
+                            tag,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppText.cardTitle.copyWith(fontSize: 16),
                           ),
                         ),
-                        StatusChip(d.status),
+                        if (b.status != null) StatusChip(b.status!, tone: ChipTone.forAsset(b.status!)),
                       ],
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      d.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.body.copyWith(fontSize: 13),
-                    ),
+                    Text(or(b.assetName), maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.body),
                     const SizedBox(height: 3),
-                    Text(
-                      '${d.type} | ${d.category}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.caption,
-                    ),
+                    Text(c.path.join(' › '), maxLines: 2, overflow: TextOverflow.ellipsis, style: AppText.caption),
                     const SizedBox(height: 4),
-                    IconLine(icon: Icons.location_on_outlined, text: '${d.location}, ${d.site}'),
+                    IconLine(icon: Icons.location_on_outlined, text: or(l.assetLocation)),
                   ],
                 ),
               ),
@@ -125,54 +107,100 @@ class RegistrationReview extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-        SectionCard(
-          title: 'Asset Details',
-          actionLabel: 'Edit',
-          actionIcon: Icons.edit_outlined,
-          onAction: () => onEdit(0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: _Grid(rows: left)),
-              const SizedBox(width: 10),
-              Expanded(child: _Grid(rows: right)),
-            ],
-          ),
+        _ReviewSection(
+          title: registrationStepTitles[0],
+          onEdit: () => onEdit(0),
+          rows: [
+            ('Asset Name', or(b.assetName)),
+            ('Asset Tag / ID', tag),
+            ('Barcode / QR', or(b.barcode ?? tag)),
+            ('RFID Tag ID', or(b.rfidTagId)),
+            ('Model', or(b.model)),
+            ('Manufacturer', or(b.manufacturer)),
+            ('Serial Number', or(b.serialNumber)),
+            ('Status', or(b.status)),
+            ('Condition', or(b.condition)),
+            ('Criticality', assessed == null ? or(f.criticality) : '${f.criticality} (assessed ${assessed.score.toStringAsFixed(1)} / 5)'),
+            ('Description', or(b.description)),
+            ('Images', '${b.images.length}'),
+          ],
         ),
-        const SizedBox(height: 12),
-        _Collapsible(
-          icon: Icons.location_on_outlined,
-          title: 'Location & Custody',
+        _ReviewSection(
+          title: registrationStepTitles[1],
+          onEdit: () => onEdit(1),
+          rows: [
+            ('Category', or(c.category)),
+            ('Sub Category', or(c.subCategory)),
+            ('Asset Type', or(c.assetType)),
+            ('Asset Sub Type', or(c.assetSubType)),
+            ('Function / Purpose', or(c.functionPurpose)),
+            ('Department', or(c.department)),
+            ('Cost Center', or(c.costCenter)),
+            ('Business Unit', or(c.businessUnit)),
+            ('Tagging Method', or(c.taggingMethod)),
+            ('Compliance', or(c.complianceCategory)),
+            ('Lifecycle Stage', or(c.lifecycleStage)),
+            ('Keywords', or(c.keywords)),
+          ],
+        ),
+        _ReviewSection(
+          title: registrationStepTitles[2],
           onEdit: () => onEdit(2),
           rows: [
-            ('Site', d.site ?? '—'),
-            ('Location', d.location),
-            ('Custodian', d.custodian),
-            ('Department', d.department ?? '—'),
-            ('Parent Asset', parent == null ? 'None' : '${parent.id} – ${parent.name}'),
-            ('Tags', d.tags.isEmpty ? '—' : d.tags.join(', ')),
+            ('Location Path', l.parts.isEmpty ? '—' : l.parts.join(' › ')),
+            ('Custodian', registrationCustodian(a)),
+            ('Ownership', or(a.ownershipType)),
+            ('Cost Center', or(a.costCenter)),
+            ('Responsible Team', or(a.responsibleTeam)),
+            ('Assignment', '${or(a.assignmentStartDate)} – ${a.assignmentEndDate == null ? 'Open' : or(a.assignmentEndDate)}'),
+            ('Current', a.isCurrent ? 'Yes' : 'No'),
           ],
         ),
-        _Collapsible(
-          icon: Icons.account_balance_outlined,
-          title: 'Financial Information',
+        _ReviewSection(
+          title: registrationStepTitles[3],
           onEdit: () => onEdit(3),
           rows: [
-            ('Purchase Cost', d.cost == null ? '—' : formatAed(d.cost!)),
-            ('Supplier', or(d.supplier)),
-            ('PO Number', or(d.po)),
-            ('Expected Life', '${d.life} years'),
-            ('AMC', d.amc ? 'Yes (${d.amcVendor})' : 'No'),
-            ('IoT Device', d.iot == null ? 'None' : '${d.iot!.model} · ${d.iot!.imei}'),
+            ('PO Number', or(p.purchaseOrderNumber)),
+            ('Invoice Number', or(p.invoiceNumber)),
+            ('Supplier / Vendor', or(p.supplierVendor)),
+            ('Manufacturer', or(p.manufacturer)),
+            ('Purchase Date', or(p.purchaseDate)),
+            ('Delivery Date', or(p.deliveryDate)),
+            ('Purchase Cost', p.purchaseCost == null ? '—' : formatMoney(p.purchaseCost!, p.currency)),
+            ('Quantity', unit(p.quantity, p.quantityUnit)),
+            ('VAT', unit(p.taxPercent, '%')),
+            ('Total Cost', p.totalCost == null ? '—' : formatMoney(p.totalCost!, p.currency)),
+            ('Payment Terms', or(p.paymentTerms)),
+            ('Procurement', or(p.procurementMethod)),
+            ('Project / Ref.', or(p.projectReference)),
+            ('Documents', '${f.purchaseWarranty.documents.length}'),
+            ('Warranty Type', or(w.warrantyType)),
+            ('Warranty', '${or(w.warrantyStartDate)} – ${or(w.warrantyEndDate)}'),
+            ('AMC Included', w.amcIncluded ? 'Yes' : 'No'),
+            ('Support Coverage', or(w.supportCoverage)),
+            ('Service Provider', or(w.serviceProvider)),
+            ('Warranty Ref.', or(w.warrantyReference)),
           ],
         ),
-        _Collapsible(
-          icon: Icons.description_outlined,
-          title: 'Documents (${d.docs.length})',
-          onEdit: () => onEdit(3),
+        _ReviewSection(
+          title: registrationStepTitles[4],
+          onEdit: () => onEdit(4),
           rows: [
-            if (d.docs.isEmpty) ('Files', 'No documents attached'),
-            for (final f in d.docs) (f.name, '${f.sizeMb.toStringAsFixed(1)} MB'),
+            for (final s in t.specifications.values)
+              if (s.value != null && s.value!.trim().isNotEmpty) (s.name, unit(s.value, s.unit)),
+            if (dims.any((d) => d != null))
+              ('Dimensions', '${dims.map(or).join(' × ')} ${t.dimensionUnit ?? ''}'.trim()),
+            if (t.weight != null) ('Weight', unit(t.weight, t.weightUnit)),
+            if (t.expectedLifespan != null) ('Expected Lifespan', unit(t.expectedLifespan, t.expectedLifespanUnit)),
+            ('Technical Remarks', or(t.technicalRemarks)),
+            ('Operating Hours', o.operatingHoursPerDay == null ? '—' : '${or(o.operatingHoursPerDay)} hrs/day'),
+            ('Operating Shift', or(o.operatingShift)),
+            ('Utilization', or(o.utilization)),
+            ('Maintenance', o.maintenanceFrequency == null ? '—' : 'Every ${unit(o.maintenanceFrequency, o.maintenanceFrequencyUnit)}'),
+            ('Last / Next', '${or(o.lastMaintenanceDate)} / ${or(o.nextMaintenanceDate)}'),
+            ('Compliance', or(o.complianceStandards)),
+            for (final cf in f.additionalInformation.customFields) (cf.fieldName, or(cf.value)),
+            ('Attachments', '${f.additionalInformation.attachments.length}'),
           ],
         ),
       ],
@@ -180,96 +208,25 @@ class RegistrationReview extends ConsumerWidget {
   }
 }
 
-class _Grid extends StatelessWidget {
-  const _Grid({required this.rows});
+/// Section card with an Edit link and label / value rows.
+class _ReviewSection extends StatelessWidget {
+  const _ReviewSection({required this.title, required this.onEdit, required this.rows});
 
-  final List<(String, String)> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = TextStyle(fontSize: 10.5, color: AppColors.text, height: 1.3);
-    return Column(
-      children: [
-        for (final (label, value) in rows)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 82,
-                  child: Text(label, style: style.copyWith(color: AppColors.textSecondary)),
-                ),
-                Text(': ', style: style),
-                Expanded(child: Text(value, style: style)),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-/// Row with icon, title and "Edit"; tapping the row expands the details.
-class _Collapsible extends StatefulWidget {
-  const _Collapsible({required this.icon, required this.title, required this.onEdit, required this.rows});
-
-  final IconData icon;
   final String title;
   final VoidCallback onEdit;
   final List<(String, String)> rows;
 
   @override
-  State<_Collapsible> createState() => _CollapsibleState();
-}
-
-class _CollapsibleState extends State<_Collapsible> {
-  bool _open = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          InkWell(
-            onTap: () => setState(() => _open = !_open),
-            borderRadius: BorderRadius.circular(AppRadius.card),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-              child: Row(
-                children: [
-                  Icon(widget.icon, size: 20, color: AppColors.text),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.bodyStrong),
-                  ),
-                  TextButton.icon(
-                    onPressed: widget.onEdit,
-                    iconAlignment: IconAlignment.end,
-                    icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: const Text('Edit'),
-                  ),
-                  Icon(
-                    _open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                    color: AppColors.textSecondary,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_open)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-              child: Column(
-                children: [for (final (l, v) in widget.rows) InfoRow(label: l, value: v, labelWidth: 110)],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: SectionCard(
+      title: title,
+      actionLabel: 'Edit',
+      actionIcon: Icons.edit_outlined,
+      onAction: onEdit,
+      child: Column(children: [for (final (l, v) in rows) InfoRow(label: l, value: v, labelWidth: 118)]),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------- success
