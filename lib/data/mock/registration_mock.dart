@@ -1,4 +1,5 @@
 import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
 import 'package:asset360_mobile/data/mock/seed_utils.dart';
 
 /// Site → Building → Floor → Rooms / Zones (Registration step 3 cascading dropdowns).
@@ -42,17 +43,8 @@ const locationTree = <String, Map<String, Map<String, List<String>>>>{
   },
 };
 
-const departments = [
-  'Production',
-  'Maintenance',
-  'Facilities',
-  'Warehouse',
-  'Operations',
-  'IT',
-  'Finance',
-  'Marketing',
-  'Admin',
-];
+/// Department dropdowns: one list, in asset_options.dart.
+const departments = AssetOptions.departments;
 
 /// Asset types that are not in the seed register yet, with their ID prefix and category.
 const extraAssetTypes = <String, (String prefix, String category)>{

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,6 +8,10 @@ import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/api/api_exception.dart';
+import 'package:asset360_mobile/data/api/auth_api.dart';
+import 'package:asset360_mobile/data/repositories/auth_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/auth/auth_widgets.dart';
 
@@ -75,6 +78,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     FocusScope.of(context).unfocus();
     setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
+    if (apiMode) return _signInApi();
     setState(() => _loading = true);
     await Future<void>.delayed(const Duration(seconds: 1));
     if (!mounted) return;
@@ -93,6 +97,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() => _error = 'Invalid username or password${left <= 3 ? ' ($left attempts left)' : ''}');
     }
   }
+
+  /// API mode: POST /api/auth/login. The server decides about lockouts; its message is shown.
+  Future<void> _signInApi() async {
+    setState(() => _loading = true);
+    final auth = ref.read(authProvider.notifier);
+    try {
+      final step = await auth.login(_user.text, _pass.text, rememberMe: _remember);
+      if (!mounted) return;
+      setState(() => _loading = false);
+      switch (step) {
+        case LoginStep.setupAuthenticator:
+          context.push(Routes.authenticatorSetup);
+        case LoginStep.enterCode:
+          context.push(Routes.authenticator);
+        case LoginStep.signedIn:
+          await showSignInSuccess(context);
+          auth.enterApp();
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      // Anything unexpected in the reply: never crash, point to Auth diagnostics.
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = AuthApi.unrecognisedMessage;
+      });
+    }
+  }
+
+  void _forgot() => apiMode
+      ? showContactAdminSheet(context, message: 'Contact your administrator to reset your password.')
+      : context.push(Routes.forgotPassword);
 
   Future<void> _signInWith(String provider) async {
     showDialog<void>(
@@ -149,48 +190,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  void _contactAdmin() {
-    Widget row(IconData icon, String label, String value) => ListTile(
-      leading: IconSquare(icon: icon, tone: TileTone.lavender, size: 38),
-      title: Text(label, style: AppText.caption),
-      subtitle: Text(value, style: AppText.bodyStrong),
-      trailing: TextButton.icon(
-        onPressed: () {
-          Clipboard.setData(ClipboardData(text: value));
-          context.showSnack('$label copied');
-        },
-        icon: const Icon(Icons.copy_rounded, size: 16),
-        label: const Text('Copy'),
-      ),
-    );
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text('Contact your administrator', style: AppText.sectionTitle),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-                child: Text(
-                  'Your Asset360 administrator can create your account and reset access.',
-                  style: AppText.secondary,
-                ),
-              ),
-              row(Icons.mail_outline_rounded, 'Email', 'admin@purpleiq.ae'),
-              row(Icons.phone_outlined, 'Phone', '+971 4 000 0000'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  void _contactAdmin() => showContactAdminSheet(context);
 
   @override
   Widget build(BuildContext context) {
@@ -364,7 +364,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 2),
                                 minimumSize: const Size(0, 36),
                               ),
-                              onPressed: () => context.push(Routes.forgotPassword),
+                              onPressed: _forgot,
                               child: const FittedBox(
                                 fit: BoxFit.scaleDown,
                                 child: Text('Forgot Username or Password?', style: TextStyle(fontSize: 12.5)),
@@ -400,29 +400,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             : ArrowLabel('Sign In', loading: _loading),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Text('or', textAlign: TextAlign.center, style: AppText.caption),
-                    ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _SocialButton(
-                            mark: const GoogleMark(),
-                            label: 'Sign in with Google',
-                            onTap: () => _signInWith('Google'),
+                    // Google / Microsoft: no backend support yet, hidden in API mode.
+                    if (!apiMode) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Text('or', textAlign: TextAlign.center, style: AppText.caption),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _SocialButton(
+                              mark: const GoogleMark(),
+                              label: 'Sign in with Google',
+                              onTap: () => _signInWith('Google'),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _SocialButton(
-                            mark: const MicrosoftMark(),
-                            label: 'Sign in with Microsoft',
-                            onTap: () => _signInWith('Microsoft'),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _SocialButton(
+                              mark: const MicrosoftMark(),
+                              label: 'Sign in with Microsoft',
+                              onTap: () => _signInWith('Microsoft'),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Center(
                       child: InkWell(
@@ -437,6 +440,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                     ),
+                    if (apiMode) Center(child: DiagnosticsLink(onTap: () => context.push(Routes.authDiagnostics))),
                   ],
                 ),
               ),

@@ -477,7 +477,7 @@ List<Asset> seedAssets() {
       location: 'Marketing',
       site: _office,
       custodian: 'Marketing',
-      status: AssetStatus.active,
+      status: AssetStatus.retired, // raw value, counted as Other
       criticality: 'Low',
       healthScore: 97,
       purchaseDate: on(2025, 3, 4),
@@ -497,7 +497,7 @@ List<Asset> seedAssets() {
       location: 'Building B – Floor 1',
       site: _factory,
       custodian: 'Maintenance',
-      status: AssetStatus.active,
+      status: AssetStatus.inactive, // raw value, counted as Other
       criticality: 'Low',
       healthScore: 92,
       purchaseDate: on(2024, 7, 22),

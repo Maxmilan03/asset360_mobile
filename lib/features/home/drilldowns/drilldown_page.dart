@@ -103,3 +103,18 @@ class ShowingFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(child: Text(text, style: AppText.secondary));
 }
+
+/// API mode: a drill-down whose data has no backend in this phase (title kept, "Not available yet").
+class NotAvailableDrilldown extends StatelessWidget {
+  const NotAvailableDrilldown({super.key, required this.title, required this.feature});
+
+  final String title;
+  final String feature;
+
+  @override
+  Widget build(BuildContext context) => DrilldownPage(
+    title: title,
+    skeletonRows: 1,
+    children: [AppCard(child: NotAvailableYet(feature: feature))],
+  );
+}

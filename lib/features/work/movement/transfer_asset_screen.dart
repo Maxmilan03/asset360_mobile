@@ -424,7 +424,7 @@ class _TransferAssetScreenState extends ConsumerState<TransferAssetScreen> {
               imagePath: a.imagePath,
               fallbackIcon: assetIcon(a),
               selected: _assetIds.contains(a.id),
-              trailingTop: StatusChip(a.status),
+              trailingTop: AssetStatusChip(a.status),
               showChevron: false,
               onTap: () => _select(a.id),
             ),

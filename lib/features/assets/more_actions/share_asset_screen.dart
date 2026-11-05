@@ -9,6 +9,7 @@ import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/platform/app_launcher.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/mock/more_actions_mock.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/documents_repository.dart';
@@ -73,11 +74,12 @@ class _ShareAssetScreenState extends ConsumerState<ShareAssetScreen> {
     if (_on.contains(ShareInfo.photos)) {
       section('Photos', ['${a.gallery.length} photo${a.gallery.length == 1 ? '' : 's'} (main photo attached)']);
     }
-    if (_on.contains(ShareInfo.documents)) {
+    // API mode: documents / work orders are not read from the mock modules (hidden switches).
+    if (_on.contains(ShareInfo.documents) && !apiMode) {
       final docs = ref.read(documentsProvider).forAsset(a.id);
       section('Documents', docs.isEmpty ? ['None'] : [for (final d in docs) '${d.name} (${d.type})']);
     }
-    if (_on.contains(ShareInfo.maintenance)) {
+    if (_on.contains(ShareInfo.maintenance) && !apiMode) {
       final wos = ref.read(workOrdersProvider).forAsset(a.id)..sort((x, y) => y.openedAt.compareTo(x.openedAt));
       section('Maintenance History', [
         if (wos.isEmpty) 'No work orders',
@@ -91,7 +93,8 @@ class _ShareAssetScreenState extends ConsumerState<ShareAssetScreen> {
   /// The main photo as a share attachment (bundled photos are read from the app bundle).
   Future<XFile?> _photoFile(Asset a) async {
     final path = a.gallery.firstOrNull;
-    if (path == null) return null;
+    // A server photo is not a local file: the shared text says how many photos there are.
+    if (path == null || isRemoteMedia(path)) return null;
     if (!path.startsWith('assets/')) return XFile(path);
     try {
       final data = await rootBundle.load(path);
@@ -117,12 +120,18 @@ class _ShareAssetScreenState extends ConsumerState<ShareAssetScreen> {
         await SharePlus.instance.share(params);
       }
       if (!mounted) return;
-      ref.read(assetsProvider.notifier).addEvent(a.id, 'Asset details shared', note: _included);
+      if (!apiMode) ref.read(assetsProvider.notifier).addEvent(a.id, 'Asset details shared', note: _included);
       finishAction(context, '${a.id} details shared');
     } catch (_) {
       if (mounted) context.showSnack('Sharing is not available on this device');
     }
   }
+
+  /// API mode: documents and maintenance history have no source yet.
+  List<ShareInfo> get _available => [
+    for (final i in ShareInfo.values)
+      if (!apiMode || (i != ShareInfo.documents && i != ShareInfo.maintenance)) i,
+  ];
 
   String get _included => [
     for (final i in ShareInfo.values)
@@ -209,7 +218,7 @@ class _ShareAssetScreenState extends ConsumerState<ShareAssetScreen> {
           title: 'Include Information',
           child: Column(
             children: [
-              for (final i in ShareInfo.values)
+              for (final i in _available)
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   dense: true,

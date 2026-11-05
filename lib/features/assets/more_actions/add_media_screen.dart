@@ -120,8 +120,7 @@ class _AddMediaScreenState extends ConsumerState<AddMediaScreen> {
     return MoreActionPage(
       action: MoreAction.addMedia,
       assetId: widget.assetId,
-      button: (a) =>
-          FilledButton(onPressed: () => _save(a), child: Text(_tab == 0 ? 'Save Photo' : 'Save Video')),
+      button: (a) => FilledButton(onPressed: () => _save(a), child: Text(_tab == 0 ? 'Save Photo' : 'Save Video')),
       builder: (context, a) => [
         SegmentTabs(
           tabs: const [SegmentTab('Photo'), SegmentTab('Video')],
@@ -177,7 +176,7 @@ class _AddMediaScreenState extends ConsumerState<AddMediaScreen> {
           else
             GestureDetector(
               onTap: () => openPhotoViewer(context, _photos, initialIndex: _current),
-              child: Image(image: photoProvider(_photos[_current]), fit: BoxFit.cover),
+              child: Image(image: photoProvider(_photos[_current]), errorBuilder: photoError, fit: BoxFit.cover),
             ),
           if (_photos.isNotEmpty)
             Positioned(
@@ -219,10 +218,7 @@ class _AddMediaScreenState extends ConsumerState<AddMediaScreen> {
               borderRadius: BorderRadius.circular(10),
               child: Container(
                 width: 64,
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(10)),
                 child: Tooltip(
                   message: 'Add photo',
                   child: Icon(Icons.add_rounded, color: AppColors.primary),

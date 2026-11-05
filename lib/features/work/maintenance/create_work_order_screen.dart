@@ -229,7 +229,7 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
                       subtitle: asset.name,
                       location: asset.location,
                       imagePath: asset.imagePath,
-                      trailingTop: StatusChip(asset.status),
+                      trailingTop: AssetStatusChip(asset.status),
                       onTap: _pickAsset,
                     ),
             ),

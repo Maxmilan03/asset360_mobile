@@ -145,7 +145,7 @@ class _ScanResultSheet extends StatelessWidget {
                         const SizedBox(height: 6),
                         IconLine(icon: Icons.location_on_outlined, text: a.location),
                         const SizedBox(height: 8),
-                        StatusChip(a.status),
+                        AssetStatusChip(a.status),
                       ],
                     ),
                   ),

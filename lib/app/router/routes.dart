@@ -9,9 +9,15 @@ abstract final class Routes {
   // Auth (outside the shell, no bottom bar)
   static const splash = '/splash';
   static const login = '/login';
-  static const authRoutes = [splash, login, forgotPassword, authenticator];
+  static const authRoutes = [splash, login, forgotPassword, authenticator, authenticatorSetup, authDiagnostics];
   static const forgotPassword = '/forgot-password';
   static const authenticator = '/authenticator';
+
+  /// API mode, first sign-in: add the account to an authenticator app.
+  static const authenticatorSetup = '/authenticator-setup';
+
+  /// Auth diagnostics from the Login screen (signed out). Signed in: [settingsAuthDiagnostics].
+  static const authDiagnostics = '/auth-diagnostics';
 
   // Tab roots (branches of the shell, in bottom-bar order; Scan is not a branch)
   static const home = '/home';
@@ -186,6 +192,7 @@ abstract final class Routes {
   static const scannerSettings = '/more/scanner';
   static const dataCheck = '/more/settings/data-check';
   static const demoTags = '/more/settings/demo-tags';
+  static const settingsAuthDiagnostics = '/more/settings/auth-diagnostics';
   static const help = '/more/help';
   static const reportBug = '/more/help/report-bug';
 

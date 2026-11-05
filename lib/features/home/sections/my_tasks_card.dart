@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/features/home/sections/live_home.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
@@ -20,6 +22,7 @@ class _MyTasksCardState extends ConsumerState<MyTasksCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (apiMode) return const HomeNotAvailableCard(title: 'My Tasks');
     final home = ref.watch(homeDataProvider);
     final tabs = [
       ('All', home.allTasks),

@@ -153,7 +153,7 @@ class MovementSummary extends StatelessWidget {
                         ],
                       ),
                     ),
-                    StatusChip(a.status),
+                    AssetStatusChip(a.status),
                   ],
                 ),
               ),
@@ -495,7 +495,7 @@ class SelectedAssetCard extends StatelessWidget {
                     Expanded(
                       child: Text(a.id, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.cardTitle),
                     ),
-                    Flexible(child: StatusChip(a.status)),
+                    Flexible(child: AssetStatusChip(a.status)),
                   ],
                 ),
                 Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.secondary),

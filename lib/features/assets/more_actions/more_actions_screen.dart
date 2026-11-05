@@ -7,7 +7,11 @@ import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/scanning/scan_dispatch.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/features/assets/live/live_detail_condition.dart';
+import 'package:asset360_mobile/features/assets/live/live_detail_more_actions.dart';
+import 'package:asset360_mobile/features/assets/live/live_detail_upload.dart';
 import 'package:asset360_mobile/features/assets/more_actions/add_document_action_screen.dart';
 import 'package:asset360_mobile/features/assets/more_actions/add_media_screen.dart';
 import 'package:asset360_mobile/features/assets/more_actions/assign_custodian_screen.dart';
@@ -22,6 +26,16 @@ import 'package:asset360_mobile/features/assets/more_actions/view_on_map_screen.
 
 /// The screen for `/<tab>/more-actions/<slug>?asset=…`.
 Widget moreActionScreen(String slug, String? assetId) => switch (MoreAction.bySlug(slug)) {
+  // API mode: the backend's forms; actions without a backend say "Not available yet".
+  final a? when apiMode && !a.availableLive => AppScaffold(
+    body: Center(
+      child: NotAvailableYet(feature: a.title, icon: a.icon),
+    ),
+  ),
+  MoreAction.updateCondition when apiMode => LiveUpdateConditionScreen(assetId: assetId),
+  MoreAction.addDocument when apiMode => LiveAddDocumentScreen(assetId: assetId),
+  MoreAction.addMedia when apiMode => LiveAddPhotoScreen(assetId: assetId),
+  MoreAction.favorites when apiMode => LiveFavoriteScreen(assetId: assetId),
   MoreAction.checkInOut => CheckInOutScreen(assetId: assetId),
   MoreAction.assignCustodian => AssignCustodianScreen(assetId: assetId),
   MoreAction.updateCondition => UpdateConditionScreen(assetId: assetId),
@@ -58,6 +72,7 @@ class _MoreActionsScreenState extends ConsumerState<MoreActionsScreen> {
   @override
   void didUpdateWidget(MoreActionsScreen old) {
     super.didUpdateWidget(old);
+    if (apiMode) return;
     if (widget.assetId != old.assetId && widget.assetId != null) _assetId = _resolve(widget.assetId);
   }
 
@@ -103,6 +118,8 @@ class _MoreActionsScreenState extends ConsumerState<MoreActionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // API mode: the asset comes from the Asset service (no mock assets are read).
+    if (apiMode) return LiveMoreActionsScreen(assetId: widget.assetId);
     final asset = _assetId == null ? null : ref.watch(assetByIdProvider(_assetId!));
     return ScanTargetScope(
       target: _target,
@@ -115,7 +132,7 @@ class _MoreActionsScreenState extends ConsumerState<MoreActionsScreen> {
             if (asset != null)
               MoreActionAssetCard(asset: asset, onChange: _search)
             else
-              _SelectAssetCard(onSearch: _search, onScan: _scan),
+              SelectAssetCard(onSearch: _search, onScan: _scan),
             const SizedBox(height: 16),
             AppCard(
               padding: EdgeInsets.zero,
@@ -123,7 +140,7 @@ class _MoreActionsScreenState extends ConsumerState<MoreActionsScreen> {
                 children: [
                   for (final (i, action) in MoreAction.values.indexed) ...[
                     if (i > 0) Divider(height: 1, indent: 64, color: AppColors.divider),
-                    _ActionRow(action: action, enabled: asset != null, onTap: () => _open(action)),
+                    MoreActionRow(action: action, enabled: asset != null, onTap: () => _open(action)),
                   ],
                 ],
               ),
@@ -135,8 +152,9 @@ class _MoreActionsScreenState extends ConsumerState<MoreActionsScreen> {
   }
 }
 
-class _SelectAssetCard extends StatelessWidget {
-  const _SelectAssetCard({required this.onSearch, required this.onScan});
+/// "Select an asset": search field + scan button (also the live More Actions).
+class SelectAssetCard extends StatelessWidget {
+  const SelectAssetCard({super.key, required this.onSearch, required this.onScan});
 
   final VoidCallback onSearch;
   final VoidCallback onScan;
@@ -174,12 +192,24 @@ class _SelectAssetCard extends StatelessWidget {
   }
 }
 
-class _ActionRow extends StatelessWidget {
-  const _ActionRow({required this.action, required this.enabled, required this.onTap});
+/// One row of More Actions; [note] is a grey line under the label (e.g. "Not available yet").
+class MoreActionRow extends StatelessWidget {
+  const MoreActionRow({
+    super.key,
+    required this.action,
+    required this.enabled,
+    required this.onTap,
+    this.label,
+    this.note,
+  });
 
   final MoreAction action;
   final bool enabled;
   final VoidCallback onTap;
+
+  /// Replaces [MoreAction.label] (e.g. "Remove from Favorites").
+  final String? label;
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -193,7 +223,15 @@ class _ActionRow extends StatelessWidget {
             children: [
               IconSquare(icon: action.icon, tone: enabled ? TileTone.lavender : TileTone.grey, size: 38),
               const SizedBox(width: 12),
-              Expanded(child: Text(action.label, style: AppText.bodyStrong)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label ?? action.label, style: AppText.bodyStrong),
+                    if (note != null) Text(note!, style: AppText.caption),
+                  ],
+                ),
+              ),
               Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
             ],
           ),

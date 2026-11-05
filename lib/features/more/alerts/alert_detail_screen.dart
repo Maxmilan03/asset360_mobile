@@ -171,7 +171,7 @@ class _AlertDetailScreenState extends ConsumerState<AlertDetailScreen> {
                                 style: AppText.cardTitle,
                               ),
                             ),
-                            Flexible(child: StatusChip(asset.status)),
+                            Flexible(child: AssetStatusChip(asset.status)),
                           ],
                         ),
                         const SizedBox(height: 4),

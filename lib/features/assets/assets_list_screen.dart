@@ -12,6 +12,8 @@ import 'package:asset360_mobile/data/mock/home_mock.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/features/assets/live/live_assets_list_screen.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 import 'package:asset360_mobile/data/reference/asset_options.dart';
 
@@ -26,7 +28,8 @@ const _type = 'Asset Type';
 const _building = 'Site / Building';
 
 /// Assets tab: search, scan, scope chips, filters and the asset list.
-class AssetsListScreen extends ConsumerStatefulWidget {
+/// In API mode this is [LiveAssetsListScreen] (server data); otherwise the mock list.
+class AssetsListScreen extends StatelessWidget {
   const AssetsListScreen({super.key, this.initialStatus, this.initialType, this.initialLocation});
 
   /// Opened from Home's status legend with `?status=…`.
@@ -39,10 +42,28 @@ class AssetsListScreen extends ConsumerStatefulWidget {
   final String? initialLocation;
 
   @override
-  ConsumerState<AssetsListScreen> createState() => _AssetsListScreenState();
+  Widget build(BuildContext context) => apiMode
+      ? LiveAssetsListScreen(initialStatus: initialStatus)
+      : _MockAssetsListScreen(initialStatus: initialStatus, initialType: initialType, initialLocation: initialLocation);
 }
 
-class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
+class _MockAssetsListScreen extends ConsumerStatefulWidget {
+  const _MockAssetsListScreen({this.initialStatus, this.initialType, this.initialLocation});
+
+  /// Opened from Home's status legend with `?status=…`.
+  final String? initialStatus;
+
+  /// Opened from Asset Overview with `?type=…` (a breakdown type, see `assetTypeGroup`).
+  final String? initialType;
+
+  /// Opened from Asset Overview with `?location=…` (a site / building, see `assetLocationGroup`).
+  final String? initialLocation;
+
+  @override
+  ConsumerState<_MockAssetsListScreen> createState() => _AssetsListScreenState();
+}
+
+class _AssetsListScreenState extends ConsumerState<_MockAssetsListScreen> {
   final _search = TextEditingController();
   String _query = '';
   _Scope _scope = _Scope.all;
@@ -51,14 +72,14 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
   String? _group;
   late FilterSelection _filters = _initialFilters(widget);
 
-  static FilterSelection _initialFilters(AssetsListScreen w) => {
+  static FilterSelection _initialFilters(_MockAssetsListScreen w) => {
     if (w.initialStatus != null) _status: {w.initialStatus!},
     if (w.initialType != null) _type: {w.initialType!},
     if (w.initialLocation != null) _building: {w.initialLocation!},
   };
 
   @override
-  void didUpdateWidget(AssetsListScreen old) {
+  void didUpdateWidget(_MockAssetsListScreen old) {
     super.didUpdateWidget(old);
     final next = _initialFilters(widget);
     if (next.isNotEmpty &&
@@ -106,7 +127,7 @@ class _AssetsListScreenState extends ConsumerState<AssetsListScreen> {
 
   bool _matches(Asset a) {
     bool ok(String group, String value) => _filters[group]?.contains(value) ?? true;
-    return ok(_status, a.status) &&
+    return ok(_status, AssetStatus.bucketOf(a.status)) &&
         ok(_condition, a.condition) &&
         ok(_type, assetTypeGroup(a)) &&
         ok(_building, assetLocationGroup(a)) &&
@@ -362,7 +383,7 @@ class _AssetRow extends StatelessWidget {
           ],
         ),
       ],
-      trailingTop: StatusChip(asset.status),
+      trailingTop: AssetStatusChip(asset.status),
       onTap: () => context.push(Routes.assetDetail(asset.id)),
     );
   }

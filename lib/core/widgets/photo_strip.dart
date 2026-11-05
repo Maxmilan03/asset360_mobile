@@ -2,6 +2,9 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import 'package:asset360_mobile/data/api/media_api.dart' show resolveMediaUrl;
+import 'package:asset360_mobile/data/api/media_auth.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:asset360_mobile/app/theme/app_colors.dart';
@@ -9,8 +12,24 @@ import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/widgets/feedback.dart';
 
 /// A photo is either a bundled asset ('assets/images/…') or a picked file path.
-ImageProvider photoProvider(String path) =>
-    path.startsWith('assets/') ? AssetImage(path) : FileImage(File(path)) as ImageProvider;
+/// A photo from the app bundle (`assets/`), a server URL (http/https, or a relative `/uploads/...`
+/// path: loaded through [resolveMediaUrl] with the Authorization header) or a local file.
+ImageProvider photoProvider(String path) {
+  if (path.startsWith('assets/')) return AssetImage(path);
+  if (isRemoteMedia(path)) return NetworkImage(resolveMediaUrl(path), headers: MediaAuth.headers);
+  return FileImage(File(path));
+}
+
+/// `Image(errorBuilder:)` for photos: a grey box with a broken-image icon (a server file that
+/// cannot be loaded never throws on screen).
+Widget photoError(BuildContext context, Object error, StackTrace? stack) => ColoredBox(
+  color: const Color(0x14000000),
+  child: Center(child: Icon(Icons.broken_image_outlined, color: Colors.grey.shade500)),
+);
+
+/// True for a server file (http / https URL or `/uploads/...`), false for a bundled or local file.
+bool isRemoteMedia(String path) =>
+    path.startsWith('http://') || path.startsWith('https://') || path.startsWith('/uploads/');
 
 /// Horizontal row of photo thumbnails followed by an "Add Photo" box.
 class PhotoStrip extends StatelessWidget {
@@ -121,7 +140,7 @@ Future<String?> pickPhoto(BuildContext context, {bool allowVideo = false}) async
     final picker = ImagePicker();
     final file = video
         ? await picker.pickVideo(source: source, maxDuration: const Duration(minutes: 2))
-        : await picker.pickImage(source: source, imageQuality: 80, maxWidth: 1600);
+        : await picker.pickImage(source: source, imageQuality: 80, maxWidth: 1600, maxHeight: 1600);
     return file?.path;
   } catch (_) {
     if (context.mounted) {
@@ -182,7 +201,7 @@ class _PhotoViewerState extends State<_PhotoViewer> {
         itemBuilder: (_, i) => InteractiveViewer(
           maxScale: 5,
           child: Center(
-            child: Image(image: photoProvider(widget.photos[i]), fit: BoxFit.contain),
+            child: Image(image: photoProvider(widget.photos[i]), errorBuilder: photoError, fit: BoxFit.contain),
           ),
         ),
       ),
@@ -206,7 +225,7 @@ class _Thumb extends StatelessWidget {
           onTap: onTap,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image(image: photoProvider(path), width: width, height: double.infinity, fit: BoxFit.cover),
+            child: Image(image: photoProvider(path), errorBuilder: photoError, width: width, height: double.infinity, fit: BoxFit.cover),
           ),
         ),
         if (onRemove != null)

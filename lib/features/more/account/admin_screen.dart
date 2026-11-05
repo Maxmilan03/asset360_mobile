@@ -12,6 +12,7 @@ import 'package:asset360_mobile/data/models/person.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/features/more/account/backend_connection_card.dart';
 
 const _tabs = ['users', 'roles', 'sites', 'master'];
 
@@ -41,6 +42,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             subtitle: 'Users, roles, sites and master data',
             help: 'Changes made here apply for this demo session only.',
           ),
+          const SizedBox(height: 12),
+          const BackendConnectionCard(),
           const SizedBox(height: 12),
           SegmentTabs(
             tabs: [

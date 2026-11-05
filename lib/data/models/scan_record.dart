@@ -3,7 +3,14 @@ import 'dart:math' as math;
 enum ScanKind { asset, part, location }
 
 class ScanRecord {
-  const ScanRecord({required this.id, required this.kind, required this.refId, required this.at, this.method = 'QR'});
+  const ScanRecord({
+    required this.id,
+    required this.kind,
+    required this.refId,
+    required this.at,
+    this.method = 'QR',
+    this.label,
+  });
 
   final String id;
   final ScanKind kind;
@@ -14,6 +21,10 @@ class ScanRecord {
 
   /// QR, Barcode, NFC, RFID, BLE or Manual.
   final String method;
+
+  /// What the scan resolved to when it was saved ("AR000001 – Diesel Generator"); API mode shows it
+  /// without asking the server again.
+  final String? label;
 }
 
 /// A BLE beacon fitted to an asset, as heard by the phone (simulated BLE scan).

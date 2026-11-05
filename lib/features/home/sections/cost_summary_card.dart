@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/features/home/sections/live_home.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
@@ -15,6 +17,7 @@ class CostSummaryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (apiMode) return const HomeNotAvailableCard(title: 'Cost Summary (AED)');
     final org = ref.watch(orgSummaryProvider);
     final entries = org.costs.entries.toList();
     return SectionCard(

@@ -4,11 +4,14 @@ import 'package:go_router/go_router.dart';
 
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/repositories/auth_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/auth/auth_widgets.dart';
 
 /// Continues the native splash: logo on lavender for ~1 s, then Login
-/// (or Home when the user is still signed in with "Remember me" ticked).
+/// (or Home when the user is still signed in with "Remember me" ticked; API mode: the stored
+/// refresh token still works).
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
@@ -22,11 +25,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    if (apiMode) {
+      _restore();
+      return;
+    }
     Future<void>.delayed(SplashScreen.duration, () {
       if (!mounted) return;
       final s = ref.read(sessionProvider);
       context.go(s.loggedIn && s.rememberMe ? Routes.home : Routes.login);
     });
+  }
+
+  /// API mode: a stored refresh token → refresh → /me → Home; otherwise (or on failure) Login,
+  /// which then shows "Please sign in again".
+  Future<void> _restore() async {
+    final results = await Future.wait([
+      ref.read(authProvider.notifier).restore(),
+      Future<void>.delayed(SplashScreen.duration).then((_) => false),
+    ]);
+    if (!mounted) return;
+    context.go(results.first ? Routes.home : Routes.login);
   }
 
   @override

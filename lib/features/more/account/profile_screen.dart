@@ -8,6 +8,7 @@ import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/session_actions.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/repositories/audits_repository.dart';
 import 'package:asset360_mobile/data/repositories/inspections_repository.dart';
 import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
@@ -140,14 +141,19 @@ class ProfileScreen extends ConsumerWidget {
                   tone: TileTone.lavender,
                   title: 'Edit Profile',
                   subtitle: 'Name, phone and photo',
-                  onTap: () => showEditProfileSheet(context, ref),
+                  // API mode: the profile comes from /api/auth/me; there is no update endpoint for it yet.
+                  onTap: () => apiMode
+                      ? context.showSnack('Your administrator updates your name and details (no profile API yet)')
+                      : showEditProfileSheet(context, ref),
                 ),
                 _Row(
                   icon: Icons.lock_outline_rounded,
                   tone: TileTone.peach,
                   title: 'Change Password',
                   subtitle: 'Use at least 8 characters with a mix of types',
-                  onTap: () => showChangePasswordSheet(context, ref),
+                  onTap: () => apiMode
+                      ? context.showSnack('Contact your administrator to change your password (no password API yet)')
+                      : showChangePasswordSheet(context, ref),
                 ),
                 _Row(
                   icon: Icons.location_city_rounded,

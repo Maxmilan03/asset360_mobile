@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/mock/registration_mock.dart';
 import 'package:asset360_mobile/data/mock/scans_mock.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
@@ -13,17 +14,20 @@ import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 typedef ScanRef = ({ScanKind kind, String refId});
 
 class ScanHistoryNotifier extends Notifier<List<ScanRecord>> {
+  /// API mode starts empty: the seed scans point at mock assets.
   @override
-  List<ScanRecord> build() => seedScans();
+  List<ScanRecord> build() => apiMode ? const [] : seedScans();
 
-  /// Every scan in the app goes to the top of the history.
-  void add(ScanKind kind, String refId, {String method = 'QR'}) => state = [
+  /// Every scan in the app goes to the top of the history. API mode: [refId] of an asset is its
+  /// assetRegistrationId and [label] "AR000001 – name".
+  void add(ScanKind kind, String refId, {String method = 'QR', String? label}) => state = [
     ScanRecord(
       id: nextId('SCN-', state.map((s) => s.id), width: 3),
       kind: kind,
       refId: refId,
-      at: DemoClock.now,
+      at: apiMode ? DateTime.now() : DemoClock.now,
       method: method,
+      label: label,
     ),
     ...state,
   ];
@@ -39,7 +43,7 @@ class ScanHistoryNotifier extends Notifier<List<ScanRecord>> {
   ScanRef? resolve(String code) {
     final c = code.trim();
     if (c.isEmpty) return null;
-    final asset = ref.read(assetsProvider).byCode(c);
+    final asset = apiMode ? null : ref.read(assetsProvider).byCode(c);
     if (asset != null) return (kind: ScanKind.asset, refId: asset.id);
     final part = ref.read(inventoryProvider).parts.firstWhereOrNull((p) => p.id.toUpperCase() == c.toUpperCase());
     if (part != null) return (kind: ScanKind.part, refId: part.id);

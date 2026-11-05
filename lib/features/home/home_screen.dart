@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/features/home/sections/live_home.dart';
 import 'package:asset360_mobile/features/home/sections/top_section.dart';
 import 'package:asset360_mobile/features/home/sections/quick_actions_card.dart';
 import 'package:asset360_mobile/features/home/sections/my_tasks_card.dart';
@@ -30,6 +32,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _refreshing = false;
 
   Future<void> _refresh() async {
+    if (apiMode) refreshLiveHome(ref);
     setState(() => _refreshing = true);
     await Future<void>.delayed(const Duration(seconds: 1));
     if (mounted) setState(() => _refreshing = false);

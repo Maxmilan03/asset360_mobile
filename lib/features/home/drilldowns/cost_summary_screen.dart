@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
@@ -84,6 +85,7 @@ class _CostSummaryScreenState extends ConsumerState<CostSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (apiMode) return const NotAvailableDrilldown(title: 'Cost Summary (AED)', feature: 'Cost summary');
     final years = ref.watch(costYearsProvider);
     final y = years[_year.clamp(0, years.length - 1)];
     return DrilldownPage(

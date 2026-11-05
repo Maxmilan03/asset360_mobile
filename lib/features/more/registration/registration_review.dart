@@ -1,27 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
-import 'package:asset360_mobile/data/models/asset.dart';
-import 'package:asset360_mobile/data/models/registration_form.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/models/asset_registration.dart';
+import 'package:asset360_mobile/data/models/asset_registration_mapping.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/features/more/registration/registration_logic.dart';
+import 'package:asset360_mobile/features/more/registration/step_additional.dart';
 import 'package:asset360_mobile/features/more/registration/step_purchase.dart';
 
 /// Step 6 Review: ready banner, asset card, then one card per step with Edit.
-class RegistrationReview extends StatelessWidget {
+class RegistrationReview extends ConsumerWidget {
   const RegistrationReview({super.key, required this.form, required this.onEdit});
 
-  final RegistrationForm form;
+  final AssetRegistration form;
 
   /// Jumps to a form step (0 = Basic Information … 4 = Additional Information).
   final ValueChanged<int> onEdit;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final f = form;
+    final x = f.local;
+    // API mode: the local extras (parent, IoT, assessment) are not used; the mock register is not read.
+    final parent = apiMode || x.parentAssetId == null ? null : ref.watch(assetByIdProvider(x.parentAssetId!));
     final b = f.basicInformation, c = f.classification;
     final l = f.locationAssignment.location, a = f.locationAssignment.assignment;
     final p = f.purchaseWarranty.purchase, w = f.purchaseWarranty.warranty;
@@ -36,7 +44,7 @@ class RegistrationReview extends StatelessWidget {
     };
     String unit(Object? v, String? u) => v == null ? '—' : '${or(v)} ${u ?? ''}'.trim();
     final dims = [t.dimensionLength, t.dimensionWidth, t.dimensionHeight];
-    final assessed = f.criticalityAssessment?.result;
+    final assessed = apiMode ? null : x.criticalityAssessment?.result;
     final tag = (b.assetTag ?? '').trim().toUpperCase();
 
     return Column(
@@ -120,7 +128,12 @@ class RegistrationReview extends StatelessWidget {
             ('Serial Number', or(b.serialNumber)),
             ('Status', or(b.status)),
             ('Condition', or(b.condition)),
-            ('Criticality', assessed == null ? or(f.criticality) : '${f.criticality} (assessed ${assessed.score.toStringAsFixed(1)} / 5)'),
+            (
+              'Criticality',
+              assessed == null
+                  ? or(f.criticality)
+                  : '${f.criticality} (assessed ${assessed.score.toStringAsFixed(1)} / 5)',
+            ),
             ('Description', or(b.description)),
             ('Images', '${b.images.length}'),
           ],
@@ -147,12 +160,15 @@ class RegistrationReview extends StatelessWidget {
           title: registrationStepTitles[2],
           onEdit: () => onEdit(2),
           rows: [
-            ('Location Path', l.parts.isEmpty ? '—' : l.parts.join(' › ')),
+            ('Location Path', or(l.locationPath)),
             ('Custodian', registrationCustodian(a)),
             ('Ownership', or(a.ownershipType)),
             ('Cost Center', or(a.costCenter)),
             ('Responsible Team', or(a.responsibleTeam)),
-            ('Assignment', '${or(a.assignmentStartDate)} – ${a.assignmentEndDate == null ? 'Open' : or(a.assignmentEndDate)}'),
+            (
+              'Assignment',
+              '${or(a.assignmentStartDate)} – ${a.assignmentEndDate == null ? 'Open' : or(a.assignmentEndDate)}',
+            ),
             ('Current', a.isCurrent ? 'Yes' : 'No'),
           ],
         ),
@@ -168,14 +184,22 @@ class RegistrationReview extends StatelessWidget {
             ('Delivery Date', or(p.deliveryDate)),
             ('Purchase Cost', p.purchaseCost == null ? '—' : formatMoney(p.purchaseCost!, p.currency)),
             ('Quantity', unit(p.quantity, p.quantityUnit)),
-            ('VAT', unit(p.taxPercent, '%')),
-            ('Total Cost', p.totalCost == null ? '—' : formatMoney(p.totalCost!, p.currency)),
+            ('Currency', or(AssetOptions.currencies[p.currency] ?? p.currency)),
+            ('Tax', unit(p.taxPercent, '%')),
+            (
+              'Total Cost',
+              p.totalCostPreview == null ? '—' : '${formatMoney(p.totalCostPreview!, p.currency)} (calculated)',
+            ),
             ('Payment Terms', or(p.paymentTerms)),
             ('Procurement', or(p.procurementMethod)),
             ('Project / Ref.', or(p.projectReference)),
             ('Documents', '${f.purchaseWarranty.documents.length}'),
             ('Warranty Type', or(w.warrantyType)),
-            ('Warranty', '${or(w.warrantyStartDate)} – ${or(w.warrantyEndDate)}'),
+            ('Warranty Period', unit(w.warrantyPeriod, w.warrantyPeriodUnit)),
+            (
+              'Warranty',
+              '${or(w.warrantyStartDate)} – ${or(w.warrantyEndPreview)}${w.warrantyEndPreview == null ? '' : ' (calculated)'}',
+            ),
             ('AMC Included', w.amcIncluded ? 'Yes' : 'No'),
             ('Support Coverage', or(w.supportCoverage)),
             ('Service Provider', or(w.serviceProvider)),
@@ -186,23 +210,39 @@ class RegistrationReview extends StatelessWidget {
           title: registrationStepTitles[4],
           onEdit: () => onEdit(4),
           rows: [
-            for (final s in t.specifications.values)
-              if (s.value != null && s.value!.trim().isNotEmpty) (s.name, unit(s.value, s.unit)),
+            for (final s in t.specifications) (s.name, unit(s.value, s.unit)),
             if (dims.any((d) => d != null))
               ('Dimensions', '${dims.map(or).join(' × ')} ${t.dimensionUnit ?? ''}'.trim()),
             if (t.weight != null) ('Weight', unit(t.weight, t.weightUnit)),
             if (t.expectedLifespan != null) ('Expected Lifespan', unit(t.expectedLifespan, t.expectedLifespanUnit)),
             ('Technical Remarks', or(t.technicalRemarks)),
-            ('Operating Hours', o.operatingHoursPerDay == null ? '—' : '${or(o.operatingHoursPerDay)} hrs/day'),
+            (
+              'Operating Hours',
+              o.operatingHoursPerDay == null ? '—' : '${unit(o.operatingHoursPerDay, o.operatingHoursUnit)} / day',
+            ),
             ('Operating Shift', or(o.operatingShift)),
             ('Utilization', or(o.utilization)),
-            ('Maintenance', o.maintenanceFrequency == null ? '—' : 'Every ${unit(o.maintenanceFrequency, o.maintenanceFrequencyUnit)}'),
+            (
+              'Maintenance',
+              o.maintenanceFrequency == null
+                  ? '—'
+                  : 'Every ${unit(o.maintenanceFrequency, o.maintenanceFrequencyUnit)}',
+            ),
             ('Last / Next', '${or(o.lastMaintenanceDate)} / ${or(o.nextMaintenanceDate)}'),
             ('Compliance', or(o.complianceStandards)),
-            for (final cf in f.additionalInformation.customFields) (cf.fieldName, or(cf.value)),
+            for (final cf in f.additionalInformation.customFields) (cf.fieldName, customFieldDisplay(cf)),
             ('Attachments', '${f.additionalInformation.attachments.length}'),
           ],
         ),
+        if (!apiMode)
+          _ReviewSection(
+            title: 'Links (this phone)',
+            onEdit: () => onEdit(4),
+            rows: [
+              ('Parent Asset', parent == null ? 'None' : '${parent.id} – ${parent.name}'),
+              ('IoT Device', x.iotDeviceImei == null ? 'None' : 'IMEI ${x.iotDeviceImei}'),
+            ],
+          ),
       ],
     );
   }
@@ -224,7 +264,9 @@ class _ReviewSection extends StatelessWidget {
       actionLabel: 'Edit',
       actionIcon: Icons.edit_outlined,
       onAction: onEdit,
-      child: Column(children: [for (final (l, v) in rows) InfoRow(label: l, value: v, labelWidth: 118)]),
+      child: Column(
+        children: [for (final (l, v) in rows) InfoRow(label: l, value: v, labelWidth: 118)],
+      ),
     ),
   );
 }
@@ -233,8 +275,9 @@ class _ReviewSection extends StatelessWidget {
 
 enum RegisteredAction { view, another, done }
 
-/// "Asset registered" sheet with the new ID and its QR code.
-Future<RegisteredAction?> showRegisteredSheet(BuildContext context, Asset asset) {
+/// "Asset registered" sheet with the new ID (the asset ID in mock mode, the server's
+/// assetRegistrationId "AR000123" in API mode) and its QR code.
+Future<RegisteredAction?> showRegisteredSheet(BuildContext context, {required String id, required String name}) {
   return showModalBottomSheet<RegisteredAction>(
     context: context,
     isScrollControlled: true,
@@ -251,7 +294,7 @@ Future<RegisteredAction?> showRegisteredSheet(BuildContext context, Asset asset)
             Text('Asset registered', style: AppText.pageTitle.copyWith(fontSize: 20)),
             const SizedBox(height: 4),
             Text(
-              '${asset.id} – ${asset.name} has been added to the register.',
+              '$id – $name has been added to the register.',
               textAlign: TextAlign.center,
               style: AppText.pageSubtitle,
             ),
@@ -264,9 +307,9 @@ Future<RegisteredAction?> showRegisteredSheet(BuildContext context, Asset asset)
               ),
               child: Column(
                 children: [
-                  QrCode(data: asset.id, size: 150),
+                  QrCode(data: id, size: 150),
                   const SizedBox(height: 4),
-                  Text(asset.id, style: AppText.bodyStrong.copyWith(letterSpacing: .8)),
+                  Text(id, style: AppText.bodyStrong.copyWith(letterSpacing: .8)),
                 ],
               ),
             ),
@@ -284,14 +327,17 @@ Future<RegisteredAction?> showRegisteredSheet(BuildContext context, Asset asset)
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => ScaffoldMessenger.of(context)
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(
-                        SnackBar(
-                          margin: context.snackMargin,
-                          content: Text('QR tag for ${asset.id} sent to Zebra ZD421 – Store (demo)'),
-                        ),
-                      ),
+                    onPressed: () {
+                      if (apiMode) return showNotAvailableYet(context, 'Print tag');
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          SnackBar(
+                            margin: context.snackMargin,
+                            content: Text('QR tag for $id sent to Zebra ZD421 – Store (demo)'),
+                          ),
+                        );
+                    },
                     icon: const Icon(Icons.print_outlined, size: 20),
                     label: const Text('Print Tag'),
                   ),

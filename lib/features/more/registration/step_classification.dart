@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
-import 'package:asset360_mobile/data/models/registration_form.dart';
+import 'package:asset360_mobile/data/models/asset_registration.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
 import 'package:asset360_mobile/data/reference/registration_options.dart';
+import 'package:asset360_mobile/features/more/registration/live_options.dart';
 import 'package:asset360_mobile/features/more/registration/registration_fields.dart';
 import 'package:asset360_mobile/features/more/registration/registration_widgets.dart';
 
@@ -34,19 +37,29 @@ const _subTypeIcons = <String, IconData>{
   'workstation': Icons.computer_rounded,
 };
 
-/// Step 2 Classification (AssetClassificationDto).
-class StepClassification extends StatefulWidget {
-  const StepClassification({super.key, required this.form, required this.edit, required this.onTypePicked});
+/// Step 2 Classification (AssetClassificationDto). The only place Category / Sub Category /
+/// Asset Type and Criticality are entered. [errors] by backend field path. API mode: categories,
+/// types, criticality and the fixed lists come from the server (RegLists); Department, Cost Center
+/// and Business Unit (Master Management) and the Asset Sub Type cards stay local.
+class StepClassification extends ConsumerStatefulWidget {
+  const StepClassification({
+    super.key,
+    required this.form,
+    required this.edit,
+    required this.onTypePicked,
+    required this.errors,
+  });
 
-  final RegistrationForm form;
+  final AssetRegistration form;
   final FormEdit edit;
   final ValueChanged<String> onTypePicked;
+  final Map<String, String> errors;
 
   @override
-  State<StepClassification> createState() => _StepClassificationState();
+  ConsumerState<StepClassification> createState() => _StepClassificationState();
 }
 
-class _StepClassificationState extends State<StepClassification> {
+class _StepClassificationState extends ConsumerState<StepClassification> {
   final _keyword = TextEditingController();
 
   @override
@@ -67,13 +80,14 @@ class _StepClassificationState extends State<StepClassification> {
 
   @override
   Widget build(BuildContext context) {
-    final form = widget.form, edit = widget.edit, c = form.classification;
+    final form = widget.form, edit = widget.edit, c = form.classification, errors = widget.errors;
     final subTypes = assetTypeOption(c.assetType)?.subTypes ?? const <AssetSubType>[];
+    final lists = RegLists(ref);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         RegBreadcrumb(parts: c.path, icon: Icons.account_tree_outlined, empty: 'Choose a category'),
-        ClassificationFields(form: form, edit: edit, onTypePicked: widget.onTypePicked),
+        ClassificationFields(form: form, edit: edit, onTypePicked: widget.onTypePicked, errors: errors),
         if (subTypes.isNotEmpty) ...[
           const FieldLabel('Asset Sub Type'),
           GridView.count(
@@ -95,50 +109,53 @@ class _StepClassificationState extends State<StepClassification> {
           ),
           regGap,
         ],
-        RegTextField(
+        RegDropdown.source(
+          lists.functionPurposes,
           label: 'Function / Purpose',
           value: c.functionPurpose,
-          hint: 'e.g. Standby power for Building A',
-          onChanged: (v) => c.functionPurpose = v,
+          onChanged: (v) => edit(() => c.functionPurpose = v),
         ),
-        CriticalityField(form: form, edit: edit, required: true),
+        CriticalityField(form: form, edit: edit, required: true, error: errors['Criticality']),
         RegDropdown(
           label: 'Department',
           required: true,
           value: c.department,
-          options: departments,
+          options: AssetOptions.departments,
+          error: errors['Department'],
           onChanged: (v) => edit(() => c.department = v),
         ),
         RegDropdown(
           label: 'Cost Center',
           value: c.costCenter,
-          options: costCenters,
+          options: AssetOptions.costCenters,
           onChanged: (v) => edit(() => c.costCenter = v),
         ),
         RegDropdown(
           label: 'Business Unit',
           value: c.businessUnit,
-          options: businessUnits,
+          options: AssetOptions.businessUnits,
           onChanged: (v) => edit(() => c.businessUnit = v),
         ),
-        RegChoiceChips(
+        RegChoiceChips.source(
+          lists.taggingMethods,
           label: 'Tagging Method',
           required: true,
           value: c.taggingMethod,
-          options: taggingMethods,
+          error: errors['TaggingMethod'],
           onChanged: (v) => edit(() => c.taggingMethod = v),
         ),
-        RegDropdown(
+        RegDropdown.source(
+          lists.complianceCategories,
           label: 'Compliance Category',
           value: c.complianceCategory,
-          options: complianceCategories,
           onChanged: (v) => edit(() => c.complianceCategory = v),
         ),
-        RegDropdown(
+        RegDropdown.source(
+          lists.lifecycleStages,
           label: 'Lifecycle Stage',
           required: true,
           value: c.lifecycleStage,
-          options: lifecycleStages,
+          error: errors['LifecycleStage'],
           onChanged: (v) => edit(() => c.lifecycleStage = v),
         ),
         LabeledField(
@@ -149,7 +166,11 @@ class _StepClassificationState extends State<StepClassification> {
             textCapitalization: TextCapitalization.words,
             decoration: InputDecoration(
               hintText: 'Type a keyword and press +',
-              suffixIcon: IconButton(tooltip: 'Add keyword', icon: const Icon(Icons.add_rounded), onPressed: _addKeyword),
+              suffixIcon: IconButton(
+                tooltip: 'Add keyword',
+                icon: const Icon(Icons.add_rounded),
+                onPressed: _addKeyword,
+              ),
             ),
             onSubmitted: (_) => _addKeyword(),
           ),

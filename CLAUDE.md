@@ -30,7 +30,8 @@
 10. The bottom bar with the centre Scan button is visible on every screen after login. Never create a screen
    or route that hides it. Every route is a child of the StatefulShellRoute (never push onto the root
    navigator); dialogs and pickers pass `useRootNavigator: false` so they open on the tab's navigator, under
-   the bar. Only Splash, Login, Forgot Password and Authenticator are outside the shell.
+   the bar. Only Splash, Login, Forgot Password, Authenticator, Authenticator Setup and Auth diagnostics (the
+   pre-login copy; Settings opens the in-shell one) are outside the shell.
 
 ## Project map (kept up to date)
 - `prompts/` — the build prompts, run in order (01 … 19). `design/` — the 16 design images.
@@ -76,12 +77,53 @@
   in `assets_repository.dart`; "My Assets" = `myAssetsProvider`. Forms opened for one asset use
   `Routes.withAsset(route, id)` (`?asset=`). `core/widgets/scan_capture.dart` = camera scan that returns a code.
   Shared widgets added: `Code39Barcode`, `IconFilterChip`, `TagLabel`.
-- Registration (prompt 06): `features/more/registration/` — hub (+ bulk CSV panel, `bulk_import.dart` validation),
-  5-step `register_asset_screen.dart` (+ `registration_review.dart`). Hub tiles pass a `RegistrationPrefill` as the
-  route `extra`. Uniqueness = `AssetsNotifier.ownerOf(value)` (ID / tag / barcode). Location tree, departments,
-  spare IoT devices and the sample CSV are in `data/mock/registration_mock.dart`; `unlinkedIotDevicesProvider`,
-  `sessionRegistrationsProvider`, `assetTypesProvider` in `assets_repository.dart`. Shared: `QrCode` (real,
-  scannable encoder, tested in `test/qr_code_test.dart`), `core/csv.dart`.
+- Registration (backend-aligned): `features/more/registration/` — hub (+ bulk CSV panel, `bulk_import.dart`, My Drafts),
+  `register_asset_screen.dart` = web steps 1–5 (`step_basic/classification/location/purchase/additional.dart`) + mobile
+  Review (`registration_review.dart`); field widgets in `registration_widgets.dart` / `registration_fields.dart` take an
+  `error:` keyed by backend path. Model = `data/models/asset_registration.dart` (`AssetRegistration`, field-for-field the
+  swagger DTOs in `docs/api_samples/swagger.json`, `toJson`/`fromJson`; app-only Parent Asset / IoT / Assess ratings in
+  `local` = `RegistrationLocalExtras`, stored via `toStorageJson`, never sent). Asset ↔ registration mapping =
+  `asset_registration_mapping.dart` (`toAsset`, `toRegistration`). Rules + messages = `data/validation/
+  asset_registration_validator.dart` (Next = required + rules, Save as Draft = rules only, keys like "Purchase.PurchaseCost").
+  Drafts = `registration_drafts_repository.dart` (shared_preferences, survive restart, `assetRegistrationId` DRAFT-0001,
+  `currentStep`). Category / Sub Category / Asset Type / Criticality are entered in step 2 only; criticality is written to
+  both basicInformation and classification. Location IDs = location codes (`locationCodeOf` in data/db/location_seed.dart).
+  Value lists: ONLY `data/reference/asset_options.dart` (statuses = 4 values; any other raw value, e.g. Inactive / Retired,
+  is grey and counts as Other via `AssetStatus.bucketOf`; TEMP lists until the Master Data API). Category tree, countries:
+  `registration_options.dart`; spec templates: `technical_templates.dart`. Asset status chips: `AssetStatusChip`.
+  Web screenshots: `design/web_registration/`. Report: `docs/registration_backend_report.md`. Tests: test/registration_test.dart
+  (swagger field names, round trip, validator, drafts restart, end-to-end generator).
+- Backend API (services called DIRECTLY, gateway 5296 unused): `lib/data/api/` — `api_config.dart` (`kUseApi` /
+  `apiMode` (tests: `debugApiMode`), `kApiBaseUrl` = Asset service 5401, `kMediaBaseUrl` = Media 5300, `kAuthBaseUrl` =
+  login 5018, optional `kDevToken`; dart-defines only; `BackendService` enum = base URL + config problem per service),
+  `api_client.dart` (`dioProvider` / `apiClientProvider` = Asset, `mediaDioProvider` / `mediaClientProvider` = Media;
+  `AuthInterceptor` = session access token if any (never blocks), one shared refresh on 401 then retry),
+  `media_api.dart` (`MediaApi.upload` → POST /api/media/upload, `resolveMediaUrl` localhost → MEDIA_BASE_URL,
+  `mediaHeadersProvider`), `api_exception.dart` (400 →
+  `fieldErrors`, server `message` first), `auth_api.dart` (login service, own Dio, every call recorded redacted in
+  `auth_diagnostics.dart`), `auth_models.dart` (TOLERANT parsing: `LoginResult`, `TokenPair` (expiresIn / expiresAt /
+  JWT exp / 30 min), `CurrentUser`, `AuthRole`, `redactSecrets`), `token_store.dart` (refresh token in
+  flutter_secure_storage only with Remember me). Session: `data/repositories/auth_repository.dart` (`AuthNotifier`:
+  signedOut → twoFactorPending → signedIn; `enterApp()` after the 1 s success animation flips `sessionProvider`, which
+  the router reads; `restore()` on Splash). `currentUserProvider` shows the /me user in API mode (person record stays
+  the demo user so mock modules keep working). Screens: `features/auth/authenticator_setup_screen.dart`,
+  `auth_diagnostics_screen.dart` (`/auth-diagnostics`, `/more/settings/auth-diagnostics`); Login / Authenticator /
+  Splash / confirmLogout / Profile branch on `apiMode`. Shared: `showContactAdminSheet`, `showSignInSuccess`
+  (auth_widgets.dart). `connection_repository.dart` (Test connection = GET /health on AUTH / ASSET / MEDIA) + `backend_connection_card.dart` (Administration). Sources:
+  `docs/api/useraccount_swagger.json` (requests only), `docs/api/openapi.json` (not downloaded yet); unknowns in
+  `docs/questions_for_backend.md`. Tests: test/api_client_test.dart, test/auth_api_test.dart (fake adapters).
+- Assets live phase (apiMode = true: NO mock assets anywhere; apiMode = false unchanged): API `lib/data/api/assets/`
+  (`assets_api.dart` `AssetsApi` / `assetsApiProvider`: list, filters, get, lookup, drafts + steps + submit, options,
+  categories / types / models, images, documents, components tree, condition, criticality; `asset_api_models.dart`; full
+  record = `AssetRegistration`). Providers: `live_assets_repository.dart` (`liveAssetListProvider(query)` paged 20,
+  `assetSummaryProvider`, `recentLiveAssetsProvider`, `liveAssetProvider(id)` + images / documents / tree / condition /
+  criticality, `liveAssetProviders(id)` to invalidate, dropdown providers, `liveFavoritesProvider` = device only,
+  `myUserIdProvider`), `live_uploads.dart` (`AssetUploader`: `AssetFileRules.check` → Media upload → asset-images /
+  asset-documents), `live_registration_repository.dart` (server drafts, `applyServerReply`). Screens branch on `apiMode`:
+  `features/assets/live/` (list, filter/sort sheets, detail `live_detail_*`, upload, condition, more actions),
+  registration `live_options.dart` (`RegLists`), Home `sections/live_home.dart` (`HomeNotAvailableCard`), scan
+  `core/scanning/live_asset_lookup.dart` (GET /lookup, fallback search + exact match). No backend yet → `NotAvailableYet` /
+  `showNotAvailableYet` (core/widgets/live_states.dart). Tests: `test/live/` (`FakeAssetBackend`, `no_mock_assets_test.dart`).
 - Scan (prompt 07): `features/assets/scan/` — `scan_screen.dart` (QR camera + simulated NFC/RFID/BLE, Manual Entry, Multi Scan,
   debug "Simulate scan" chip), `scan_result_screen.dart` (Asset Identified), `scan_history_screen.dart`. Every scan goes
   through `openScannedCode` (`scan_flow.dart`), which records history and routes. Code matching = `ScanHistoryNotifier.resolve`

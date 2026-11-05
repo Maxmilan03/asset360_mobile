@@ -1,51 +1,63 @@
 import 'package:asset360_mobile/data/reference/asset_options.dart';
+import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 
-/// Register Asset form data, named and grouped like the backend request DTOs (swagger.json), so
-/// each step maps 1:1 to a draft endpoint later:
+/// One asset registration, field for field the backend entity (docs/api_samples/swagger.json,
+/// camelCase JSON names), so connecting the API later is a 1:1 mapping. Each step maps to a draft
+/// endpoint:
 ///   step 1 [basicInformation]      → PUT /api/asset-registrations/drafts/{id}/basic-information     (AssetBasicInformationDto)
 ///   step 2 [classification]        → PUT …/classification          (AssetClassificationDto)
 ///   step 3 [locationAssignment]    → PUT …/location-assignment     (AssetLocationAssignmentDto)
 ///   step 4 [purchaseWarranty]      → PUT …/purchase-warranty       (AssetPurchaseWarrantyDto)
 ///   step 5 [additionalInformation] → PUT …/additional-information  (AssetAdditionalInformationDto)
 /// The first save is POST /api/asset-registrations/drafts (CreateAssetRegistrationDraftRequest =
-/// basicInformation + createdBy / clientId / tenantId). Each section's toJson() is that request body.
+/// basicInformation + createdBy / clientId / tenantId); Submit is POST …/drafts/{id}/submit.
+/// [toJson] is exactly the backend shape; app-only values live in [local] (not sent).
 /// Fields are mutable: the form edits them in place.
-class RegistrationForm {
-  RegistrationForm({
-    required this.draftId,
+class AssetRegistration {
+  AssetRegistration({
+    this.id,
+    required this.assetRegistrationId,
+    this.currentStep = 0,
     AssetBasicInformation? basicInformation,
     AssetClassification? classification,
     AssetLocationAssignment? locationAssignment,
     AssetPurchaseWarranty? purchaseWarranty,
     AssetAdditionalInformation? additionalInformation,
-    this.criticalityAssessment,
-    this.savedAt,
-    this.step = 0,
+    this.createdBy,
+    this.createdAt,
+    this.updatedBy,
+    this.updatedAt,
+    RegistrationLocalExtras? local,
   }) : basicInformation = basicInformation ?? AssetBasicInformation(),
        classification = classification ?? AssetClassification(),
        locationAssignment = locationAssignment ?? AssetLocationAssignment(),
        purchaseWarranty = purchaseWarranty ?? AssetPurchaseWarranty(),
-       additionalInformation = additionalInformation ?? AssetAdditionalInformation();
+       additionalInformation = additionalInformation ?? AssetAdditionalInformation(),
+       local = local ?? RegistrationLocalExtras();
 
-  /// Local draft key (becomes assetRegistrationId once the backend creates the draft).
-  final String draftId;
+  /// Database id; null until the backend stores the draft.
+  String? id;
+
+  /// Business key of the registration. Local drafts get "DRAFT-0001" … until the API assigns one.
+  String assetRegistrationId;
+
+  /// Step the user was on when the draft was saved (0 = Basic Information … 5 = Review).
+  int currentStep;
+
   final AssetBasicInformation basicInformation;
   final AssetClassification classification;
   final AssetLocationAssignment locationAssignment;
   final AssetPurchaseWarranty purchaseWarranty;
   final AssetAdditionalInformation additionalInformation;
+  String? createdBy, updatedBy;
+  DateTime? createdAt, updatedAt;
 
-  /// Assess sheet ratings → POST /api/asset-criticality after the asset exists (not a draft step).
-  CriticalityAssessment? criticalityAssessment;
+  /// Mobile-only extras kept on the device (not part of the backend entity).
+  final RegistrationLocalExtras local;
 
-  /// Last Save as Draft (DemoClock); null for a new form.
-  DateTime? savedAt;
-
-  /// Step the user was on when the draft was saved (0 … 5).
-  int step;
-
-  /// Criticality appears in steps 1 and 2 (both DTOs carry it); one value is kept in both.
-  String? get criticality => basicInformation.criticality ?? classification.criticality;
+  /// One Criticality field in the app; the backend stores it in both basicInformation and
+  /// classification, so both are written.
+  String? get criticality => classification.criticality ?? basicInformation.criticality;
   set criticality(String? v) {
     basicInformation.criticality = v;
     classification.criticality = v;
@@ -54,32 +66,71 @@ class RegistrationForm {
   /// Title in My Drafts: name, else tag, else "Untitled asset".
   String get title => _orNull(basicInformation.assetName) ?? _orNull(basicInformation.assetTag) ?? 'Untitled asset';
 
+  /// The backend entity, camelCase names exactly as in swagger.json.
   Map<String, dynamic> toJson() => {
-    'draftId': draftId,
-    'savedAt': savedAt?.toIso8601String(),
-    'step': step,
+    'id': id,
+    'assetRegistrationId': assetRegistrationId,
+    'currentStep': currentStep,
     'basicInformation': basicInformation.toJson(),
     'classification': classification.toJson(),
     'locationAssignment': locationAssignment.toJson(),
     'purchaseWarranty': purchaseWarranty.toJson(),
     'additionalInformation': additionalInformation.toJson(),
-    'criticalityAssessment': criticalityAssessment?.toJson(),
+    'createdBy': createdBy,
+    'createdAt': createdAt?.toIso8601String(),
+    'updatedBy': updatedBy,
+    'updatedAt': updatedAt?.toIso8601String(),
   };
 
-  factory RegistrationForm.fromJson(Map<String, dynamic> j) => RegistrationForm(
-    draftId: _str(j['draftId']) ?? 'draft',
-    savedAt: _date(j['savedAt']),
-    step: _int(j['step']) ?? 0,
+  factory AssetRegistration.fromJson(Map<String, dynamic> j, {RegistrationLocalExtras? local}) => AssetRegistration(
+    id: _str(j['id']),
+    assetRegistrationId: _str(j['assetRegistrationId']) ?? 'DRAFT',
+    currentStep: _int(j['currentStep']) ?? 0,
     basicInformation: AssetBasicInformation.fromJson(_map(j['basicInformation'])),
     classification: AssetClassification.fromJson(_map(j['classification'])),
     locationAssignment: AssetLocationAssignment.fromJson(_map(j['locationAssignment'])),
     purchaseWarranty: AssetPurchaseWarranty.fromJson(_map(j['purchaseWarranty'])),
     additionalInformation: AssetAdditionalInformation.fromJson(_map(j['additionalInformation'])),
-    criticalityAssessment: CriticalityAssessment.fromJson(j['criticalityAssessment']),
+    createdBy: _str(j['createdBy']),
+    createdAt: _date(j['createdAt']),
+    updatedBy: _str(j['updatedBy']),
+    updatedAt: _date(j['updatedAt']),
+    local: local,
   );
 
+  /// Device storage for My Drafts: the backend entity plus the local extras.
+  Map<String, dynamic> toStorageJson() => {'registration': toJson(), 'local': local.toJson()};
+
+  factory AssetRegistration.fromStorageJson(Map<String, dynamic> j) =>
+      AssetRegistration.fromJson(_map(j['registration']), local: RegistrationLocalExtras.fromJson(_map(j['local'])));
+
   /// Deep copy (Save as Draft stores a snapshot, the form keeps editing its own).
-  RegistrationForm copy() => RegistrationForm.fromJson(toJson());
+  AssetRegistration copy() => AssetRegistration.fromStorageJson(toStorageJson());
+}
+
+/// Values the app collects that the backend registration does not store (listed in the report):
+/// Parent Asset (the backend has /api/asset-hierarchy for this), the linked IoT device, and the
+/// Assess sheet ratings (POST /api/asset-criticality after the asset exists).
+class RegistrationLocalExtras {
+  RegistrationLocalExtras({this.parentAssetId, this.iotDeviceImei, this.criticalityAssessment});
+
+  String? parentAssetId;
+
+  /// IMEI of a store device to pair on Submit.
+  String? iotDeviceImei;
+  CriticalityAssessment? criticalityAssessment;
+
+  Map<String, dynamic> toJson() => {
+    'parentAssetId': parentAssetId,
+    'iotDeviceImei': iotDeviceImei,
+    'criticalityAssessment': criticalityAssessment?.toJson(),
+  };
+
+  factory RegistrationLocalExtras.fromJson(Map<String, dynamic> j) => RegistrationLocalExtras(
+    parentAssetId: _str(j['parentAssetId']),
+    iotDeviceImei: _str(j['iotDeviceImei']),
+    criticalityAssessment: CriticalityAssessment.fromJson(j['criticalityAssessment']),
+  );
 }
 
 /// AssetBasicInformationDto.
@@ -97,12 +148,16 @@ class AssetBasicInformation {
     this.criticality,
     this.description,
     List<String>? images,
+    this.nfcUid,
   }) : images = images ?? [];
 
   String? assetName, assetTag, barcode, rfidTagId, model, manufacturer, serialNumber;
   String? status, condition, criticality, description;
 
-  /// Photo paths; the first is the primary image.
+  /// NFC tag UID (matched by GET /api/asset-registrations/lookup?type=nfc).
+  String? nfcUid;
+
+  /// Image URLs (local file paths until upload); the first is the primary image.
   List<String> images;
 
   Map<String, dynamic> toJson() => {
@@ -118,6 +173,7 @@ class AssetBasicInformation {
     'criticality': criticality,
     'description': description,
     'images': images,
+    'nfcUid': nfcUid,
   };
 
   factory AssetBasicInformation.fromJson(Map<String, dynamic> j) => AssetBasicInformation(
@@ -133,6 +189,7 @@ class AssetBasicInformation {
     criticality: _str(j['criticality']),
     description: _str(j['description']),
     images: _strings(j['images']),
+    nfcUid: _str(j['nfcUid']),
   );
 }
 
@@ -211,13 +268,13 @@ class AssetLocationAssignment {
   );
 }
 
-/// AssetLocationDto. The app's location tree has names only, so the *Id fields stay null until
-/// the location lookups come from the API.
+/// AssetLocationDto. IDs are the location codes of the local location table (lib/data/db:
+/// site "DF", building "BLD-A", floor "BLD-A-GF", zone "BLD-A-GF-GR01"); country "AE".
 class AssetLocation {
   AssetLocation({
     this.projectId,
     this.countryId,
-    this.countryName = 'United Arab Emirates',
+    this.countryName,
     this.siteId,
     this.siteName,
     this.buildingId,
@@ -228,16 +285,26 @@ class AssetLocation {
     this.zoneName,
     this.roomId,
     this.roomName,
+    this.latitude,
+    this.longitude,
+    this.serverLocationPath,
   });
 
   String? projectId, countryId, countryName, siteId, siteName, buildingId, buildingName;
   String? floorId, floorName, zoneId, zoneName, roomId, roomName;
 
+  /// GPS position (the server drops values outside ±90 / ±180).
+  double? latitude, longitude;
+
+  /// locationPath as the server returned it (it rebuilds the path from the level names).
+  String? serverLocationPath;
+
   /// Country › Site › Building › Floor › Zone › Room.
   List<String> get parts => [?countryName, ?siteName, ?buildingName, ?floorName, ?zoneName, ?_orNull(roomName)];
 
-  /// locationPath: "United Arab Emirates / Dubai Factory / Building A / Ground Floor / …".
-  String? get locationPath => parts.isEmpty ? null : parts.join(' / ');
+  /// locationPath as the web shows it: "UAE > Dubai Factory > Building A > Ground Floor > …"
+  /// (the server may rebuild it).
+  String? get locationPath => parts.isEmpty ? serverLocationPath : parts.join(' > ');
 
   /// The asset register's location format: "Building / Floor – Zone".
   String get assetLocation {
@@ -260,6 +327,8 @@ class AssetLocation {
     'roomId': roomId,
     'roomName': roomName,
     'locationPath': locationPath,
+    'latitude': latitude,
+    'longitude': longitude,
   };
 
   factory AssetLocation.fromJson(Map<String, dynamic> j) => AssetLocation(
@@ -276,6 +345,9 @@ class AssetLocation {
     zoneName: _str(j['zoneName']),
     roomId: _str(j['roomId']),
     roomName: _str(j['roomName']),
+    latitude: _num(j['latitude']),
+    longitude: _num(j['longitude']),
+    serverLocationPath: _str(j['locationPath']),
   );
 }
 
@@ -358,10 +430,11 @@ class AssetPurchase {
     this.purchaseDate,
     this.deliveryDate,
     this.purchaseCost,
-    this.quantity = 1,
-    this.quantityUnit = 'Nos',
-    this.currency = 'AED',
-    this.taxPercent = 5,
+    this.quantity,
+    this.quantityUnit,
+    this.currency,
+    this.taxPercent,
+    this.totalCost,
     this.paymentTerms,
     this.procurementMethod,
     this.projectReference,
@@ -373,11 +446,16 @@ class AssetPurchase {
   double? purchaseCost, quantity, taxPercent;
   String? quantityUnit, currency, paymentTerms, procurementMethod, projectReference, remarks;
 
-  /// Total Cost = cost × quantity × (1 + VAT %); null until cost and quantity are given.
-  double? get totalCost {
-    final cost = purchaseCost, qty = quantity;
-    if (cost == null || qty == null) return null;
-    return cost * qty * (1 + (taxPercent ?? 0) / 100);
+  /// Total cost as last returned by the server (it recalculates on save).
+  double? totalCost;
+
+  /// "Calculated" preview, the server's rule (AssetPurchaseDto.ToSection): cost × (1 + tax %),
+  /// rounded to 2 decimals; quantity is NOT a factor. Falls back to the server's [totalCost]
+  /// until a cost is given. (The server ignores any total the client sends.)
+  double? get totalCostPreview {
+    final cost = purchaseCost;
+    if (cost == null) return totalCost;
+    return (cost * (1 + (taxPercent ?? 0) / 100) * 100).roundToDouble() / 100;
   }
 
   Map<String, dynamic> toJson() => {
@@ -392,7 +470,7 @@ class AssetPurchase {
     'quantityUnit': quantityUnit,
     'currency': currency,
     'taxPercent': taxPercent,
-    'totalCost': totalCost,
+    'totalCost': totalCostPreview,
     'paymentTerms': paymentTerms,
     'procurementMethod': procurementMethod,
     'projectReference': projectReference,
@@ -411,6 +489,7 @@ class AssetPurchase {
     quantityUnit: _str(j['quantityUnit']),
     currency: _str(j['currency']),
     taxPercent: _num(j['taxPercent']),
+    totalCost: _num(j['totalCost']),
     paymentTerms: _str(j['paymentTerms']),
     procurementMethod: _str(j['procurementMethod']),
     projectReference: _str(j['projectReference']),
@@ -423,8 +502,9 @@ class AssetWarranty {
   AssetWarranty({
     this.warrantyType,
     this.warrantyStartDate,
+    this.warrantyEndDate,
     this.warrantyPeriod,
-    this.warrantyPeriodUnit = 'Years',
+    this.warrantyPeriodUnit,
     this.amcIncluded = false,
     this.supportCoverage,
     this.serviceProvider,
@@ -433,18 +513,23 @@ class AssetWarranty {
 
   String? warrantyType;
   DateTime? warrantyStartDate;
+
+  /// End date as last returned by the server (it recalculates on save).
+  DateTime? warrantyEndDate;
   int? warrantyPeriod;
   String? warrantyPeriodUnit;
   bool amcIncluded;
   String? supportCoverage, serviceProvider, warrantyReference;
 
-  /// Warranty End Date = start + period (Days / Months / Years); null until both are given.
-  DateTime? get warrantyEndDate => warrantyEnd(warrantyStartDate, warrantyPeriod, warrantyPeriodUnit);
+  /// "Calculated" preview: start + period (Day(s) / Month(s) / Year(s)); falls back to the
+  /// server's [warrantyEndDate] until start, period and unit are given.
+  DateTime? get warrantyEndPreview =>
+      warrantyEnd(warrantyStartDate, warrantyPeriod, warrantyPeriodUnit) ?? warrantyEndDate;
 
   Map<String, dynamic> toJson() => {
     'warrantyType': warrantyType,
     'warrantyStartDate': warrantyStartDate?.toIso8601String(),
-    'warrantyEndDate': warrantyEndDate?.toIso8601String(),
+    'warrantyEndDate': warrantyEndPreview?.toIso8601String(),
     'warrantyPeriod': warrantyPeriod,
     'warrantyPeriodUnit': warrantyPeriodUnit,
     'amcIncluded': amcIncluded,
@@ -456,6 +541,7 @@ class AssetWarranty {
   factory AssetWarranty.fromJson(Map<String, dynamic> j) => AssetWarranty(
     warrantyType: _str(j['warrantyType']),
     warrantyStartDate: _date(j['warrantyStartDate']),
+    warrantyEndDate: _date(j['warrantyEndDate']),
     warrantyPeriod: _int(j['warrantyPeriod']),
     warrantyPeriodUnit: _str(j['warrantyPeriodUnit']),
     amcIncluded: j['amcIncluded'] == true,
@@ -465,16 +551,22 @@ class AssetWarranty {
   );
 }
 
-/// [start] + [period] [unit]; months / years keep the day of month, clamped to the month's last
-/// day (31 Jan + 1 month = 28 Feb). The end date is the same calendar day (start 1 Jan 2026 +
-/// 2 years = 1 Jan 2028).
+/// Last day of a warranty of [period] [unit] from [start], as the web calculates it: start +
+/// period − 1 day (28 Jun 2026 + 5 Year(s) = 27 Jun 2031). Months / years keep the day of month,
+/// clamped to the month's last day (31 Jan + 1 month → 28 Feb → ends 27 Feb).
 DateTime? warrantyEnd(DateTime? start, int? period, String? unit) {
   if (start == null || period == null || period <= 0) return null;
-  if (unit == 'Days') return DateTime(start.year, start.month, start.day + period);
-  final months = unit == 'Months' ? period : period * 12;
+  final months = switch (unit) {
+    PeriodUnit.days => 0,
+    PeriodUnit.months => period,
+    PeriodUnit.years => period * 12,
+    _ => null,
+  };
+  if (months == null) return null;
+  if (unit == PeriodUnit.days) return DateTime(start.year, start.month, start.day + period - 1);
   final first = DateTime(start.year, start.month + months);
   final lastDay = DateTime(first.year, first.month + 1, 0).day;
-  return DateTime(first.year, first.month, start.day > lastDay ? lastDay : start.day);
+  return DateTime(first.year, first.month, (start.day > lastDay ? lastDay : start.day) - 1);
 }
 
 /// AssetDocumentDto (Invoice & Documents, Attachments). [url] is the local file path for now.
@@ -540,9 +632,7 @@ class AssetAdditionalInformation {
   factory AssetAdditionalInformation.fromJson(Map<String, dynamic> j) => AssetAdditionalInformation(
     technical: AssetTechnicalDetails.fromJson(_map(j['technical'])),
     operational: AssetOperationalDetails.fromJson(_map(j['operational'])),
-    customFields: [
-      for (final f in _list(j['customFields'])) ?AssetCustomField.fromJson(f),
-    ],
+    customFields: [for (final f in _list(j['customFields'])) ?AssetCustomField.fromJson(f)],
     attachments: _documents(j['attachments']),
   );
 }
@@ -550,29 +640,38 @@ class AssetAdditionalInformation {
 /// AssetTechnicalDetailsDto. Template fields (Power Rating, Voltage …) go into [specifications].
 class AssetTechnicalDetails {
   AssetTechnicalDetails({
-    Map<String, AssetSpecification>? specifications,
+    List<AssetSpecification>? specifications,
     this.dimensionLength,
     this.dimensionWidth,
     this.dimensionHeight,
-    this.dimensionUnit = 'mm',
+    this.dimensionUnit,
     this.weight,
-    this.weightUnit = 'kg',
+    this.weightUnit,
     this.expectedLifespan,
-    this.expectedLifespanUnit = 'Years',
+    this.expectedLifespanUnit,
     this.technicalRemarks,
-  }) : specifications = specifications ?? {};
+  }) : specifications = specifications ?? [];
 
-  /// Spec name → value; serialised as a list of AssetSpecificationDto.
-  final Map<String, AssetSpecification> specifications;
+  /// Template values (Power Rating, Voltage …), one AssetSpecificationDto each.
+  List<AssetSpecification> specifications;
+
+  AssetSpecification? spec(String name) => specifications.firstWhereOrNull((s) => s.name == name);
+
+  /// Sets (or, with an empty value, removes) the specification [name].
+  void setSpec(String name, String? value, String? unit) {
+    final rest = specifications.where((s) => s.name != name);
+    specifications = [
+      ...rest,
+      if (_orNull(value) != null) AssetSpecification(name: name, value: value!.trim(), unit: unit),
+    ];
+  }
+
   double? dimensionLength, dimensionWidth, dimensionHeight, weight;
   String? dimensionUnit, weightUnit, expectedLifespanUnit, technicalRemarks;
   int? expectedLifespan;
 
   Map<String, dynamic> toJson() => {
-    'specifications': [
-      for (final s in specifications.values)
-        if (_orNull(s.value) != null) s.toJson(),
-    ],
+    'specifications': [for (final s in specifications) s.toJson()],
     'dimensionLength': dimensionLength,
     'dimensionWidth': dimensionWidth,
     'dimensionHeight': dimensionHeight,
@@ -585,9 +684,7 @@ class AssetTechnicalDetails {
   };
 
   factory AssetTechnicalDetails.fromJson(Map<String, dynamic> j) => AssetTechnicalDetails(
-    specifications: {
-      for (final spec in _list(j['specifications']).map(AssetSpecification.fromJson).nonNulls) spec.name: spec,
-    },
+    specifications: _list(j['specifications']).map(AssetSpecification.fromJson).nonNulls.toList(),
     dimensionLength: _num(j['dimensionLength']),
     dimensionWidth: _num(j['dimensionWidth']),
     dimensionHeight: _num(j['dimensionHeight']),
@@ -621,11 +718,11 @@ class AssetSpecification {
 class AssetOperationalDetails {
   AssetOperationalDetails({
     this.operatingHoursPerDay,
-    this.operatingHoursUnit = 'Hours',
+    this.operatingHoursUnit,
     this.operatingShift,
     this.utilization,
     this.maintenanceFrequency,
-    this.maintenanceFrequencyUnit = 'Months',
+    this.maintenanceFrequencyUnit,
     this.lastMaintenanceDate,
     this.nextMaintenanceDate,
     List<String>? complianceStandards,
@@ -664,7 +761,7 @@ class AssetOperationalDetails {
 
 /// AssetCustomFieldDto.
 class AssetCustomField {
-  AssetCustomField({required this.fieldName, this.fieldType = 'Text', this.value});
+  AssetCustomField({required this.fieldName, this.fieldType = CustomFieldType.text, this.value});
 
   String fieldName;
   String? fieldType;
@@ -675,7 +772,9 @@ class AssetCustomField {
   static AssetCustomField? fromJson(Object? j) {
     if (j is! Map) return null;
     final name = _str(j['fieldName']);
-    return name == null ? null : AssetCustomField(fieldName: name, fieldType: _str(j['fieldType']), value: _str(j['value']));
+    return name == null
+        ? null
+        : AssetCustomField(fieldName: name, fieldType: _str(j['fieldType']), value: _str(j['value']));
   }
 }
 
@@ -689,6 +788,4 @@ DateTime? _date(Object? v) => v is String ? DateTime.tryParse(v) : null;
 Map<String, dynamic> _map(Object? v) => v is Map ? Map<String, dynamic>.from(v) : const {};
 List<Object?> _list(Object? v) => v is List ? v : const [];
 List<String> _strings(Object? v) => v is List ? v.whereType<String>().toList() : [];
-List<AssetDocument> _documents(Object? v) => [
-  for (final d in _list(v)) ?AssetDocument.fromJson(d),
-];
+List<AssetDocument> _documents(Object? v) => [for (final d in _list(v)) ?AssetDocument.fromJson(d)];

@@ -6,6 +6,7 @@ import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 
@@ -17,6 +18,11 @@ class HomeTopSection extends ConsumerWidget {
     ref.watch(clockTickProvider);
     final user = ref.watch(currentUserProvider);
     final home = ref.watch(homeDataProvider);
+    // API mode: work orders, inspections, approvals and alerts have no backend in this phase.
+    String value(int n) => apiMode ? '—' : '$n';
+    String caption(String c) => apiMode ? notAvailableYetMessage : c;
+    VoidCallback? tap(String feature, VoidCallback? open) =>
+        apiMode ? () => showNotAvailableYet(context, feature) : open;
     final hour = DemoClock.now.hour;
     final greeting = hour < 12 ? 'Good Morning' : (hour < 17 ? 'Good Afternoon' : 'Good Evening');
 
@@ -72,44 +78,44 @@ class HomeTopSection extends ConsumerWidget {
                 Expanded(
                   child: KpiTile(
                     icon: Icons.assignment_rounded,
-                    value: '${home.myWorkOrders}',
+                    value: value(home.myWorkOrders),
                     label: 'Work Orders',
-                    caption: 'My Assigned',
+                    caption: caption('My Assigned'),
                     tone: TileTone.sky,
-                    onTap: DemoGuard.go(context, Routes.maintenanceTab('mine')),
+                    onTap: tap('Work orders', DemoGuard.go(context, Routes.maintenanceTab('mine'))),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: KpiTile(
                     icon: Icons.fact_check_rounded,
-                    value: '${home.inspectionsDueToday}',
+                    value: value(home.inspectionsDueToday),
                     label: 'Inspections',
-                    caption: 'Due Today',
+                    caption: caption('Due Today'),
                     tone: TileTone.mint,
-                    onTap: DemoGuard.go(context, Routes.inspectionTab('dueToday')),
+                    onTap: tap('Inspections', DemoGuard.go(context, Routes.inspectionTab('dueToday'))),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: KpiTile(
                     icon: Icons.check_box_rounded,
-                    value: '${home.pendingApprovals}',
+                    value: value(home.pendingApprovals),
                     label: 'Approvals',
-                    caption: 'Pending',
+                    caption: caption('Pending'),
                     tone: TileTone.peach,
-                    onTap: DemoGuard.push(context, Routes.approvals),
+                    onTap: tap('Approvals', DemoGuard.push(context, Routes.approvals)),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: KpiTile(
                     icon: Icons.notifications_active_rounded,
-                    value: '${home.criticalAlerts}',
+                    value: value(home.criticalAlerts),
                     label: 'Critical Alert',
-                    caption: 'Requires Action',
+                    caption: caption('Requires Action'),
                     tone: TileTone.pink,
-                    onTap: DemoGuard.go(context, Routes.alertsTab('critical')),
+                    onTap: tap('Alerts', DemoGuard.go(context, Routes.alertsTab('critical'))),
                   ),
                 ),
               ],

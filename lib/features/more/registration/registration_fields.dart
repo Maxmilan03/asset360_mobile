@@ -7,45 +7,62 @@ import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
-import 'package:asset360_mobile/data/models/registration_form.dart';
-import 'package:asset360_mobile/data/reference/asset_options.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/api/api_exception.dart';
 import 'package:asset360_mobile/data/reference/registration_options.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/live_registration_repository.dart';
+import 'package:asset360_mobile/data/repositories/live_uploads.dart';
 import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 import 'package:asset360_mobile/features/assets/criticality_sheet.dart';
+import 'package:asset360_mobile/features/more/registration/live_options.dart';
 import 'package:asset360_mobile/features/more/registration/registration_widgets.dart';
 
 /// Applies a change to the form and rebuilds the step ([bump] re-reads text fields set by code).
 typedef FormEdit = void Function(VoidCallback change, {bool bump});
 
-/// Category* › Sub Category* › Asset Type* (steps 1 and 2 edit the same values). Asset types come
-/// from registration_options plus types added in Administration → Master Data for the sub category.
+/// Category* › Sub Category* › Asset Type* (steps 1 and 2 edit the same values). Mock mode: asset
+/// types come from registration_options plus types added in Administration → Master Data for the
+/// sub category. API mode: GET /api/asset-categories (top level → children) and
+/// /api/asset-category-types?categoryId=<sub category id>.
 class ClassificationFields extends ConsumerWidget {
-  const ClassificationFields({super.key, required this.form, required this.edit, required this.onTypePicked});
+  const ClassificationFields({
+    super.key,
+    required this.form,
+    required this.edit,
+    required this.onTypePicked,
+    this.errors = const {},
+  });
 
-  final RegistrationForm form;
+  final AssetRegistration form;
   final FormEdit edit;
   final ValueChanged<String> onTypePicked;
+  final Map<String, String> errors;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = form.classification;
-    final category = assetCategories.firstWhereOrNull((o) => o.name == c.category);
-    final sub = category?.subCategories.firstWhereOrNull((s) => s.name == c.subCategory);
-    final master = ref.watch(masterDataProvider).types;
-    final types = <String>{
-      ...?sub?.types.map((t) => t.name),
-      for (final e in master.entries)
-        if (sub != null && e.value == sub.name) e.key,
-    }.toList();
+    final lists = RegLists(ref);
+    List<String> localTypes() {
+      final category = assetCategories.firstWhereOrNull((o) => o.name == c.category);
+      final sub = category?.subCategories.firstWhereOrNull((s) => s.name == c.subCategory);
+      final master = ref.watch(masterDataProvider).types;
+      return <String>{
+        ...?sub?.types.map((t) => t.name),
+        for (final e in master.entries)
+          if (sub != null && e.value == sub.name) e.key,
+      }.toList();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        RegDropdown(
+        RegDropdown.source(
+          lists.categories,
           label: 'Category',
           required: true,
           value: c.category,
-          options: [for (final o in assetCategories) o.name],
+          error: errors['Category'],
           onChanged: (v) => edit(() {
             if (v == c.category) return;
             c
@@ -55,11 +72,12 @@ class ClassificationFields extends ConsumerWidget {
               ..assetSubType = null;
           }),
         ),
-        RegDropdown(
+        RegDropdown.source(
+          lists.subCategories(c.category),
           label: 'Sub Category',
           required: true,
           value: c.subCategory,
-          options: [for (final s in category?.subCategories ?? const <SubCategoryOption>[]) s.name],
+          error: errors['SubCategory'],
           onChanged: (v) => edit(() {
             if (v == c.subCategory) return;
             c
@@ -68,11 +86,12 @@ class ClassificationFields extends ConsumerWidget {
               ..assetSubType = null;
           }),
         ),
-        RegDropdown(
+        RegDropdown.source(
+          lists.assetTypes(c.category, c.subCategory, local: apiMode ? const [] : localTypes()),
           label: 'Asset Type',
           required: true,
           value: c.assetType,
-          options: types,
+          error: errors['AssetType'],
           onChanged: (v) {
             if (v == null || v == c.assetType) return;
             edit(() {
@@ -89,17 +108,19 @@ class ClassificationFields extends ConsumerWidget {
 }
 
 /// Criticality dropdown with an "Assess" link (the sheet's level fills the dropdown); picking a
-/// level directly clears the assessment.
-class CriticalityField extends StatelessWidget {
-  const CriticalityField({super.key, required this.form, required this.edit, this.required = false});
+/// level directly clears the assessment. API mode: levels from GET /api/asset-criticality/options;
+/// the assessment is a local extra, so Assess says it is not available yet.
+class CriticalityField extends ConsumerWidget {
+  const CriticalityField({super.key, required this.form, required this.edit, this.required = false, this.error});
 
-  final RegistrationForm form;
+  final AssetRegistration form;
   final FormEdit edit;
   final bool required;
+  final String? error;
 
   @override
-  Widget build(BuildContext context) {
-    final assessed = form.criticalityAssessment?.result;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final assessed = apiMode ? null : form.local.criticalityAssessment?.result;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -108,30 +129,32 @@ class CriticalityField extends StatelessWidget {
             Expanded(child: FieldLabel('Criticality', required: required)),
             AssessLink(
               onTap: () async {
-                final r = await showCriticalityAssessment(context, initial: form.criticalityAssessment);
+                if (apiMode) return showNotAvailableYet(context, 'Criticality assessment');
+                final r = await showCriticalityAssessment(context, initial: form.local.criticalityAssessment);
                 final level = r?.result?.level;
                 if (r == null || level == null) return;
                 edit(() {
                   form
-                    ..criticalityAssessment = r
+                    ..local.criticalityAssessment = r
                     ..criticality = level;
                 });
               },
             ),
           ],
         ),
-        RegDropdown(
+        RegDropdown.source(
+          RegLists(ref).criticalities,
           label: 'Criticality',
           showLabel: false,
           value: form.criticality,
-          options: AssetOptions.criticalityLevels,
           required: required,
+          error: error,
           dotColor: (o) => ChipTone.forAsset(o).foreground,
           bottom: assessed == null ? 14 : 4,
           onChanged: (v) => edit(() {
             form
               ..criticality = v
-              ..criticalityAssessment = null;
+              ..local.criticalityAssessment = null;
           }),
         ),
         if (assessed != null)
@@ -156,25 +179,44 @@ class RegChoiceChips extends StatelessWidget {
     required this.options,
     required this.onChanged,
     this.required = false,
+    this.error,
+    this.status,
   });
+
+  /// Chips over an [OptionSource] (spinner / error with Retry / empty text instead of chips).
+  RegChoiceChips.source(
+    OptionSource source, {
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.required = false,
+    this.error,
+  }) : options = source.options,
+       status = optionSourceStatus(source);
 
   final String label;
   final String? value;
   final List<String> options;
   final ValueChanged<String> onChanged;
   final bool required;
+  final String? error;
+
+  /// Shown instead of the chips while the options load, failed or are empty.
+  final Widget? status;
 
   @override
   Widget build(BuildContext context) => FormField<String>(
     key: ValueKey('$label#$value'),
     initialValue: value,
-    validator: required ? (v) => v == null ? 'Select the ${label.toLowerCase()}' : null : null,
+    forceErrorText: error,
     builder: (state) => Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           FieldLabel(label, required: required),
+          ?status,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -203,12 +245,29 @@ class RegChoiceChips extends StatelessWidget {
 
 /// Multi-select chips (Compliance Standards).
 class RegMultiChips extends StatelessWidget {
-  const RegMultiChips({super.key, required this.label, required this.selected, required this.options, required this.onChanged});
+  const RegMultiChips({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.options,
+    required this.onChanged,
+    this.status,
+  });
+
+  RegMultiChips.source(
+    OptionSource source, {
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onChanged,
+  }) : options = source.options,
+       status = optionSourceStatus(source);
 
   final String label;
   final List<String> selected;
   final List<String> options;
   final ValueChanged<List<String>> onChanged;
+  final Widget? status;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -217,6 +276,7 @@ class RegMultiChips extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FieldLabel(label),
+        ?status,
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -245,6 +305,7 @@ class RegAutocomplete extends StatelessWidget {
     required this.onChanged,
     this.required = false,
     this.hint,
+    this.error,
   });
 
   final String label;
@@ -253,6 +314,7 @@ class RegAutocomplete extends StatelessWidget {
   final ValueChanged<String?> onChanged;
   final bool required;
   final String? hint;
+  final String? error;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -270,9 +332,9 @@ class RegAutocomplete extends StatelessWidget {
           focusNode: focus,
           style: inputStyle,
           textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(hintText: hint),
+          forceErrorText: error,
+          decoration: InputDecoration(hintText: hint, errorMaxLines: 2),
           onChanged: (v) => onChanged(v.trim().isEmpty ? null : v),
-          validator: required ? (v) => (v ?? '').trim().isEmpty ? 'Enter the ${label.toLowerCase()}' : null : null,
         ),
       ),
     ),
@@ -280,13 +342,72 @@ class RegAutocomplete extends StatelessWidget {
 }
 
 /// Asset Images: several photos, the first is primary; tap a photo to view, make primary or remove.
-class AssetImagesField extends StatelessWidget {
-  const AssetImagesField({super.key, required this.images, required this.onChanged});
+/// API mode: each picked photo (and a local photo handed in by the hub) is uploaded to the Media
+/// service (category "asset-images") and only the returned URL goes into the list; the local
+/// preview shows a spinner until then, a failed upload is reported and not added.
+class AssetImagesField extends ConsumerStatefulWidget {
+  const AssetImagesField({super.key, required this.images, required this.onChanged, this.onAdded});
 
   final List<String> images;
   final ValueChanged<List<String>> onChanged;
 
+  /// API mode: an uploaded photo's URL, appended to the form's current list (the upload may
+  /// finish after this field is gone).
+  final ValueChanged<String>? onAdded;
+
+  /// Tests replace the camera / gallery sheet (returns a local file path).
+  @visibleForTesting
+  static Future<String?> Function()? debugPickPhoto;
+
+  @override
+  ConsumerState<AssetImagesField> createState() => _AssetImagesFieldState();
+}
+
+class _AssetImagesFieldState extends ConsumerState<AssetImagesField> {
+  /// Local files being uploaded (API mode).
+  final _uploading = <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    if (!apiMode) return;
+    final local = [
+      for (final p in widget.images)
+        if (!isRemoteMedia(p) && !p.startsWith('assets/')) p,
+    ];
+    if (local.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onChanged([...widget.images.where((p) => !local.contains(p))]);
+      local.forEach(_upload);
+    });
+  }
+
+  Future<void> _upload(String path) async {
+    final uploader = ref.read(assetUploaderProvider);
+    final uploads = ref.read(registrationUploadsProvider.notifier);
+    final add = widget.onAdded ?? (url) => widget.onChanged([...widget.images, url]);
+    setState(() => _uploading.add(path));
+    uploads.started();
+    try {
+      final file = await uploader.upload(path, category: AssetFileRules.imageCategory, imageOnly: true);
+      add(file.url);
+    } catch (e) {
+      if (mounted) context.showSnack('Photo not added: ${ApiException.from(e).message}');
+    } finally {
+      uploads.finished();
+      if (mounted) setState(() => _uploading.remove(path));
+    }
+  }
+
+  Future<void> _add() async {
+    final p = await (AssetImagesField.debugPickPhoto?.call() ?? pickPhoto(context));
+    if (p == null || !mounted) return;
+    apiMode ? await _upload(p) : widget.onChanged([...widget.images, p]);
+  }
+
   Future<void> _photoMenu(BuildContext context, int i) async {
+    final images = widget.images;
     final action = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
@@ -318,34 +439,60 @@ class AssetImagesField extends StatelessWidget {
       case 'view':
         openPhotoViewer(context, images, initialIndex: i);
       case 'primary':
-        onChanged([images[i], ...images.where((p) => p != images[i])]);
+        widget.onChanged([images[i], ...images.where((p) => p != images[i])]);
       case 'remove':
-        onChanged([...images]..removeAt(i));
+        widget.onChanged([...images]..removeAt(i));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget thumb(int i) => GestureDetector(
+    final images = widget.images;
+    Widget frame({required String path, required bool primary, required List<Widget> overlay, VoidCallback? onTap}) =>
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 96,
+            height: 84,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.tile),
+              border: Border.all(color: primary ? AppColors.primary : AppColors.border, width: primary ? 2 : 1),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image(image: photoProvider(path), errorBuilder: photoError, fit: BoxFit.cover),
+                ...overlay,
+              ],
+            ),
+          ),
+        );
+    Widget thumb(int i) => frame(
+      path: images[i],
+      primary: i == 0,
       onTap: () => _photoMenu(context, i),
-      child: Container(
-        width: 96,
-        height: 84,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadius.tile),
-          border: Border.all(color: i == 0 ? AppColors.primary : AppColors.border, width: i == 0 ? 2 : 1),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image(image: photoProvider(images[i]), fit: BoxFit.cover),
-            if (i == 0)
-              const Positioned(left: 4, top: 4, child: StatusChip('Primary', tone: ChipTone.purple)),
-          ],
-        ),
-      ),
+      overlay: [if (i == 0) const Positioned(left: 4, top: 4, child: StatusChip('Primary', tone: ChipTone.purple))],
     );
+    Widget uploading(String path) => frame(
+      path: path,
+      primary: false,
+      onTap: () => context.showSnack('Uploading the photo…'),
+      overlay: const [
+        ColoredBox(
+          color: Color(0x88000000),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white)),
+              SizedBox(height: 6),
+              Text('Uploading…', style: TextStyle(color: Colors.white, fontSize: 11)),
+            ],
+          ),
+        ),
+      ],
+    );
+    final count = images.length + _uploading.length;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
@@ -356,20 +503,19 @@ class AssetImagesField extends StatelessWidget {
             height: 84,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: images.length + 1,
+              itemCount: count + 1,
               separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (context, i) => i < images.length
                   ? thumb(i)
+                  : i < count
+                  ? uploading(_uploading[i - images.length])
                   : OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         fixedSize: const Size(96, 84),
                         padding: EdgeInsets.zero,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.tile)),
                       ),
-                      onPressed: () async {
-                        final p = await pickPhoto(context);
-                        if (p != null) onChanged([...images, p]);
-                      },
+                      onPressed: _add,
                       child: const Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [Icon(Icons.add_photo_alternate_outlined), SizedBox(height: 4), Text('Add Image')],
@@ -389,33 +535,66 @@ class AssetImagesField extends StatelessWidget {
 }
 
 /// Upload list (Invoice & Documents, Attachments): file_picker, each file at most [maxUploadMb] MB.
-class DocumentUploadField extends StatelessWidget {
-  const DocumentUploadField({super.key, required this.label, required this.documents, required this.onChanged});
+/// API mode: the type and size are checked first ([AssetFileRules]: JPG, PNG, WEBP or PDF), then
+/// each file is uploaded to the Media service (category "asset-documents") and stored as
+/// [UploadedFile.toAssetDocument] (the server rejects documents without a URL).
+class DocumentUploadField extends ConsumerStatefulWidget {
+  const DocumentUploadField({
+    super.key,
+    required this.label,
+    required this.documents,
+    required this.onChanged,
+    this.onAdded,
+    this.error,
+  });
 
   final String label;
   final List<AssetDocument> documents;
   final ValueChanged<List<AssetDocument>> onChanged;
 
+  /// API mode: an uploaded document, appended to the form's current list.
+  final ValueChanged<AssetDocument>? onAdded;
+
+  /// Validator / server message for the list ("Documents", "Attachments").
+  final String? error;
+
   /// Tests replace file_picker (returns name, bytes, path).
   @visibleForTesting
   static Future<List<({String name, int bytes, String? path})>?> Function()? debugPickFiles;
 
+  @override
+  ConsumerState<DocumentUploadField> createState() => _DocumentUploadFieldState();
+}
+
+class _DocumentUploadFieldState extends ConsumerState<DocumentUploadField> {
+  /// File names being uploaded (API mode).
+  final _uploading = <String>[];
+
   Future<void> _pick(BuildContext context) async {
     try {
       final picked =
-          await (debugPickFiles?.call() ??
+          await (DocumentUploadField.debugPickFiles?.call() ??
               FilePicker.pickFiles().then(
                 (files) async => [for (final f in files) (name: f.name, bytes: await f.length() ?? 0, path: f.path)],
               ));
-      if (picked == null || picked.isEmpty) return;
-      final ok = [for (final f in picked) if (f.bytes <= maxUploadMb * 1024 * 1024) f];
+      if (picked == null || picked.isEmpty || !context.mounted) return;
+      if (apiMode) {
+        await _uploadAll(context, picked);
+        return;
+      }
+      final ok = [
+        for (final f in picked)
+          if (f.bytes <= maxUploadMb * 1024 * 1024) f,
+      ];
       final tooBig = picked.length - ok.length;
       if (tooBig > 0 && context.mounted) {
-        context.showSnack('$tooBig file${tooBig == 1 ? ' is' : 's are'} over $maxUploadMb MB and ${tooBig == 1 ? 'was' : 'were'} not added');
+        context.showSnack(
+          '$tooBig file${tooBig == 1 ? ' is' : 's are'} over $maxUploadMb MB and ${tooBig == 1 ? 'was' : 'were'} not added',
+        );
       }
       if (ok.isEmpty) return;
-      onChanged([
-        ...documents,
+      widget.onChanged([
+        ...widget.documents,
         for (final f in ok)
           AssetDocument(
             fileName: f.name,
@@ -430,6 +609,37 @@ class DocumentUploadField extends StatelessWidget {
     }
   }
 
+  Future<void> _uploadAll(BuildContext context, List<({String name, int bytes, String? path})> picked) async {
+    final rejected = <String>[];
+    final ok = <({String name, String path})>[];
+    for (final f in picked) {
+      final problem = f.path == null
+          ? 'the file could not be read'
+          : AssetFileRules.check(f.name, size: f.bytes)?.replaceFirst(RegExp(r'\.$'), '');
+      problem == null ? ok.add((name: f.name, path: f.path!)) : rejected.add('${f.name}: $problem');
+    }
+    if (rejected.isNotEmpty) context.showSnack('Not added – ${rejected.join('; ')}');
+    final uploader = ref.read(assetUploaderProvider);
+    final uploads = ref.read(registrationUploadsProvider.notifier);
+    final add = widget.onAdded ?? (d) => widget.onChanged([...widget.documents, d]);
+    await Future.wait([
+      for (final f in ok)
+        () async {
+          setState(() => _uploading.add(f.name));
+          uploads.started();
+          try {
+            final up = await uploader.upload(f.path, category: AssetFileRules.documentCategory, fileName: f.name);
+            add(up.toAssetDocument());
+          } catch (e) {
+            if (mounted) this.context.showSnack('${f.name} not added: ${ApiException.from(e).message}');
+          } finally {
+            uploads.finished();
+            if (mounted) setState(() => _uploading.remove(f.name));
+          }
+        }(),
+    ]);
+  }
+
   static String _contentType(String name) => switch (name.split('.').last.toLowerCase()) {
     'pdf' => 'application/pdf',
     'jpg' || 'jpeg' => 'image/jpeg',
@@ -440,31 +650,50 @@ class DocumentUploadField extends StatelessWidget {
   };
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 14),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        FieldLabel('$label (${documents.length})'),
-        for (final (i, d) in documents.indexed)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: IconSquare(icon: Icons.description_outlined, tone: TileTone.lavender, size: 34),
-            title: Text(d.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.body),
-            subtitle: Text('${d.sizeMb.toStringAsFixed(1)} MB', style: AppText.caption),
-            trailing: IconButton(
-              tooltip: 'Remove',
-              icon: const Icon(Icons.close_rounded),
-              onPressed: () => onChanged([...documents]..removeAt(i)),
+  Widget build(BuildContext context) {
+    final documents = widget.documents;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FieldLabel('${widget.label} (${documents.length})'),
+          for (final (i, d) in documents.indexed)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: IconSquare(icon: Icons.description_outlined, tone: TileTone.lavender, size: 34),
+              title: Text(d.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.body),
+              subtitle: Text('${d.sizeMb.toStringAsFixed(1)} MB', style: AppText.caption),
+              trailing: IconButton(
+                tooltip: 'Remove',
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => widget.onChanged([...documents]..removeAt(i)),
+              ),
             ),
+          for (final name in _uploading)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const SizedBox.square(
+                dimension: 34,
+                child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+              title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.body),
+              subtitle: Text('Uploading…', style: AppText.caption),
+            ),
+          if (widget.error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(widget.error!, style: const TextStyle(color: AppColors.red, fontSize: 12)),
+            ),
+          OutlinedButton.icon(
+            onPressed: () => _pick(context),
+            icon: const Icon(Icons.upload_file_rounded, size: 20),
+            label: Text(apiMode ? 'Upload (JPG, PNG, WEBP or PDF)' : 'Upload (max $maxUploadMb MB each)'),
           ),
-        OutlinedButton.icon(
-          onPressed: () => _pick(context),
-          icon: const Icon(Icons.upload_file_rounded, size: 20),
-          label: const Text('Upload (max $maxUploadMb MB each)'),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }

@@ -17,8 +17,10 @@ import 'package:asset360_mobile/core/widgets/dialogs.dart';
 import 'package:asset360_mobile/core/widgets/feedback.dart';
 import 'package:asset360_mobile/core/widgets/location_field.dart';
 import 'package:asset360_mobile/core/widgets/pulse_rings.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/db/db_providers.dart';
 import 'package:asset360_mobile/data/repositories/settings_repository.dart';
+import 'package:asset360_mobile/features/more/registration/registration_widgets.dart' show RegistrationPrefill;
 
 export 'package:asset360_mobile/core/scanning/nfc_reader.dart';
 export 'package:asset360_mobile/core/scanning/scan_service.dart';
@@ -46,6 +48,7 @@ Future<void> deliverScan(BuildContext context, WidgetRef ref, ScanResult r, {Sca
   final targets = ref.read(scanTargetsProvider);
   ScanTarget? pick(MatchType t) => requester != null && requester.accepts.contains(t) ? requester : targets.topFor(t);
   if (pick(r.matchType) case final t?) return t.onScan(r);
+  if (r.problem != null) return showScanProblemSheet(context, r);
   if (r.matchType == MatchType.none) {
     final linked = await showUnknownTagSheet(context, ref, r);
     if (linked == null || !context.mounted) return;
@@ -228,32 +231,90 @@ Future<void> showLocationSheet(BuildContext context, DbLocation loc) => showModa
   ]),
 );
 
+/// Register a new asset for an unknown code (→ registration, prefilled with the RFID / NFC tag ID
+/// or the barcode).
+void registerScannedTag(BuildContext context, ScanEvent e) {
+  final code = e.value.trim();
+  GoRouter.of(context).push(
+    Routes.newRegistration,
+    extra: e.isNfc
+        ? RegistrationPrefill(tagId: e.nfcUid ?? code)
+        : e.format == 'rfid'
+        ? RegistrationPrefill(tagId: code)
+        : RegistrationPrefill(barcode: code.toUpperCase()),
+  );
+}
+
+/// API mode: the lookup could not decide (409 "matches more than one asset", or no connection).
+/// Lists the assetRegistrationIds the server named; each opens that asset.
+Future<void> showScanProblemSheet(BuildContext context, ScanResult r) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  builder: (sheet) => sheetFrame(sheet, [
+    const Icon(Icons.warning_amber_rounded, size: 48, color: AppColors.amber),
+    const SizedBox(height: 8),
+    Text(
+      r.candidates.isEmpty ? 'Could not look up this code' : 'Several assets use this code',
+      textAlign: TextAlign.center,
+      style: AppText.sectionTitle,
+    ),
+    const SizedBox(height: 6),
+    SelectableText(r.event.value, textAlign: TextAlign.center, style: AppText.bodyStrong),
+    const SizedBox(height: 4),
+    Text(r.problem ?? '', textAlign: TextAlign.center, style: AppText.secondary),
+    const SizedBox(height: 8),
+    for (final id in r.candidates)
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.inventory_2_outlined),
+        title: Text(id, style: AppText.bodyStrong),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () {
+          Navigator.pop(sheet);
+          GoRouter.of(context).push(Routes.assetDetail(id));
+        },
+      ),
+    const SizedBox(height: 8),
+    OutlinedButton(onPressed: () => Navigator.pop(sheet), child: const Text('Close')),
+  ]),
+);
+
 enum _UnknownChoice { location, asset, save, register }
 
 /// "This tag isn't linked yet": Link to a location / Link to an asset / Just save (the scan is already
 /// in Local Data). [onRegister] adds "Register as new asset". Returns the linked result, or null.
+/// API mode: "Tag not registered" (no asset on the server uses it), always with Register.
 Future<ScanResult?> showUnknownTagSheet(
   BuildContext context,
   WidgetRef ref,
   ScanResult r, {
   VoidCallback? onRegister,
-  String title = "This tag isn't linked yet",
+  String? title,
 }) async {
   final e = r.event;
+  if (apiMode && onRegister == null && demoCanOpen(Routes.newRegistration)) {
+    onRegister = () => registerScannedTag(context, e);
+  }
   final choice = await showModalBottomSheet<_UnknownChoice>(
     context: context,
     isScrollControlled: true,
     builder: (sheet) => sheetFrame(sheet, [
       Icon(e.isNfc ? Icons.nfc_rounded : Icons.qr_code_2_rounded, size: 48, color: AppColors.textSecondary),
       const SizedBox(height: 8),
-      Text(title, textAlign: TextAlign.center, style: AppText.sectionTitle),
+      Text(
+        title ?? (apiMode ? 'Tag not registered' : "This tag isn't linked yet"),
+        textAlign: TextAlign.center,
+        style: AppText.sectionTitle,
+      ),
       const SizedBox(height: 6),
       SelectableText(e.value, textAlign: TextAlign.center, style: AppText.bodyStrong),
       if (e.nfcUid != null && e.value != nfcTagKey(e.nfcUid!))
         Text('UID ${e.nfcUid}', textAlign: TextAlign.center, style: AppText.caption),
       const SizedBox(height: 4),
       Text(
-        'No asset or location uses this tag. Link it so the next scan resolves instantly.',
+        apiMode
+            ? 'No registered asset uses this code. Register a new asset, or link the tag to an asset or location.'
+            : 'No asset or location uses this tag. Link it so the next scan resolves instantly.',
         textAlign: TextAlign.center,
         style: AppText.secondary,
       ),
@@ -305,10 +366,11 @@ Future<ScanResult?> linkTagToLocation(BuildContext context, WidgetRef ref, ScanR
   return ref.read(scanServiceProvider).linkToLocation(r, loc);
 }
 
+/// Stores the asset's id (API mode: its assetRegistrationId) in TagLinks.
 Future<ScanResult?> linkTagToAsset(BuildContext context, WidgetRef ref, ScanResult r) async {
-  final id = await showAssetPicker(context, title: 'Link Tag to Asset');
-  if (id == null || !context.mounted) return null;
-  return ref.read(scanServiceProvider).linkToAsset(r, id);
+  final picked = await pickAsset(context, title: 'Link Tag to Asset');
+  if (picked == null || !context.mounted) return null;
+  return ref.read(scanServiceProvider).linkToAsset(r, picked.id, label: picked.label);
 }
 
 /// Pick Site → Building → Floor → (Room) and Save. Returns the deepest chosen row.

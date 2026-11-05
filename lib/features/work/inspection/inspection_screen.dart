@@ -522,7 +522,7 @@ class _DetailsTab extends ConsumerWidget {
               location: asset.location,
               imagePath: asset.imagePath,
               fallbackIcon: assetIcon(asset),
-              trailingTop: StatusChip(asset.status),
+              trailingTop: AssetStatusChip(asset.status),
               onTap: () => context.push(Routes.assetDetail(asset.id)),
             ),
           ),

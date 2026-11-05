@@ -25,7 +25,7 @@ class KeyInformationCard extends ConsumerStatefulWidget {
 }
 
 class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
-  late String _status, _condition, _criticality, _opStatus, _location, _custodian;
+  late String _status, _condition, _criticality, _location, _custodian;
   late DateTime _purchase, _warranty;
   DateTime? _commissioned;
   late bool _hasAmc;
@@ -54,7 +54,6 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
     _status = a.status;
     _condition = a.condition;
     _criticality = a.criticality;
-    _opStatus = a.operationalStatus;
     _location = a.location;
     _custodian = a.custodian;
     _purchase = a.purchaseDate;
@@ -92,7 +91,6 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
           status: _status,
           condition: _condition,
           criticality: _criticality,
-          operationalStatus: _opStatus,
           location: _location,
           custodian: _custodian,
           purchaseDate: _purchase,
@@ -163,7 +161,12 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
       (
         Icons.person_outline_rounded,
         'Asset Status',
-        e ? dropdown(_status, AssetStatus.all, (v) => _status = v) : _chip(a.status),
+        e
+            ? dropdown(_status, [
+                ...AssetStatus.values,
+                if (!AssetStatus.values.contains(a.status)) a.status,
+              ], (v) => _status = v)
+            : _chip(a.status),
       ),
       (
         Icons.settings_outlined,
@@ -186,8 +189,9 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
       ),
       (
         Icons.speed_rounded,
+        // Live machine state (IoT); not a registration field, so it is not editable here.
         'Operational Status',
-        e ? dropdown(_opStatus, operationalStatuses, (v) => _opStatus = v) : Align(alignment: Alignment.centerLeft, child: StatusChip(a.operationalStatus)),
+        Align(alignment: Alignment.centerLeft, child: StatusChip(a.operationalStatus)),
       ),
       (
         Icons.location_on_outlined,
@@ -307,8 +311,10 @@ class _KeyInformationCardState extends ConsumerState<KeyInformationCard> {
 TextStyle get _valueStyle => TextStyle(fontSize: 12.5, color: AppColors.text);
 
 /// Status / condition chip in asset_options colours.
-Widget _chip(String label) =>
-    Align(alignment: Alignment.centerLeft, child: StatusChip(label, tone: ChipTone.forAsset(label)));
+Widget _chip(String label) => Align(
+  alignment: Alignment.centerLeft,
+  child: StatusChip(label, tone: ChipTone.forAsset(label)),
+);
 
 Widget _iconValue(IconData icon, String text, {Color? color}) => Row(
   crossAxisAlignment: CrossAxisAlignment.start,

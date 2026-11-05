@@ -4,7 +4,6 @@ library;
 /// Check Out → Purpose.
 const checkOutPurposes = ['Project Work', 'Site Visit', 'Field Service', 'Training', 'Temporary Use', 'Other'];
 
-
 /// Add to Favorites → Favorite Group (users can add more; kept in memory).
 const defaultFavoriteGroups = ['My Assets', 'Critical Equipment', 'IT Equipment'];
 

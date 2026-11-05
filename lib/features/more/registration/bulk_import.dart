@@ -64,7 +64,10 @@ List<BulkRow> validateBulkCsv(String text, String? Function(String value) ownerO
       seen.putIfAbsent(key, () => line);
     }
     final status = v('status').isEmpty ? AssetStatus.active : v('status');
-    if (!AssetStatus.all.contains(status)) errors.add('unknown status "$status"');
+    // The 4 statuses, or a raw value the register keeps as Other (Inactive, Retired).
+    if (!AssetStatus.values.contains(status) && status != AssetStatus.inactive && status != AssetStatus.retired) {
+      errors.add('unknown status "$status"');
+    }
     final criticality = v('criticality').isEmpty ? 'Medium' : v('criticality');
     if (!AssetOptions.criticalityLevels.contains(criticality)) errors.add('unknown criticality "$criticality"');
     if (v('site').isNotEmpty && !locationTree.containsKey(v('site'))) errors.add('unknown site "${v('site')}"');

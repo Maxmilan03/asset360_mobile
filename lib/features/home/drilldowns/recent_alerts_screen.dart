@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
@@ -92,6 +93,7 @@ class _RecentAlertsScreenState extends ConsumerState<RecentAlertsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (apiMode) return const NotAvailableDrilldown(title: 'Recent Alerts', feature: 'Alerts');
     ref.watch(clockTickProvider); // "5 mins ago" moves with the clock
     final site = ref.watch(sessionProvider.select((s) => s.site));
     final byId = {for (final a in ref.watch(assetsProvider)) a.id: a};

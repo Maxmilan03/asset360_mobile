@@ -40,7 +40,6 @@ class MovePlace {
 /// Why an asset is transferred (Transfer → Details).
 const moveReasons = ['Department Transfer', 'Repair', 'Project', 'Return', 'Other'];
 
-
 class MovementRequest {
   const MovementRequest({
     required this.id,

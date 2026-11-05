@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/mock/assets_mock.dart';
 import 'package:asset360_mobile/data/mock/more_actions_mock.dart';
 import 'package:asset360_mobile/data/mock/registration_mock.dart';
@@ -9,6 +10,7 @@ import 'package:asset360_mobile/data/models/common.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
 import 'package:asset360_mobile/data/repositories/issues_repository.dart';
+import 'package:asset360_mobile/data/repositories/live_assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
 import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
@@ -16,8 +18,18 @@ import 'package:asset360_mobile/data/repositories/sync_repository.dart';
 import 'package:asset360_mobile/data/models/sync_item.dart';
 
 class AssetsNotifier extends Notifier<List<Asset>> {
+  /// API mode: NO mock assets. The live screens read lib/data/repositories/live_assets_repository.dart;
+  /// this list only holds assets the user opened (Asset 360°), mapped from the server record by
+  /// [cacheLive], so the mock modules' lookups by id keep working for them.
   @override
-  List<Asset> build() => seedAssets();
+  List<Asset> build() => apiMode ? const [] : seedAssets();
+
+  /// API mode: keeps the latest server copy of an asset (replaces any older one).
+  void cacheLive(Asset asset) {
+    final i = state.indexWhere((a) => a.id == asset.id);
+    state = i < 0 ? [asset, ...state] : [...state]
+      ..[i] = asset;
+  }
 
   String get _me => ref.read(currentUserProvider).name;
 
@@ -74,7 +86,10 @@ class AssetsNotifier extends Notifier<List<Asset>> {
   void setCriticality(String id, String level, {String? note}) {
     final old = byId(id);
     if (old == null || (old.criticality == level && note == null)) return;
-    _update(id, (a) => a.copyWith(criticality: level, events: [_event('Criticality set to $level', note), ...a.events]));
+    _update(
+      id,
+      (a) => a.copyWith(criticality: level, events: [_event('Criticality set to $level', note), ...a.events]),
+    );
     _q(id, 'Criticality Update');
   }
 
@@ -85,7 +100,7 @@ class AssetsNotifier extends Notifier<List<Asset>> {
     required String status,
     required String condition,
     String? criticality,
-    required String operationalStatus,
+    String? operationalStatus,
     required String location,
     required String custodian,
     required DateTime purchaseDate,
@@ -358,9 +373,11 @@ class MasterData {
 }
 
 class MasterDataNotifier extends Notifier<MasterData> {
+  /// API mode: no categories / types / manufacturers taken from the mock register (the live
+  /// dropdowns come from the server: categories, category types, models).
   @override
   MasterData build() {
-    final assets = seedAssets();
+    final assets = apiMode ? const <Asset>[] : seedAssets();
     final types = <String, String>{for (final a in assets) a.type: a.category};
     for (final e in extraAssetTypes.entries) {
       types.putIfAbsent(e.key, () => e.value.$2);
@@ -410,13 +427,21 @@ final assetByIdProvider = Provider.family<Asset?, String>(
 );
 
 /// Org-wide summary figures; kept in step when detailed assets change status.
+/// API mode: the status counts are the server's summary ([assetSummaryProvider], zero while it
+/// loads or fails); the maintenance / cost figures are not used on any live screen.
 class OrgSummaryNotifier extends Notifier<OrgSummary> {
   @override
-  OrgSummary build() => seedOrgSummary();
+  OrgSummary build() {
+    if (!apiMode) return seedOrgSummary();
+    final live = ref.watch(assetSummaryProvider).value ?? AssetStatusSummary.empty;
+    return seedOrgSummary().copyWith(statusCounts: live.statusCounts);
+  }
 
+  /// Non-standard statuses (Inactive, Retired …) count as Other.
   void _bump(String status, int by) {
-    if (!state.statusCounts.containsKey(status)) return;
-    state = state.copyWith(statusCounts: {...state.statusCounts, status: state.statusCounts[status]! + by});
+    final key = AssetStatus.bucketOf(status);
+    if (!state.statusCounts.containsKey(key)) return;
+    state = state.copyWith(statusCounts: {...state.statusCounts, key: state.statusCounts[key]! + by});
   }
 
   void addAsset(String status) => _bump(status, 1);
@@ -430,8 +455,21 @@ class OrgSummaryNotifier extends Notifier<OrgSummary> {
 
 final orgSummaryProvider = NotifierProvider<OrgSummaryNotifier, OrgSummary>(OrgSummaryNotifier.new);
 
+/// The server summary as the app's status map (keys = [AssetStatus.all]).
+extension AssetStatusSummaryCounts on AssetStatusSummary {
+  Map<String, int> get statusCounts => {
+    AssetStatus.active: active,
+    AssetStatus.underMaintenance: underMaintenance,
+    AssetStatus.inRepair: inRepair,
+    AssetStatus.disposed: disposed,
+    AssetStatus.other: other,
+  };
+}
+
 /// "My Assets": the user is the custodian, or has an active work order on the asset.
+/// API mode: none here (the live list filters by custodianUserId = [myUserIdProvider]).
 final myAssetsProvider = Provider<List<Asset>>((ref) {
+  if (apiMode) return const <Asset>[];
   final me = ref.watch(currentUserProvider);
   final woAssets = ref.watch(workOrdersProvider).mine(me.id).map((w) => w.assetId).toSet();
   return ref.watch(assetsProvider).where((a) => a.custodian.startsWith(me.name) || woAssets.contains(a.id)).toList();

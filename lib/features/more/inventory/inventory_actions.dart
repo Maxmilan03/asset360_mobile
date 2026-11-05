@@ -328,7 +328,7 @@ Future<void> showSpecSheet(BuildContext context, Part p) => showModalBottomSheet
     if (p.imagePath != null)
       ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image(image: photoProvider(p.imagePath!), height: 180, fit: BoxFit.cover),
+        child: Image(image: photoProvider(p.imagePath!), errorBuilder: photoError, height: 180, fit: BoxFit.cover),
       ),
     const SizedBox(height: 12),
     for (final (k, v) in [

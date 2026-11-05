@@ -5,10 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/disposals_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
+import 'package:asset360_mobile/features/assets/live/live_detail_common.dart';
 
 /// The ten rows of More Actions, in the order of the design. [slug] is the route segment.
 enum MoreAction {
@@ -50,7 +52,13 @@ enum MoreAction {
     Icons.favorite_border_rounded,
   ),
   printTag('print-tag', 'Print Asset Tag', 'Print Asset Tag', 'Print a barcode / QR label', Icons.print_outlined),
-  share('share', 'Share Asset Details', 'Share Asset Details', 'Send the asset details to someone', Icons.share_outlined),
+  share(
+    'share',
+    'Share Asset Details',
+    'Share Asset Details',
+    'Send the asset details to someone',
+    Icons.share_outlined,
+  ),
   disposal(
     'disposal',
     'Create Disposal Request',
@@ -72,6 +80,12 @@ enum MoreAction {
   final IconData icon;
 
   static MoreAction? bySlug(String slug) => values.where((a) => a.slug == slug).firstOrNull;
+
+  /// Actions the backend supports in API mode (the rest say "Not available yet").
+  bool get availableLive => switch (this) {
+    updateCondition || addDocument || addMedia || favorites || printTag || share => true,
+    _ => false,
+  };
 }
 
 /// The asset at the top of More Actions and of every action screen: photo, ID, name, type,
@@ -85,7 +99,8 @@ class MoreActionAssetCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final a = asset;
-    final disposalPending = ref.watch(disposalsProvider).pendingFor(a.id) != null;
+    // API mode: disposals are not on the server yet (no mock data is read).
+    final disposalPending = !apiMode && ref.watch(disposalsProvider).pendingFor(a.id) != null;
     return AppCard(
       child: Row(
         children: [
@@ -105,7 +120,7 @@ class MoreActionAssetCard extends ConsumerWidget {
                   spacing: 6,
                   runSpacing: 4,
                   children: [
-                    StatusChip(a.status),
+                    AssetStatusChip(a.status),
                     if (disposalPending)
                       const StatusChip('Disposal pending', tone: ChipTone.amber, icon: Icons.hourglass_top_rounded),
                   ],
@@ -131,7 +146,11 @@ class MoreActionPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final a = assetId == null ? null : ref.watch(assetsProvider).byCode(assetId!);
+    // API mode: the asset comes from the Asset service, mapped to an Asset for the shared forms.
+    if (apiMode && assetId != null) {
+      return LiveAssetLoader(code: assetId!, builder: (context, r) => _page(context, liveAsAsset(r)));
+    }
+    final a = assetId == null || apiMode ? null : ref.watch(assetsProvider).byCode(assetId!);
     if (a == null) {
       return AppScaffold(
         body: EmptyState(
@@ -143,6 +162,10 @@ class MoreActionPage extends ConsumerWidget {
         ),
       );
     }
+    return _page(context, a);
+  }
+
+  Widget _page(BuildContext context, Asset a) {
     return AppScaffold(
       bottomActions: button?.call(a),
       body: ListView(

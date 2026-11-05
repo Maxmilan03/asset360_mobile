@@ -19,6 +19,8 @@ const Set<String> kDemoScreens = {
   '/login',
   '/forgot-password', // + its success sheet
   '/authenticator',
+  '/authenticator-setup', // API mode, first sign-in
+  '/auth-diagnostics', // API mode, from Sign in
   '/home', // Home dashboard
   '/work', // Work hub
   '/more', // All Modules (the More tab's page; the sheet itself is always on)

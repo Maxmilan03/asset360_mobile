@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,10 @@ import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/platform/app_launcher.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/mock/people_mock.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/api/api_exception.dart';
+import 'package:asset360_mobile/data/api/auth_api.dart';
+import 'package:asset360_mobile/data/repositories/auth_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/auth/auth_widgets.dart';
 
@@ -30,17 +35,45 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
   String? _error;
   bool _verifying = false;
 
+  /// API mode: the login step this code belongs to (method, masked email, expiry).
+  AuthTwoFactorPending? _pending;
+  Timer? _ticker;
+  Duration _left = Duration.zero;
+
   @override
   void initState() {
     super.initState();
+    if (apiMode) {
+      final s = ref.read(authProvider);
+      if (s is AuthTwoFactorPending) {
+        _pending = s;
+        _tick();
+        _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+      }
+    }
     _focus.addListener(() => setState(() {}));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focus.requestFocus();
     });
   }
 
+  /// Countdown from otpExpiresInSeconds; at zero: "Code expired – sign in again" → Login.
+  void _tick() {
+    final p = _pending;
+    if (p == null || !mounted) return;
+    final left = p.expiresAt.difference(DateTime.now());
+    if (left <= Duration.zero) {
+      _ticker?.cancel();
+      ref.read(authProvider.notifier).expireCode(); // Login shows the notice
+      context.go(Routes.login);
+      return;
+    }
+    setState(() => _left = left);
+  }
+
   @override
   void dispose() {
+    _ticker?.cancel();
     _code.dispose();
     _focus.dispose();
     _shake.dispose();
@@ -48,8 +81,45 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
   }
 
   void _leave() {
-    ref.read(sessionProvider.notifier).cancelSecondFactor();
+    if (apiMode) {
+      ref.read(authProvider.notifier).cancelSecondFactor();
+    } else {
+      ref.read(sessionProvider.notifier).cancelSecondFactor();
+    }
     context.go(Routes.login);
+  }
+
+  /// API mode: verify-totp or verify-otp; a wrong code shows the server's message and shakes.
+  Future<void> _verifyApi() async {
+    final auth = ref.read(authProvider.notifier);
+    try {
+      await auth.verifyCode(_code.text);
+      if (!mounted) return;
+      _ticker?.cancel();
+      HapticFeedback.lightImpact();
+      await showSignInSuccess(context);
+      auth.enterApp();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.kind == ApiErrorKind.expired) {
+        context.go(Routes.login);
+        return;
+      }
+      _wrongCode(e.message);
+    } catch (_) {
+      if (mounted) _wrongCode(AuthApi.unrecognisedMessage);
+    }
+  }
+
+  void _wrongCode(String message) {
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _verifying = false;
+      _error = message;
+      _code.clear();
+    });
+    _shake.forward(from: 0);
+    _focus.requestFocus();
   }
 
   Future<void> _verify() async {
@@ -63,6 +133,7 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
       _verifying = true;
       _error = null;
     });
+    if (apiMode) return _verifyApi();
     await Future<void>.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
     final result = ref.read(sessionProvider.notifier).verifyCode(_code.text);
@@ -84,6 +155,8 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
         context.go(Routes.login); // the router also redirects; Login shows the session notice
     }
   }
+
+  bool get _emailOtp => _pending?.isEmailOtp ?? false;
 
   Future<void> _openAuthenticator() async {
     final opened = await AppLauncher.openAuthenticator();
@@ -107,6 +180,15 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
   }
 
   void _otherMethod() {
+    if (apiMode) {
+      showContactAdminSheet(
+        context,
+        message:
+            "Switching to another sign-in method isn't available yet. Your administrator can reset your "
+            'authenticator or send you a new setup key.',
+      );
+      return;
+    }
     final email = maskEmail(ref.read(currentUserProvider).email);
     showModalBottomSheet<void>(
       context: context,
@@ -227,59 +309,63 @@ class _AuthenticatorScreenState extends ConsumerState<AuthenticatorScreen> with 
                 const SizedBox(height: 18),
                 const Center(child: ShieldIllustration()),
                 const SizedBox(height: 30),
-                const Text(
-                  'Enter Authenticator Code',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heroNavy),
+                Text(
+                  _emailOtp ? 'Enter Verification Code' : 'Enter Authenticator Code',
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.heroNavy),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Enter the 6-digit code from your Google Authenticator app to complete the sign in.',
+                  _emailOtp
+                      ? 'Code sent to ${_pending?.maskedEmail ?? 'your email'}. Enter it to complete the sign in.'
+                      : 'Enter the 6-digit code from your Google Authenticator app to complete the sign in.',
                   style: TextStyle(fontSize: 14.5, color: AppColors.textSecondary, height: 1.4),
                 ),
+                if (_pending != null) ...[const SizedBox(height: 10), _ExpiryChip(left: _left)],
                 const SizedBox(height: 22),
-                Material(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: AppColors.border),
-                  ),
-                  child: InkWell(
-                    onTap: _openAuthenticator,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppColors.divider),
+                if (!_emailOtp)
+                  Material(
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: AppColors.border),
+                    ),
+                    child: InkWell(
+                      onTap: _openAuthenticator,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppColors.divider),
+                              ),
+                              child: const Center(child: AuthenticatorMark(size: 26)),
                             ),
-                            child: const Center(child: AuthenticatorMark(size: 26)),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Open Google Authenticator',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                                ),
-                                const SizedBox(height: 2),
-                                Text('Enter the 6-digit code for Purple IQ – Asset360', style: AppText.caption),
-                              ],
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Open Google Authenticator',
+                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text('Enter the 6-digit code for Purple IQ – Asset360', style: AppText.caption),
+                                ],
+                              ),
                             ),
-                          ),
-                          Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
-                        ],
+                            Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 22),
                 AnimatedBuilder(
                   animation: _shake,
@@ -478,4 +564,22 @@ class _BlinkingCursorState extends State<_BlinkingCursor> with SingleTickerProvi
     opacity: _c,
     child: Container(width: 2, height: 24, color: AppColors.primary),
   );
+}
+
+/// "Code expires in 4:32" (red in the last 30 seconds).
+class _ExpiryChip extends StatelessWidget {
+  const _ExpiryChip({required this.left});
+
+  final Duration left;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = left.inSeconds;
+    final text = '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
+    return StatusChip(
+      'Code expires in $text',
+      tone: s <= 30 ? ChipTone.red : ChipTone.purple,
+      icon: Icons.timer_outlined,
+    );
+  }
 }

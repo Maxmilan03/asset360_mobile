@@ -86,7 +86,7 @@ Future<void> showAttachmentPreview(BuildContext context, Attachment a) {
       if (image)
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Image(image: photoProvider(a.path!), height: 260, fit: BoxFit.cover),
+          child: Image(image: photoProvider(a.path!), errorBuilder: photoError, height: 260, fit: BoxFit.cover),
         )
       else
         Container(

@@ -8,6 +8,7 @@ import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/disposals_repository.dart';
@@ -16,11 +17,12 @@ import 'package:asset360_mobile/features/assets/asset_iot_tab.dart';
 import 'package:asset360_mobile/features/assets/asset_overview_tab.dart';
 import 'package:asset360_mobile/features/assets/asset_tabs.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
+import 'package:asset360_mobile/features/assets/live/live_asset_detail_screen.dart';
 import 'package:asset360_mobile/features/assets/more_actions/more_action_widgets.dart';
 
 enum AssetTab { overview, location, iot, maintenance, inspection, financial, documents, history }
 
-extension on AssetTab {
+extension AssetTabLabel on AssetTab {
   String get label => switch (this) {
     AssetTab.iot => 'IoT',
     _ => name[0].toUpperCase() + name.substring(1),
@@ -83,6 +85,8 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // API mode: the asset comes from the Asset service (assetId = assetRegistrationId).
+    if (apiMode) return LiveAssetDetailScreen(assetId: widget.assetId, initialTab: widget.initialTab);
     final a = ref.watch(assetByIdProvider(widget.assetId));
     if (a == null) {
       return AppScaffold(
@@ -158,7 +162,7 @@ class _Header extends ConsumerWidget {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(asset.id, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.pageTitle),
-                  StatusChip(asset.status),
+                  AssetStatusChip(asset.status),
                   if (disposalPending)
                     const StatusChip('Disposal pending', tone: ChipTone.amber, icon: Icons.hourglass_top_rounded),
                 ],
@@ -168,7 +172,7 @@ class _Header extends ConsumerWidget {
             ],
           ),
         ),
-        _SquareIcon(
+        AssetSquareIcon(
           tooltip: asset.favorite ? 'Remove from Favorites' : 'Add to Favorites',
           icon: asset.favorite ? Icons.star_rounded : Icons.star_border_rounded,
           color: asset.favorite ? AppColors.amber : AppColors.text,
@@ -202,7 +206,7 @@ class _Header extends ConsumerWidget {
                   ),
                 ),
             ],
-            child: const _SquareIcon(icon: Icons.more_vert_rounded),
+            child: const AssetSquareIcon(icon: Icons.more_vert_rounded),
           ),
         ),
       ],
@@ -210,9 +214,9 @@ class _Header extends ConsumerWidget {
   }
 }
 
-/// 40×40 outlined square icon button (☆ and ⋮ in the header).
-class _SquareIcon extends StatelessWidget {
-  const _SquareIcon({required this.icon, this.onTap, this.tooltip, this.color});
+/// 40×40 outlined square icon button (☆ and ⋮ in the header; also the live Asset 360°).
+class AssetSquareIcon extends StatelessWidget {
+  const AssetSquareIcon({super.key, required this.icon, this.onTap, this.tooltip, this.color});
 
   final IconData icon;
   final VoidCallback? onTap;
@@ -293,7 +297,7 @@ class _PhotoAndSpecs extends ConsumerWidget {
                         ],
                       )
                     else
-                      Image(image: photoProvider(gallery.first), fit: BoxFit.cover),
+                      Image(image: photoProvider(gallery.first), errorBuilder: photoError, fit: BoxFit.cover),
                     if (gallery.length > 1)
                       Positioned(
                         right: 6,
@@ -329,8 +333,8 @@ class _PhotoAndSpecs extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final (label, value) in specs) _SpecRow(label, value),
-                  const _SpecRow('Barcode / QR', ''),
+                  for (final (label, value) in specs) AssetSpecRow(label, value),
+                  const AssetSpecRow('Barcode / QR', ''),
                   Padding(
                     padding: const EdgeInsets.only(left: 78, top: 2),
                     child: Code39Barcode(data: asset.barcode ?? asset.id, height: 26),
@@ -345,8 +349,8 @@ class _PhotoAndSpecs extends ConsumerWidget {
   }
 }
 
-class _SpecRow extends StatelessWidget {
-  const _SpecRow(this.label, this.value);
+class AssetSpecRow extends StatelessWidget {
+  const AssetSpecRow(this.label, this.value, {super.key});
 
   final String label;
   final String value;

@@ -11,6 +11,7 @@ import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/mock/more_actions_mock.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/features/assets/more_actions/more_action_widgets.dart';
@@ -36,10 +37,16 @@ class _PrintTagScreenState extends ConsumerState<PrintTagScreen> {
   int _copies = 1;
   bool _busy = false;
 
+  /// The asset's History entry (mock register only; API mode has no history endpoint yet).
+  void _logPrinted(Asset a, String labels) {
+    if (apiMode) return;
+    ref.read(assetsProvider.notifier).addEvent(a.id, 'Asset tag printed', note: '$labels · $_type · $_printer');
+  }
+
   Future<void> _print(Asset a) async {
     final labels = '$_copies label${_copies == 1 ? '' : 's'}';
     if (_printer == zebraPrinter) {
-      ref.read(assetsProvider.notifier).addEvent(a.id, 'Asset tag printed', note: '$labels · $_type · $_printer');
+      _logPrinted(a, labels);
       finishAction(context, 'Sent $labels to $_printer');
       return;
     }
@@ -48,7 +55,7 @@ class _PrintTagScreenState extends ConsumerState<PrintTagScreen> {
       final printed = await printAssetTag(a, type: _type, copies: _copies);
       if (!mounted) return;
       if (printed) {
-        ref.read(assetsProvider.notifier).addEvent(a.id, 'Asset tag printed', note: '$labels · $_type · $_printer');
+        _logPrinted(a, labels);
         finishAction(context, 'Printed $labels for ${a.id}');
       } else {
         context.showSnack('Printing cancelled');
@@ -79,7 +86,9 @@ class _PrintTagScreenState extends ConsumerState<PrintTagScreen> {
         ),
         SectionCard(
           title: 'Live Preview',
-          child: Center(child: TagPreview(asset: a, type: _type)),
+          child: Center(
+            child: TagPreview(asset: a, type: _type),
+          ),
         ),
         const SizedBox(height: 14),
         SectionCard(
@@ -247,14 +256,22 @@ Future<Uint8List> buildTagPdf(Asset a, {required String type, int copies = 1}) a
                 child: pw.Column(
                   mainAxisAlignment: pw.MainAxisAlignment.center,
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [pw.Text(a.id, style: t(9, strong: true)), pw.SizedBox(height: 1 * mm), bar(8 * mm)],
+                  children: [
+                    pw.Text(a.id, style: t(9, strong: true)),
+                    pw.SizedBox(height: 1 * mm),
+                    bar(8 * mm),
+                  ],
                 ),
               ),
             ],
           ),
           'QR Only' => pw.Column(
             mainAxisAlignment: pw.MainAxisAlignment.center,
-            children: [qr(27 * mm), pw.SizedBox(height: 1 * mm), pw.Text(a.id, style: t(8, strong: true))],
+            children: [
+              qr(27 * mm),
+              pw.SizedBox(height: 1 * mm),
+              pw.Text(a.id, style: t(8, strong: true)),
+            ],
           ),
           _ => pw.Row(
             children: [

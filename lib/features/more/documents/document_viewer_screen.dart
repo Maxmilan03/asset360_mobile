@@ -93,7 +93,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
                   ? InteractiveViewer(
                       maxScale: 5,
                       child: Center(
-                        child: Image(image: photoProvider(path), fit: BoxFit.contain),
+                        child: Image(image: photoProvider(path), errorBuilder: photoError, fit: BoxFit.contain),
                       ),
                     )
                   : _pdf != null && _error == null

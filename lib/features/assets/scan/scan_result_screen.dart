@@ -7,6 +7,8 @@ import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/repositories/live_assets_repository.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_actions.dart';
@@ -32,6 +34,7 @@ class _ScanResultScreenState extends ConsumerState<ScanResultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (apiMode) return _LiveScanResult(assetId: widget.assetId);
     final asset = ref.watch(assetsProvider.select((list) => list.byCode(widget.assetId)));
     if (asset == null) {
       return AppScaffold(
@@ -121,7 +124,7 @@ class _AssetCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Align(alignment: Alignment.centerRight, child: StatusChip(asset.status)),
+                Align(alignment: Alignment.centerRight, child: AssetStatusChip(asset.status)),
                 const SizedBox(height: 2),
                 Text(
                   asset.id,
@@ -154,6 +157,49 @@ class _AssetCard extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+        ],
+      ),
+    );
+  }
+}
+
+/// API mode: the live record (GET /api/asset-registrations/{assetRegistrationId}) with View Details.
+class _LiveScanResult extends ConsumerWidget {
+  const _LiveScanResult({required this.assetId});
+
+  final String assetId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final live = ref.watch(liveAssetProvider(assetId));
+    void open() => context.push(Routes.assetDetail(assetId));
+    return AppScaffold(
+      backgroundColor: AppColors.surface,
+      body: ListView(
+        padding: context.pagePadding,
+        children: [
+          const _SuccessBanner(),
+          const SizedBox(height: 18),
+          switch (live) {
+            AsyncData(:final value) => LiveAssetTile(item: AssetListItem.fromRegistration(value), onTap: open),
+            AsyncError(:final error) => LoadErrorState(
+              error: error,
+              onRetry: () => ref.invalidate(liveAssetProvider(assetId)),
+            ),
+            _ => const ListSkeleton(rows: 1),
+          },
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: open,
+            icon: const Icon(Icons.view_list_rounded),
+            label: const Text('View Details'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => context.pop(),
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+            label: const Text('Scan another'),
+          ),
         ],
       ),
     );

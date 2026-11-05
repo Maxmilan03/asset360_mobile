@@ -51,8 +51,12 @@ void main() {
       assets.toggleFavorite('CNC-00123');
       expect(c.read(assetsProvider).favorites.map((a) => a.id), contains('CNC-00123'));
 
-      assets.setStatus('CNC-00123', AssetStatus.other);
+      // Retire keeps the raw value "Retired"; the summary counts it as Other.
+      final active = c.read(orgSummaryProvider).statusCounts[AssetStatus.active]!;
+      assets.setStatus('CNC-00123', AssetStatus.retired);
+      expect(c.read(assetByIdProvider('CNC-00123'))!.status, 'Retired');
       expect(c.read(orgSummaryProvider).statusCounts[AssetStatus.other], retired + 1);
+      expect(c.read(orgSummaryProvider).statusCounts[AssetStatus.active], active - 1);
 
       final id = assets.duplicate('CNC-00123');
       expect(id, 'CNC-00124');

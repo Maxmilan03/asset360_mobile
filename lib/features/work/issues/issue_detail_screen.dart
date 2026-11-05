@@ -330,7 +330,7 @@ class _DetailsState extends ConsumerState<_Details> {
                               style: AppText.cardTitle,
                             ),
                           ),
-                          Flexible(child: StatusChip(asset.status)),
+                          Flexible(child: AssetStatusChip(asset.status)),
                         ],
                       ),
                       Text(asset.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.secondary),

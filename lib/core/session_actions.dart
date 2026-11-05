@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/repositories/auth_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/core/widgets/dialogs.dart';
 import 'package:asset360_mobile/core/widgets/feedback.dart';
@@ -18,6 +20,11 @@ Future<void> confirmLogout(BuildContext context, WidgetRef ref) async {
     destructive: true,
   );
   if (!ok || !context.mounted) return;
+  if (apiMode) {
+    // POST /api/auth/logout {refreshToken}; storage is cleared even when the call fails.
+    await ref.read(authProvider.notifier).logout();
+    if (!context.mounted) return;
+  }
   ref.read(sessionProvider.notifier).logout();
   context.go(Routes.login);
 }

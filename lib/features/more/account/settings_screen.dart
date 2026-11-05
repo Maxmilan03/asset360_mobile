@@ -219,6 +219,13 @@ class SettingsScreen extends ConsumerWidget {
                     () => context.push(Routes.dataCheck),
                   ),
                   nav(
+                    Icons.wifi_tethering_rounded,
+                    TileTone.sky,
+                    'Backend API',
+                    'Base URL, dev token and Test connection (Administration)',
+                    () => context.push(Routes.admin),
+                  ),
+                  nav(
                     Icons.qr_code_2_rounded,
                     TileTone.lavender,
                     'Print demo tags',
@@ -275,6 +282,13 @@ class SettingsScreen extends ConsumerWidget {
                   leading: IconSquare(icon: Icons.info_outline_rounded, tone: TileTone.lavender, size: 40),
                   title: Text('Asset360', style: AppText.bodyStrong),
                   subtitle: Text('Version $version · Purple IQ', style: AppText.caption),
+                ),
+                nav(
+                  Icons.bug_report_outlined,
+                  TileTone.sky,
+                  'Auth diagnostics',
+                  'What the login service returned (copy it for your developer)',
+                  () => context.push(Routes.settingsAuthDiagnostics),
                 ),
                 nav(
                   Icons.description_outlined,

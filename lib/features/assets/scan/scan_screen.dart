@@ -15,6 +15,7 @@ import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/platform/app_launcher.dart';
 import 'package:asset360_mobile/core/scanning/scan_dispatch.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/mock/demo_ids.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/models/scan_record.dart';
@@ -167,7 +168,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       case ScanMode.nfc:
         _checkNfc();
       case ScanMode.rfid:
-        _startTagRead();
+        // API mode: the reader is asked for on Tap to Read (no mock tags to simulate).
+        if (!apiMode) _startTagRead();
       case ScanMode.ble:
         _startBleSearch();
     }
@@ -225,7 +227,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     }
     final id = r.matchId!;
     if (_batch.contains(id)) return;
-    ref.read(scanHistoryProvider.notifier).add(ScanKind.asset, id, method: method);
+    ref.read(scanHistoryProvider.notifier).add(ScanKind.asset, id, method: method, label: r.matchLabel);
     HapticFeedback.lightImpact();
     setState(() => _batch.add(id));
   }
@@ -361,6 +363,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   // ---------------------------------------------------------------- RFID (simulated)
 
   void _startTagRead() {
+    if (apiMode) {
+      _readRfidLive();
+      return;
+    }
     final assets = ref.read(assetsProvider);
     final tagged = assets.where((a) => a.tagId != null).toList();
     final pool = tagged.isEmpty ? assets : tagged;
@@ -384,9 +390,22 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     });
   }
 
+  /// API mode: the RFID reader's tag ID (typed or from a keyboard-wedge reader) is looked up as
+  /// rfidTagId (GET …/lookup?type=rfid).
+  Future<void> _readRfidLive() async {
+    final code = await showManualEntrySheet(context, rfid: true);
+    if (code == null || !mounted) return;
+    await _handleSimulated(code, ScanMethod.rfid);
+    if (mounted && _multi && _mode == ScanMode.rfid && _visible) _startTagRead();
+  }
+
   // ---------------------------------------------------------------- BLE
 
   void _startBleSearch() {
+    if (apiMode) {
+      showNotAvailableYet(context, 'BLE beacon search');
+      return;
+    }
     final total = ref.read(nearbyBeaconsProvider).length;
     _bleTimer?.cancel();
     setState(() => _bleFound = 0);
@@ -620,7 +639,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
             ],
           ),
         ),
-        if (kDebugMode)
+        // API mode: no mock asset to pretend-scan.
+        if (kDebugMode && !apiMode)
           Positioned(
             top: 16,
             left: 16,
@@ -873,6 +893,19 @@ class _BlePane extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (apiMode) {
+      return DecoratedBox(
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 150 + context.bottomInset),
+          children: const [
+            AppCard(
+              child: NotAvailableYet(feature: 'BLE beacon search', icon: Icons.bluetooth_disabled_rounded),
+            ),
+          ],
+        ),
+      );
+    }
     final beacons = ref.watch(nearbyBeaconsProvider);
     final shown = beacons.take(found).toList();
     final searching = found < beacons.length;

@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/mock/people_mock.dart';
 import 'package:asset360_mobile/data/models/person.dart';
+import 'package:asset360_mobile/data/repositories/auth_repository.dart';
 import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 
 class PeopleNotifier extends Notifier<List<Person>> {
@@ -175,6 +177,19 @@ class SessionNotifier extends Notifier<SessionState> {
   void cancelSecondFactor() => state = state.copyWith(passwordVerified: false, failedCodes: 0);
 
   void logout() => state = state.copyWith(loggedIn: false, passwordVerified: false);
+
+  // ---- API mode (AuthNotifier keeps the router's flags in step)
+
+  /// Login accepted the password; the authenticator / code screen may open.
+  void apiPasswordVerified({required bool rememberMe}) =>
+      state = state.copyWith(passwordVerified: true, rememberMe: rememberMe, failedCodes: 0);
+
+  /// Signed in: Home opens (router redirect).
+  void apiSignedIn() => state = state.copyWith(loggedIn: true, passwordVerified: false);
+
+  /// Signed out (logout, expired code or session); [notice] shows on Login.
+  void apiSignedOut({String? notice}) =>
+      state = state.copyWith(loggedIn: false, passwordVerified: false, notice: () => notice);
   void switchSite(String site) => state = state.copyWith(site: site);
   void changePassword(String password) => state = state.copyWith(password: password);
   void setPhoto(String path) => state = state.copyWith(photoPath: path);
@@ -185,6 +200,9 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 }
 
+/// Role shown while /me has no role (or /roles is not reachable).
+const apiRolePlaceholder = 'Asset360 user';
+
 /// "r***@purpleiq.ae".
 String maskEmail(String email) {
   final at = email.indexOf('@');
@@ -194,9 +212,24 @@ String maskEmail(String email) {
 
 final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(SessionNotifier.new);
 
+/// The signed-in user. API mode: name, user name, email and role from GET /api/auth/me (role
+/// name via /api/auth/roles); the person record stays the demo user's, so the module data that
+/// is still mock ("my" work orders, approvals …) keeps working until those APIs are connected.
 final currentUserProvider = Provider<AppUser>((ref) {
   final s = ref.watch(sessionProvider);
   final person = ref.watch(peopleProvider).firstWhere((p) => p.id == s.userId);
+  final auth = apiMode ? ref.watch(authProvider) : null;
+  if (auth is AuthSignedIn) {
+    final u = auth.user;
+    return AppUser(
+      person: person.copyWith(name: u.fullName, role: u.roleName ?? apiRolePlaceholder, phone: u.phone),
+      username: u.userName ?? '—',
+      email: u.email ?? '—',
+      password: '',
+      authenticatorCode: '',
+      photoPath: s.photoPath,
+    );
+  }
   return AppUser(
     person: person,
     username: mockUsername,

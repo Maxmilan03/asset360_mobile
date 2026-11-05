@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/misc.dart';
 
 import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/mock/inventory_mock.dart';
 import 'package:asset360_mobile/data/mock/home_mock.dart';
 import 'package:asset360_mobile/data/models/home_insights.dart';
@@ -66,6 +67,15 @@ extension on String {
 /// "Expected" values are the seed figures from Prompt 02; they are checked at
 /// DemoClock start (25 Sep 2026 10:30 AM) and will change as the demo is used.
 List<DataCheckGroup> runDataChecks(Reader read) {
+  // API mode: assets come from the server, so the seed figures and the mock-asset cross-checks
+  // (every module refers to the mock register) do not apply.
+  if (apiMode) {
+    return const [
+      DataCheckGroup('API mode', [
+        DataCheck('Mock data checks', 'Skipped: assets come from the Asset service', ok: true),
+      ]),
+    ];
+  }
   final wasFrozen = DemoClock.frozen;
   DemoClock.frozen = true;
   try {
@@ -109,23 +119,33 @@ List<DataCheckGroup> _run(Reader read) {
       '$statusSum = ${org.totalAssets}',
     ),
     _rule(
-      'Org summary uses exactly the asset_options statuses',
-      org.statusCounts.keys.toSet().containsAll(AssetOptions.statuses) &&
-          AssetOptions.statuses.toSet().containsAll(org.statusCounts.keys),
+      'Org summary keys = the 4 statuses + Other',
+      org.statusCounts.keys.toSet().containsAll(AssetStatus.all) &&
+          AssetStatus.all.toSet().containsAll(org.statusCounts.keys),
       org.statusCounts.keys.join(', '),
     ),
+    _rule(
+      'Raw statuses outside the 4 values (Inactive, Retired) count as Other',
+      assets.every((a) => AssetStatus.all.contains(AssetStatus.bucketOf(a.status))) &&
+          assets.any((a) => AssetStatus.bucketOf(a.status) == AssetStatus.other),
+      [
+        for (final a in assets)
+          if (!AssetStatus.values.contains(a.status)) '${a.id}: ${a.status} → Other',
+      ].join(', ').orIfEmpty('none'),
+    ),
     for (final (label, values, of) in [
-      ('status', AssetOptions.statuses, (Asset a) => a.status),
       ('condition', AssetOptions.conditions, (Asset a) => a.condition),
       ('criticality', AssetOptions.criticalityLevels, (Asset a) => a.criticality),
     ])
       _rule(
         'Every asset $label is an asset_options value',
         assets.every((a) => values.contains(of(a))),
-        [for (final a in assets) if (!values.contains(of(a))) '${a.id}: ${of(a)}'].join(', ').orIfEmpty('all valid'),
+        [
+          for (final a in assets)
+            if (!values.contains(of(a))) '${a.id}: ${of(a)}',
+        ].join(', ').orIfEmpty('all valid'),
       ),
-    for (final s in AssetStatus.all)
-      _info('  $s', '${org.statusCounts[s]} (${org.statusPct(s).toStringAsFixed(0)}%)'),
+    for (final s in AssetStatus.all) _info('  $s', '${org.statusCounts[s]} (${org.statusPct(s).toStringAsFixed(0)}%)'),
     _eq('Asset health %', org.health, 87),
     _eq('Total cost (AED)', org.totalCost, 1250000),
     _info('Favorites', assets.favorites.length),

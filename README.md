@@ -55,6 +55,7 @@ are simulated. Profile → Change Password needs the current password `Asset@360
 | Data check | Runs every count / total / balance check on the current data and lists pass or fail (same logic as `test/data_check_test.dart`). |
 | Simulate offline | Forces the app offline: the offline banner shows and every change is queued for Offline Sync. Switching back starts auto-sync (Wi-Fi). |
 | Simulate sync failures | Each item has a 10% chance to fail while syncing, so Retry can be tried. |
+| Backend API | Opens Administration → Backend API (base URL, dev token, Test connection). |
 | Print demo tags | QR codes for the demo assets, to scan from a second phone (tap a tag for a large QR). |
 | Reset demo data | After a confirm, reloads every seed record (you stay signed in). |
 
@@ -64,6 +65,89 @@ show a "Simulate scan" chip.
 
 Single-login demo note: when you transfer an asset you can pick yourself as the **Approver** ("self-approve (demo)"),
 so the request shows in Home → My Approvals and the whole Approve → In Transit → Received cycle can be tried alone.
+
+## Connecting to the backend
+
+By default the app runs on the mock data in `lib/data/mock/` with the demo login (rex.kumar / Asset@360 / 123456).
+To use the real backend, pass the three service addresses at build time. The app calls each service **directly**;
+the API Gateway (port 5296) is **not used for now**. Nothing is stored in the code; no token is needed (you sign in).
+
+```sh
+# Run on a connected phone
+flutter run --dart-define=USE_API=true \
+  --dart-define=API_BASE_URL=http://<backend-ip>:5401 \
+  --dart-define=MEDIA_BASE_URL=http://<backend-ip>:5300 \
+  --dart-define=AUTH_BASE_URL=http://<backend-ip>:5018
+
+# Release APK for testing on a phone (no logs needed: see Auth diagnostics below)
+flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/symbols \
+  --dart-define=USE_API=true \
+  --dart-define=API_BASE_URL=http://<backend-ip>:5401 \
+  --dart-define=MEDIA_BASE_URL=http://<backend-ip>:5300 \
+  --dart-define=AUTH_BASE_URL=http://<backend-ip>:5018
+```
+
+Example for the current test server: `API_BASE_URL=http://172.16.100.26:5401`,
+`MEDIA_BASE_URL=http://172.16.100.26:5300`, `AUTH_BASE_URL=http://172.16.100.26:5018`.
+
+| Define | Meaning |
+|---|---|
+| `USE_API` | `true` = real sign-in and backend; anything else = mock data and the demo login. |
+| `API_BASE_URL` | Asset service root, without `/api` (e.g. `http://192.168.1.20:5401`): every `/api/asset-*` call. |
+| `MEDIA_BASE_URL` | Media service root (e.g. `http://192.168.1.20:5300`): `POST /api/media/upload` and the `/uploads/...` files. |
+| `AUTH_BASE_URL` | UserAccount (login) service root (e.g. `http://192.168.1.20:5018`). |
+| `DEV_TOKEN` | Optional, debugging only: a token sent to the Asset / Media services while nobody is signed in. Not needed for testing. |
+
+The Asset and Media services receive the signed-in user's Bearer token (they read it for CreatedBy); a missing token
+never blocks a call. A 401 refreshes the token once and retries. Media URLs the server returns with host `localhost` /
+`127.0.0.1` (or as a bare `/uploads/...` path) are rewritten to `MEDIA_BASE_URL` + the same path
+(`resolveMediaUrl` in `lib/data/api/media_api.dart`); files are loaded with the Authorization header.
+
+The phone must be on the same network as the backend. `localhost` on a phone is the phone itself (on the Android
+emulator use `http://10.0.2.2:…`). Plain `http://` is allowed for development (`android:usesCleartextTraffic` in
+`android/app/src/main/AndroidManifest.xml`; remove it for production).
+
+### Login phase testing
+
+1. Ask the backend developer for a test user name and password, and whether 2-step sign-in is the authenticator app
+   (`totp`) or an emailed code (`otp`).
+2. Install Google Authenticator on the test phone.
+3. Build and install the APK above, open it, sign in with the test user. Tick or untick **Remember me** as needed.
+4. **First sign-in (authenticator not set up yet)**: the "Set up your Authenticator" screen opens. Tap **Copy** next
+   to the setup key, open Google Authenticator → **+** → **Enter a setup key**, paste the key (account name
+   "Asset360 – <user>", Time based), save, come back and tap **Next**. (Another phone can scan the QR instead.)
+5. Enter the 6-digit code. A wrong code shows the server's message and shakes; when the countdown reaches zero you
+   go back to Sign in ("Code expired – sign in again").
+   Email OTP users see "Code sent to a***@…" and enter the emailed code instead.
+6. After "Signed in", Home shows your real name; Profile shows name, user name, email and role.
+7. Close and reopen the app: with Remember me on you go straight to Home (refresh token); off → Sign in.
+8. Logout (Profile, the name menu or More) signs out on the server and on the phone.
+9. Anything odd: on Sign in tap **Diagnostics** (or More → Settings → Auth diagnostics), then **Copy report** and send
+   it to your developer. It shows the URL, HTTP status and reply of each login call, with every token / key / code
+   shortened to its first 6 characters.
+
+How it works: `lib/data/api/auth_api.dart` (login service calls, every reply recorded for diagnostics),
+`auth_models.dart` (tolerant reply parsing), `token_store.dart` (refresh token in flutter_secure_storage only with
+Remember me; the access token stays in memory), `lib/data/repositories/auth_repository.dart` (`AuthNotifier`: signed
+out → 2-step pending → signed in, refresh one minute before expiry, one shared refresh after an Asset / Media 401 then a
+retry; a failed refresh signs out with "Your session expired. Please sign in again.").
+
+Check the services: **More → Administration → Backend API → Test connection** calls `GET /health` on AUTH, ASSET and
+MEDIA and shows one result each.
+
+### Refreshing the API document
+
+`docs/api/openapi.json` is the single source of truth for paths and fields. Fetch it again from the gateway
+whenever the backend changes (the gateway's merged document, if it is running; otherwise each service's own
+`/swagger/v1/swagger.json`):
+
+```sh
+mkdir -p docs/api
+curl -fsS http://<backend-ip>:5296/openapi/all.json -o docs/api/openapi.json          # gateway (merged)
+curl -fsS http://<backend-ip>:5018/swagger/v1/swagger.json -o docs/api/useraccount_swagger.json  # login service
+```
+
+Open questions for the backend developer: `docs/questions_for_backend.md`.
 
 ## Modules
 

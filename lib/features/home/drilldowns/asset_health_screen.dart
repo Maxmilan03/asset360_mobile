@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
@@ -35,6 +36,7 @@ class _AssetHealthScreenState extends ConsumerState<AssetHealthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (apiMode) return const NotAvailableDrilldown(title: 'Asset Health', feature: 'Asset health');
     final b = ref.watch(assetBreakdownProvider);
     return DrilldownPage(
       title: 'Asset Health',

@@ -4,6 +4,8 @@ import 'package:asset360_mobile/app/router/main_shell.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/models/asset.dart';
+import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_detail_screen.dart';
@@ -109,8 +111,9 @@ void main() {
 
     await tester.drag(find.byType(CustomScrollView).first, const Offset(0, 3000));
     await tester.pumpAndSettle();
-    await _tap(tester, find.text('Under Maintenance (423)'));
-    expect(find.textContaining('Showing 2 of 423'), findsOneWidget);
+    await _tap(tester, find.text('Under Maintenance (303)'));
+    final underMaintenance = c.read(assetsProvider).where((a) => a.status == AssetStatus.underMaintenance).length;
+    expect(find.textContaining('Showing $underMaintenance of 303'), findsOneWidget);
     await _tap(tester, find.text('All (12,458)'));
 
     await tester.enterText(find.byType(TextField), 'warehouse');

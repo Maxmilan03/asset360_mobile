@@ -7,6 +7,7 @@ import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/models/disposal.dart';
 import 'package:asset360_mobile/data/models/movement.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
@@ -21,6 +22,19 @@ class MyApprovalsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // API mode: movement and disposal approvals (asset-assignments / asset-disposals) are not in this phase.
+    if (apiMode) {
+      return AppScaffold(
+        body: ListView(
+          padding: context.pagePadding,
+          children: const [
+            PageTitle(title: 'My Approvals', subtitle: 'Movement and disposal requests'),
+            SizedBox(height: 16),
+            AppCard(child: NotAvailableYet(feature: 'Approvals', icon: Icons.verified_outlined)),
+          ],
+        ),
+      );
+    }
     final me = ref.watch(currentUserProvider).id;
     final pending = ref.watch(movementsProvider).toApprove(me);
     final disposals = ref.watch(disposalsProvider).toApprove(me);

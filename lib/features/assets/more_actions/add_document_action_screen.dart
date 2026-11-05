@@ -120,12 +120,7 @@ class _AddDocumentActionScreenState extends ConsumerState<AddDocumentActionScree
           ),
         ),
         const FieldLabel('Upload Document', required: true),
-        DocumentUploadBox(
-          file: _file,
-          error: false,
-          onTap: _pick,
-          onClear: () => setState(() => _file = null),
-        ),
+        DocumentUploadBox(file: _file, error: false, onTap: _pick, onClear: () => setState(() => _file = null)),
         fieldError(_errors['file']),
         const SizedBox(height: 14),
         if (_expires)

@@ -4,52 +4,50 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
-import 'package:asset360_mobile/data/models/registration_form.dart';
-import 'package:asset360_mobile/data/reference/asset_options.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/models/asset_registration.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/features/more/registration/live_options.dart';
 import 'package:asset360_mobile/features/more/registration/registration_fields.dart';
 import 'package:asset360_mobile/features/more/registration/registration_widgets.dart';
 
-/// Step 1 Basic Information (AssetBasicInformationDto; Category / Sub Category / Asset Type are
-/// the classification values, shown here like the web form).
+/// Step 1 Basic Information (AssetBasicInformationDto). Category / Sub Category / Asset Type and
+/// Criticality are entered in step 2 (the backend stores them in classification); this step shows
+/// the chosen path read-only. [errors] are RegistrationValidator messages by backend field path.
 class StepBasic extends ConsumerWidget {
   const StepBasic({
     super.key,
     required this.form,
     required this.edit,
     required this.revision,
-    required this.onTypePicked,
+    required this.errors,
+    required this.onEditClassification,
     required this.onSuggestId,
     required this.onGenerateQr,
     required this.onPrintLabel,
   });
 
-  final RegistrationForm form;
+  final AssetRegistration form;
   final FormEdit edit;
   final int revision;
-  final ValueChanged<String> onTypePicked;
+  final Map<String, String> errors;
+
+  /// Opens step 2.
+  final VoidCallback onEditClassification;
   final VoidCallback onSuggestId;
   final VoidCallback onGenerateQr;
   final VoidCallback onPrintLabel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final b = form.basicInformation;
-    final assets = ref.read(assetsProvider.notifier);
-    String? unique(String? v, {String? except}) {
-      final s = (v ?? '').trim().toUpperCase();
-      if (s.isEmpty || s == except) return null;
-      final owner = assets.ownerOf(s);
-      return owner == null ? null : 'Already used by ${owner.id}';
-    }
-
+    final b = form.basicInformation, c = form.classification;
+    final lists = RegLists(ref);
     Future<void> scanInto(String title, void Function(String) set) async {
       final code = await showScanCapture(context, title: title, suggestions: const ['MTR-00123', 'QR-A360-000901']);
       if (code != null) edit(() => set(code.toUpperCase()), bump: true);
     }
 
     Color dot(String o) => ChipTone.forAsset(o).foreground;
-    final tag = (b.assetTag ?? '').trim().toUpperCase();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -59,8 +57,8 @@ class StepBasic extends ConsumerWidget {
           required: true,
           value: b.assetName,
           hint: 'e.g. Diesel Generator 500 kVA',
+          error: errors['AssetName'],
           onChanged: (v) => edit(() => b.assetName = v),
-          validator: (v) => (v ?? '').trim().length < 3 ? 'Enter the asset name' : null,
         ),
         RegTextField(
           label: 'Asset Tag / Asset ID',
@@ -70,13 +68,8 @@ class StepBasic extends ConsumerWidget {
           hint: 'e.g. GEN-00047',
           caps: TextCapitalization.characters,
           suffix: ScanSuffix(onTap: () => scanInto('Scan Asset Tag', (c) => b.assetTag = c)),
+          error: errors['AssetTag'],
           onChanged: (v) => edit(() => b.assetTag = v),
-          validator: (v) {
-            final s = (v ?? '').trim().toUpperCase();
-            if (s.isEmpty) return 'Enter the asset tag';
-            if (!RegExp(r'^[A-Z0-9][A-Z0-9-]{2,19}$').hasMatch(s)) return 'Use letters, digits and -';
-            return unique(s);
-          },
         ),
         Align(
           alignment: Alignment.centerLeft,
@@ -98,9 +91,8 @@ class StepBasic extends ConsumerWidget {
           hint: 'Defaults to the asset tag',
           caps: TextCapitalization.characters,
           suffix: ScanSuffix(onTap: () => scanInto('Scan Barcode / QR Code', (c) => b.barcode = c)),
+          error: errors['Barcode'],
           onChanged: (v) => edit(() => b.barcode = v),
-          // The new asset may carry its own tag as barcode.
-          validator: (v) => unique(v, except: tag),
         ),
         RegTextField(
           label: 'RFID Tag ID',
@@ -116,15 +108,34 @@ class StepBasic extends ConsumerWidget {
               if (read != null) edit(() => b.rfidTagId = read, bump: true);
             },
           ),
+          error: errors['RfidTagId'],
           onChanged: (v) => edit(() => b.rfidTagId = v),
-          validator: unique,
         ),
-        ClassificationFields(form: form, edit: edit, onTypePicked: onTypePicked),
-        RegTextField(label: 'Model', value: b.model, hint: 'e.g. C500 D5', onChanged: (v) => b.model = v),
+        const FieldLabel('Classification'),
+        InkWell(
+          onTap: onEditClassification,
+          borderRadius: BorderRadius.circular(10),
+          child: RegBreadcrumb(
+            parts: [...c.path, if (form.criticality != null) 'Criticality: ${form.criticality}'],
+            icon: Icons.account_tree_outlined,
+            empty: 'Chosen in step 2 (Classification) · tap to open',
+          ),
+        ),
+        if (apiMode)
+          // GET /api/asset-models?assetTypeId= of the chosen type; free text is allowed too.
+          RegAutocomplete(
+            label: 'Model',
+            value: b.model,
+            options: [for (final m in lists.models(c.category, c.subCategory, c.assetType)) m.modelName],
+            hint: 'e.g. C500 D5',
+            onChanged: (v) => b.model = v,
+          )
+        else
+          RegTextField(label: 'Model', value: b.model, hint: 'e.g. C500 D5', onChanged: (v) => b.model = v),
         RegAutocomplete(
           label: 'Manufacturer',
           value: b.manufacturer,
-          options: ref.watch(masterDataProvider).manufacturers,
+          options: lists.manufacturers(() => ref.watch(masterDataProvider).manufacturers),
           hint: 'e.g. Cummins',
           onChanged: (v) => b.manufacturer = v,
         ),
@@ -135,22 +146,22 @@ class StepBasic extends ConsumerWidget {
           caps: TextCapitalization.characters,
           onChanged: (v) => b.serialNumber = v,
         ),
-        RegDropdown(
+        RegDropdown.source(
+          lists.statuses,
           label: 'Status',
           required: true,
           value: b.status,
-          options: AssetOptions.statuses,
+          error: errors['Status'],
           dotColor: dot,
           onChanged: (v) => edit(() => b.status = v),
         ),
-        RegDropdown(
+        RegDropdown.source(
+          lists.conditions,
           label: 'Condition',
           value: b.condition,
-          options: AssetOptions.conditions,
           dotColor: dot,
           onChanged: (v) => edit(() => b.condition = v),
         ),
-        CriticalityField(form: form, edit: edit),
         RegTextField(
           label: 'Description',
           value: b.description,
@@ -158,7 +169,11 @@ class StepBasic extends ConsumerWidget {
           hint: 'What the asset is and does',
           onChanged: (v) => b.description = v,
         ),
-        AssetImagesField(images: b.images, onChanged: (v) => edit(() => b.images = v)),
+        AssetImagesField(
+          images: b.images,
+          onChanged: (v) => edit(() => b.images = v),
+          onAdded: (url) => edit(() => b.images = [...b.images, url]),
+        ),
         const RegSection('Identification Preview'),
         _IdentificationPreview(form: form, onGenerateQr: onGenerateQr, onPrintLabel: onPrintLabel),
       ],
@@ -170,7 +185,7 @@ class StepBasic extends ConsumerWidget {
 class _IdentificationPreview extends StatelessWidget {
   const _IdentificationPreview({required this.form, required this.onGenerateQr, required this.onPrintLabel});
 
-  final RegistrationForm form;
+  final AssetRegistration form;
   final VoidCallback onGenerateQr;
   final VoidCallback onPrintLabel;
 

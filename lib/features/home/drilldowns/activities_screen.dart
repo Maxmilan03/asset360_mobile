@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
@@ -79,6 +80,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (apiMode) return const NotAvailableDrilldown(title: 'Upcoming Activities', feature: 'Upcoming activities');
     final all = ref.watch(plannedActivitiesProvider);
     final today = DemoClock.today;
     return DrilldownPage(

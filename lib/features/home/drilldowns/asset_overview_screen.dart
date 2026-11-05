@@ -7,9 +7,11 @@ import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
+import 'package:asset360_mobile/data/repositories/live_assets_repository.dart';
 import 'package:asset360_mobile/features/home/drilldowns/drilldown_page.dart';
 import 'package:asset360_mobile/features/home/home_style.dart';
 
@@ -89,8 +91,35 @@ class _AssetOverviewScreenState extends ConsumerState<AssetOverviewScreen> {
     };
   }
 
+  Widget _tabs() => SegmentTabs(
+    tabs: const [SegmentTab('By Status'), SegmentTab('By Type'), SegmentTab('By Location')],
+    selected: _tab.index,
+    onChanged: (i) => setState(() => _tab = _Tab.values[i]),
+  );
+
   @override
   Widget build(BuildContext context) {
+    // API mode: By Status = the server's summary; By Type / By Location have no backend yet.
+    if (apiMode) {
+      final live = ref.watch(assetSummaryProvider);
+      if (!live.hasValue || _tab != _Tab.status) {
+        return DrilldownPage(
+          title: 'Asset Overview',
+          subtitle: 'Live asset status summary',
+          onRefresh: () => ref.invalidate(assetSummaryProvider),
+          children: [
+            _tabs(),
+            const SizedBox(height: 12),
+            if (_tab != _Tab.status)
+              AppCard(child: NotAvailableYet(feature: _tab == _Tab.type ? 'Assets by type' : 'Assets by location'))
+            else if (live.hasError)
+              LoadErrorState(error: live.error!, onRetry: () => ref.invalidate(assetSummaryProvider))
+            else
+              const ListSkeleton(rows: 4),
+          ],
+        );
+      }
+    }
     final rows = _rows();
     final total = rows.fold(0, (a, r) => a + r.count);
     final q = _query.trim().toLowerCase();
@@ -104,12 +133,9 @@ class _AssetOverviewScreenState extends ConsumerState<AssetOverviewScreen> {
     return DrilldownPage(
       title: 'Asset Overview',
       subtitle: 'All ${_n.format(total)} assets across every site',
+      onRefresh: apiMode ? () => ref.invalidate(assetSummaryProvider) : null,
       children: [
-        SegmentTabs(
-          tabs: const [SegmentTab('By Status'), SegmentTab('By Type'), SegmentTab('By Location')],
-          selected: _tab.index,
-          onChanged: (i) => setState(() => _tab = _Tab.values[i]),
-        ),
+        _tabs(),
         const SizedBox(height: 12),
         AppCard(
           child: DonutWithLegend(

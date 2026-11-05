@@ -1,3 +1,4 @@
+/// TEMP until the category attributes API (GET /api/asset-categories/{id}/attributes).
 /// Technical Details fields per asset type (Register Asset step 5). Each spec field is saved as an
 /// AssetSpecificationDto {name, value, unit}; dimensions, weight and lifespan have their own
 /// AssetTechnicalDetailsDto fields and are switched on per template. Types without a template show
@@ -5,9 +6,13 @@
 library;
 
 class SpecField {
-  const SpecField(this.name, {this.unit, this.options = const [], this.numeric = false, this.hint});
+  const SpecField(this.name, {this.unit, this.options = const [], this.numeric = false, this.hint, this.serverList});
 
   final String name;
+
+  /// API mode: the list in GET /api/asset-registrations/options → additionalInformation that
+  /// replaces [options] ("phases", "fuelTypes", "ipRatings").
+  final String? serverList;
 
   /// Fixed unit shown after the value (kVA, V …); null for none.
   final String? unit;
@@ -19,33 +24,29 @@ class SpecField {
 }
 
 class TechnicalTemplate {
-  const TechnicalTemplate({
-    required this.specs,
-    this.dimensions = false,
-    this.weight = false,
-    this.lifespan = false,
-  });
+  const TechnicalTemplate({required this.specs, this.dimensions = false, this.weight = false, this.lifespan = false});
 
   final List<SpecField> specs;
   final bool dimensions;
   final bool weight;
   final bool lifespan;
 
-  /// Technical Remarks only.
-  static const remarksOnly = TechnicalTemplate(specs: []);
+  /// Types without a template: no specifications, but the backend's own technical fields
+  /// (dimensions, weight, lifespan) and Technical Remarks.
+  static const remarksOnly = TechnicalTemplate(specs: [], dimensions: true, weight: true, lifespan: true);
 }
 
 const _generator = TechnicalTemplate(
   specs: [
-    SpecField('Power Rating', unit: 'kVA', numeric: true, hint: 'e.g. 500'),
-    SpecField('Voltage', unit: 'V', numeric: true, hint: 'e.g. 415'),
+    SpecField('Power Rating', unit: 'kVA', numeric: true, hint: 'e.g. 250'),
+    SpecField('Voltage', unit: 'V', numeric: true, hint: 'e.g. 400'),
     SpecField('Frequency', unit: 'Hz', options: ['50', '60']),
-    SpecField('Phase', options: ['Single Phase', 'Three Phase']),
-    SpecField('Fuel Type', options: ['Diesel', 'Natural Gas', 'Petrol', 'Bi-Fuel', 'Solar']),
-    SpecField('Fuel Tank Capacity', unit: 'L', numeric: true, hint: 'e.g. 1000'),
+    SpecField('Phase', options: ['3 Phase', 'Single Phase'], serverList: 'phases'),
+    SpecField('Fuel Type', options: ['Diesel', 'Natural Gas', 'Petrol', 'Bi-Fuel', 'Solar'], serverList: 'fuelTypes'),
+    SpecField('Fuel Tank Capacity', unit: 'Liters', numeric: true, hint: 'e.g. 500'),
     SpecField('Operating Temperature Range', unit: '°C', hint: 'e.g. -10 to 50'),
-    SpecField('IP Rating', options: ['IP23', 'IP44', 'IP54', 'IP55', 'IP65']),
-    SpecField('Noise Level', unit: 'dB(A) @ 7 m', numeric: true, hint: 'e.g. 75'),
+    SpecField('IP Rating', options: ['IP23', 'IP44', 'IP54', 'IP55', 'IP65'], serverList: 'ipRatings'),
+    SpecField('Noise Level', unit: 'dB(A)', numeric: true, hint: 'e.g. 75'),
   ],
   dimensions: true,
   weight: true,

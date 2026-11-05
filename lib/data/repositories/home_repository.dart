@@ -6,6 +6,7 @@ import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/core/widgets/floor_plan.dart';
 
 import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/mock/home_mock.dart';
 import 'package:asset360_mobile/data/models/alert.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
@@ -60,8 +61,9 @@ const homeQuickActionSlots = 7;
 // ---------------------------------------------------------------- Recent assets
 
 class RecentAssetsNotifier extends Notifier<List<String>> {
+  /// API mode: none (Home → Recent Assets reads the server's newest assets).
   @override
-  List<String> build() => [...seedRecentAssetIds];
+  List<String> build() => apiMode ? [] : [...seedRecentAssetIds];
 
   /// Call when an asset is opened.
   void viewed(String id) => state = [id, ...state.where((x) => x != id)].take(5).toList();
@@ -332,8 +334,11 @@ class AssetBreakdown {
 }
 
 class AssetBreakdownNotifier extends Notifier<AssetBreakdown> {
+  /// API mode: empty (the server has no by-type / by-location breakdown yet).
   @override
-  AssetBreakdown build() => const AssetBreakdown(byType: seedAssetsByType, byLocation: seedAssetsByLocation);
+  AssetBreakdown build() => apiMode
+      ? const AssetBreakdown(byType: [], byLocation: [])
+      : const AssetBreakdown(byType: seedAssetsByType, byLocation: seedAssetsByLocation);
 
   void _bump(Asset a, int by) {
     final band = HealthBand.of(a.healthScore);

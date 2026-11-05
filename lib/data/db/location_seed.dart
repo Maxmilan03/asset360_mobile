@@ -93,3 +93,16 @@ extension DbLocationPath on DbLocation {
     LocationLevel.room => '$building / $floor – $room',
   };
 }
+
+/// Location code of a [locationTree] node by names (the same codes the Locations table is seeded
+/// with); null when the path is not in the tree. Registration stores these as the *Id fields.
+String? locationCodeOf(String? site, [String? building, String? floor, String? room]) {
+  if (site == null) return null;
+  final key = [site, building, floor, room].join('|');
+  return (_codeByPath ??= {
+    for (final r in seedLocationRows())
+      [r.site.value, r.building.value, r.floor.value, r.room.value].join('|'): r.code.value,
+  })[key];
+}
+
+Map<String, String>? _codeByPath;

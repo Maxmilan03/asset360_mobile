@@ -245,7 +245,7 @@ class _WipUnitScreenState extends ConsumerState<WipUnitScreen> {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: Image(image: photoProvider(o.photos.last), width: 96, height: 96, fit: BoxFit.cover),
+                            child: Image(image: photoProvider(o.photos.last), errorBuilder: photoError, width: 96, height: 96, fit: BoxFit.cover),
                           ),
                           Positioned(
                             right: 4,

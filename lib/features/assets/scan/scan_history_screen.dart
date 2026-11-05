@@ -6,6 +6,7 @@ import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/models/scan_record.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/inventory_repository.dart';
@@ -164,6 +165,22 @@ class _HistoryRow extends ConsumerWidget {
     final at = TagLabel(DemoClock.formatDateTime(record.at), icon: Icons.schedule_rounded);
     final time = Align(alignment: Alignment.centerLeft, child: at);
     switch (record.kind) {
+      case ScanKind.asset when apiMode:
+        // What was stored: the assetRegistrationId the server matched (opens the live Asset 360°).
+        final label = record.label;
+        final name = label != null && label.startsWith('${record.refId} – ')
+            ? label.substring(record.refId.length + 3)
+            : label;
+        return AssetListTile(
+          title: record.refId,
+          subtitle: name == null || name.isEmpty ? 'Registered asset' : name,
+          fallbackIcon: Icons.inventory_2_outlined,
+          details: [
+            time,
+            TagLabel(record.method, icon: Icons.qr_code_scanner_rounded),
+          ],
+          onTap: () => context.push(Routes.assetDetail(record.refId)),
+        );
       case ScanKind.asset:
         final a = ref.watch(assetsProvider).byCode(record.refId);
         if (a == null) return _missing(context);
@@ -174,7 +191,7 @@ class _HistoryRow extends ConsumerWidget {
           imagePath: a.imagePath,
           fallbackIcon: assetIcon(a),
           details: [time],
-          trailingTop: StatusChip(a.status),
+          trailingTop: AssetStatusChip(a.status),
           onTap: DemoGuard.push(context, Routes.assetDetail(a.id)),
         );
       case ScanKind.part:

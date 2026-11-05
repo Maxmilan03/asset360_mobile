@@ -7,7 +7,10 @@ import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/api/api_exception.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/live_registration_repository.dart';
 import 'package:asset360_mobile/data/repositories/registration_drafts_repository.dart';
 import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 import 'package:asset360_mobile/data/repositories/scans_repository.dart';
@@ -20,7 +23,9 @@ import 'package:asset360_mobile/features/more/registration/registration_widgets.
 /// Existing assets shown under Recent Scans as examples (labelled "Existing").
 const _exampleScans = ['MTR-00123', 'FL-012', 'LAP-0098'];
 
-/// Asset Registration hub: Single / Bulk toggle, capture tiles and Recent Scans.
+/// Asset Registration hub: Single / Bulk toggle, capture tiles, My Drafts and Recent Scans.
+/// API mode: My Drafts = GET /api/asset-registrations/drafts, a scanned code is checked with
+/// GET …/lookup, Bulk CSV import and Recent Scans (mock register) are not available yet.
 class RegistrationHubScreen extends ConsumerStatefulWidget {
   const RegistrationHubScreen({super.key, this.bulk = false});
 
@@ -42,6 +47,7 @@ class _RegistrationHubScreenState extends ConsumerState<RegistrationHubScreen> {
       suggestions: const ['MTR-00123', 'QR-A360-000901'],
     );
     if (code == null || !mounted) return;
+    if (apiMode) return _scannedLive(code);
     final owner = ref.read(assetsProvider.notifier).ownerOf(code);
     if (owner != null) {
       if (await confirmViewExisting(context, code, owner.id, owner.name) && mounted) {
@@ -50,6 +56,28 @@ class _RegistrationHubScreenState extends ConsumerState<RegistrationHubScreen> {
       return;
     }
     context.showSnack('Barcode / QR $code captured');
+    _openForm(RegistrationPrefill(barcode: code.toUpperCase()));
+  }
+
+  /// API mode: a code that already belongs to an asset offers View Asset; otherwise the form opens
+  /// with the code as barcode.
+  Future<void> _scannedLive(String code) async {
+    try {
+      final hit = await ref.read(assetsApiProvider).lookup(code);
+      if (!mounted) return;
+      if (hit != null) {
+        final a = hit.asset;
+        final id = a.assetRegistrationId;
+        if (await confirmViewExisting(context, code, id, a.title) && mounted) {
+          context.push(Routes.assetDetail(id));
+        }
+        return;
+      }
+      context.showSnack('Barcode / QR $code captured');
+    } catch (e) {
+      if (!mounted) return;
+      context.showSnack('Could not check $code on the server (${ApiException.from(e).message}). Opening the form.');
+    }
     _openForm(RegistrationPrefill(barcode: code.toUpperCase()));
   }
 
@@ -98,14 +126,16 @@ class _RegistrationHubScreenState extends ConsumerState<RegistrationHubScreen> {
                   icon: Icons.layers_outlined,
                   label: 'Bulk Registration',
                   selected: _bulk,
-                  onTap: () => setState(() => _bulk = true),
+                  onTap: apiMode
+                      ? () => showNotAvailableYet(context, 'Bulk CSV import')
+                      : () => setState(() => _bulk = true),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
           if (_bulk)
-            const BulkRegistrationPanel()
+            apiMode ? const AppCard(child: NotAvailableYet(feature: 'Bulk CSV import')) : const BulkRegistrationPanel()
           else ...[
             AppCard(
               child: Column(
@@ -162,8 +192,7 @@ class _RegistrationHubScreenState extends ConsumerState<RegistrationHubScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            const _MyDrafts(),
-            const _RecentScans(),
+            if (apiMode) const _LiveDrafts() else ...[const _MyDrafts(), const _RecentScans()],
           ],
         ],
       ),
@@ -278,7 +307,6 @@ class _MyDrafts extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final drafts = ref.watch(registrationDraftsProvider);
-    if (drafts.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: SectionCard(
@@ -286,6 +314,14 @@ class _MyDrafts extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(14, 12, 6, 4),
         child: Column(
           children: [
+            if (drafts.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 10, right: 8),
+                child: IconLine(
+                  icon: Icons.info_outline_rounded,
+                  text: 'No drafts. Tap Save as Draft in Register Asset to finish it later.',
+                ),
+              ),
             for (var i = 0; i < drafts.length; i++) ...[
               if (i > 0) const Divider(indent: 52),
               ListTile(
@@ -294,8 +330,9 @@ class _MyDrafts extends ConsumerWidget {
                 title: Text(drafts[i].title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.bodyStrong),
                 subtitle: Text(
                   [
-                    'Step ${drafts[i].step + 1} · ${registrationStepTitles[drafts[i].step.clamp(0, 5)]}',
-                    if (drafts[i].savedAt != null) 'Saved ${DemoClock.formatDateTime(drafts[i].savedAt!)}',
+                    drafts[i].assetRegistrationId,
+                    'Step ${drafts[i].currentStep.clamp(0, 5) + 1} · ${registrationStepTitles[drafts[i].currentStep.clamp(0, 5)]}',
+                    if (drafts[i].updatedAt != null) 'Saved ${DemoClock.formatDateTime(drafts[i].updatedAt!)}',
                   ].join('\n'),
                   style: AppText.caption,
                 ),
@@ -311,18 +348,107 @@ class _MyDrafts extends ConsumerWidget {
                       destructive: true,
                     );
                     if (!ok) return;
-                    await ref.read(registrationDraftsProvider.notifier).delete(drafts[i].draftId);
+                    await ref.read(registrationDraftsProvider.notifier).delete(drafts[i].assetRegistrationId);
                     if (context.mounted) context.showSnack('Draft deleted');
                   },
                 ),
                 onTap: () => context.push(
                   Routes.newRegistration,
-                  extra: RegistrationPrefill(draftId: drafts[i].draftId),
+                  extra: RegistrationPrefill(draftId: drafts[i].assetRegistrationId),
                 ),
               ),
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// API mode My Drafts: GET /api/asset-registrations/drafts (shimmer, error with Retry, empty
+/// state). Tap resumes the draft (GET /drafts/{id}); delete asks first, then DELETE /drafts/{id}.
+class _LiveDrafts extends ConsumerWidget {
+  const _LiveDrafts();
+
+  static String _subtitle(AssetRegistration d) {
+    final step = d.currentStep.clamp(1, 5);
+    return [
+      d.assetRegistrationId,
+      'Step $step · ${registrationStepTitles[step - 1]}',
+      if (d.updatedAt ?? d.createdAt case final at?) 'Saved ${DemoClock.formatDateTime(at.toLocal())}',
+    ].join('\n');
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref, AssetRegistration d) async {
+    final ok = await showConfirmDialog(
+      context,
+      title: 'Delete draft?',
+      message: '"${d.title}" (${d.assetRegistrationId}) will be removed from My Drafts.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+    if (!ok) return;
+    try {
+      await ref.read(liveRegistrationProvider).delete(d.assetRegistrationId);
+      if (context.mounted) context.showSnack('Draft deleted');
+    } catch (e) {
+      if (context.mounted) context.showSnack(ApiException.from(e).message);
+    } finally {
+      ref.invalidate(liveDraftsProvider);
+    }
+  }
+
+  Future<void> _open(BuildContext context, WidgetRef ref, AssetRegistration d) async {
+    await context.push(Routes.newRegistration, extra: RegistrationPrefill(draftId: d.assetRegistrationId));
+    ref.invalidate(liveDraftsProvider);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final drafts = ref.watch(liveDraftsProvider);
+    final list = drafts.value;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: SectionCard(
+        title: list == null ? 'My Drafts' : 'My Drafts (${list.length})',
+        actionLabel: 'Refresh',
+        actionIcon: Icons.refresh_rounded,
+        onAction: () => ref.invalidate(liveDraftsProvider),
+        padding: const EdgeInsets.fromLTRB(14, 12, 6, 4),
+        child: switch (drafts) {
+          AsyncValue(isLoading: true, hasValue: false) => const ListSkeleton(rows: 2, card: false),
+          AsyncError(:final error) => LoadErrorState(
+            error: error,
+            title: 'Could not load your drafts',
+            onRetry: () => ref.invalidate(liveDraftsProvider),
+          ),
+          _ when list == null || list.isEmpty => const Padding(
+            padding: EdgeInsets.only(bottom: 10, right: 8),
+            child: IconLine(
+              icon: Icons.info_outline_rounded,
+              text: 'No drafts. Tap Save as Draft in Register Asset to finish it later.',
+            ),
+          ),
+          _ => Column(
+            children: [
+              for (final (i, d) in list.indexed) ...[
+                if (i > 0) const Divider(indent: 52),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: IconSquare(icon: Icons.edit_note_rounded, tone: TileTone.lavender, size: 40),
+                  title: Text(d.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.bodyStrong),
+                  subtitle: Text(_subtitle(d), style: AppText.caption),
+                  trailing: IconButton(
+                    tooltip: 'Delete draft',
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    onPressed: () => _delete(context, ref, d),
+                  ),
+                  onTap: () => _open(context, ref, d),
+                ),
+              ],
+            ],
+          ),
+        },
       ),
     );
   }

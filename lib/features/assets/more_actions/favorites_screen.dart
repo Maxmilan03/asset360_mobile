@@ -91,18 +91,11 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Add to Favorites', style: AppText.bodyStrong),
-                      Text(
-                        on ? 'Shown under Assets → Favorites' : 'Not in your favorites',
-                        style: AppText.caption,
-                      ),
+                      Text(on ? 'Shown under Assets → Favorites' : 'Not in your favorites', style: AppText.caption),
                     ],
                   ),
                 ),
-                Switch(
-                  value: on,
-                  activeTrackColor: AppColors.primary,
-                  onChanged: (v) => setState(() => _on = v),
-                ),
+                Switch(value: on, activeTrackColor: AppColors.primary, onChanged: (v) => setState(() => _on = v)),
               ],
             ),
           ),

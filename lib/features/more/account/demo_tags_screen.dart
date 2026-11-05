@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/repositories/live_assets_repository.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
@@ -25,8 +27,20 @@ class _DemoTagsScreenState extends ConsumerState<DemoTagsScreen> {
   Widget build(BuildContext context) {
     final assets = ref.watch(assetsProvider);
     final parts = ref.watch(inventoryProvider).parts;
+    // API mode: the server's newest assets (their asset tags), never the mock register.
+    final live = apiMode
+        ? (ref.watch(recentLiveAssetsProvider).value ?? const <AssetListItem>[])
+        : const <AssetListItem>[];
     final groups = <(String, List<(String code, String title, String subtitle)>)>[
-      ('Assets', [for (final a in assets) (a.id, a.id, a.name)]),
+      (
+        'Assets',
+        apiMode
+            ? [
+                for (final a in live)
+                  (a.assetTag ?? a.assetRegistrationId, a.assetTag ?? a.assetRegistrationId, a.assetName ?? ''),
+              ]
+            : [for (final a in assets) (a.id, a.id, a.name)],
+      ),
       ('Parts', [for (final p in parts) (p.id, p.id, p.name)]),
       (
         'Locations',

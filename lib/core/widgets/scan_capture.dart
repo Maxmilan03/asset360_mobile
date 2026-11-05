@@ -3,6 +3,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/mock/assets_mock.dart';
 
 /// Full-screen camera scanner that returns the first code it reads (QR or
 /// barcode), or a code typed in by hand. [suggestions] are demo codes shown
@@ -12,6 +14,18 @@ Future<String?> showScanCapture(
   String title = 'Scan Asset Tag',
   List<String> suggestions = const [],
 }) async => (await captureScan(context, title: title, suggestions: suggestions))?.code;
+
+/// API mode: demo chips never offer a mock asset's ID, tag, barcode or serial.
+List<String> _withoutMockAssets(List<String> codes) {
+  if (codes.isEmpty) return codes;
+  final mock = {
+    for (final a in seedAssets()) ...[a.id, ?a.tagId, ?a.barcode, ?a.serialNo].map((c) => c.toUpperCase()),
+  };
+  return [
+    for (final c in codes)
+      if (!mock.contains(c.toUpperCase())) c,
+  ];
+}
 
 /// A code from [captureScan] and its format (qr, code128, ean13 … or manual).
 typedef CapturedCode = ({String code, String format});
@@ -26,7 +40,8 @@ Future<CapturedCode?> captureScan(
   return Navigator.of(context).push<CapturedCode>(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => _ScanCapturePage(title: title, suggestions: suggestions),
+      builder: (_) =>
+          _ScanCapturePage(title: title, suggestions: apiMode ? _withoutMockAssets(suggestions) : suggestions),
     ),
   );
 }

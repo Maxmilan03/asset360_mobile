@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
@@ -54,6 +55,21 @@ class _AssetAuditScreenState extends ConsumerState<AssetAuditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // API mode: asset-audits are not in this phase (the mock audits list mock assets).
+    if (apiMode) {
+      return AppScaffold(
+        body: ListView(
+          padding: context.pagePadding,
+          children: const [
+            PageTitle(title: 'Asset Audit', subtitle: 'Physical verification and reconciliation of assets'),
+            SizedBox(height: 16),
+            AppCard(
+              child: NotAvailableYet(feature: 'Asset Audit', icon: Icons.fact_check_outlined),
+            ),
+          ],
+        ),
+      );
+    }
     final me = ref.watch(currentUserProvider).id;
     final all = ref.watch(auditsProvider);
     final mine = all.mine(me);

@@ -2,9 +2,7 @@
 /// Kept in one file so each list can be swapped for an API lookup later
 /// (e.g. GET /api/asset-categories, /api/asset-category-types, /api/asset-models).
 ///
-/// TO CHECK: design/web_registration/*.png was not in the repo when this was written; only the
-/// Generator path (Machinery & Equipment › Power Generation › Generator, Diesel / Gas / UPS / Solar
-/// sub types) is known from the web. Compare every list here with the screenshots.
+/// Value lists (status, lifecycle stage, currencies …) live in asset_options.dart.
 library;
 
 import 'package:asset360_mobile/data/mock/registration_mock.dart' as mock;
@@ -56,7 +54,12 @@ const assetCategories = [
           AssetSubType('Solar Generator', 'solar'),
         ],
       ),
+      // Web Classification Hierarchy: Generator, Transformer, UPS, Switchgear, Control Panel, Others.
+      AssetTypeOption('Transformer', prefix: 'TRF'),
       AssetTypeOption('UPS', prefix: 'UPS'),
+      AssetTypeOption('Switchgear', prefix: 'SWG'),
+      AssetTypeOption('Control Panel', prefix: 'CP'),
+      AssetTypeOption('Others', prefix: 'AST'),
     ]),
     SubCategoryOption('Production Equipment', [
       AssetTypeOption(
@@ -143,7 +146,10 @@ const assetCategories = [
     ]),
   ]),
   CategoryOption('Tools & Vehicles', [
-    SubCategoryOption('Tools', [AssetTypeOption('Tool Box', prefix: 'TL'), AssetTypeOption('Drill Machine', prefix: 'DRL')]),
+    SubCategoryOption('Tools', [
+      AssetTypeOption('Tool Box', prefix: 'TL'),
+      AssetTypeOption('Drill Machine', prefix: 'DRL'),
+    ]),
     SubCategoryOption('Vehicles', [AssetTypeOption('Vehicle', prefix: 'VEH')]),
   ]),
 ];
@@ -170,64 +176,15 @@ AssetTypeOption? assetTypeOption(String? type) {
   return null;
 }
 
-// ---- Step 1 / 2
-const departments = mock.departments;
-const costCenters = [
-  'CC-1001 Production',
-  'CC-1002 Maintenance',
-  'CC-2001 Facilities',
-  'CC-3001 IT',
-  'CC-4001 Warehouse',
-  'CC-5001 Administration',
-];
-const businessUnits = ['Manufacturing', 'Facilities Management', 'Corporate IT', 'Logistics', 'Corporate Services'];
-const taggingMethods = ['Barcode', 'RFID', 'BLE', 'QR Code'];
-const complianceCategories = [
-  'Safety Critical',
-  'Fire & Life Safety',
-  'Electrical Safety',
-  'Environmental',
-  'Statutory Inspection',
-  'Not Applicable',
-];
-const lifecycleStages = ['Planning', 'Procurement', 'Commissioning', 'In Operation', 'Decommissioning'];
-
 // ---- Step 3
-/// Country → the sites of the location tree in it.
-const countries = {'United Arab Emirates': ['Dubai Factory', 'Dubai Office', 'Education City']};
-const ownershipTypes = ['Owned', 'Leased', 'Rented', 'Customer Owned'];
-const responsibleTeams = ['Electrical Team', 'Mechanical Team', 'HVAC Team', 'IT Support', 'Facilities Team', 'Production Team'];
+/// Country (countryId → countryName) → the sites of the location tree in it. TEMP until the
+/// location API: the web shows "UAE".
+const countries = {
+  'AE': (name: 'UAE', sites: ['Dubai Factory', 'Dubai Office', 'Education City']),
+};
 
 // ---- Step 4
 const suppliers = mock.suppliers;
-const currencies = ['AED', 'USD', 'EUR', 'SAR'];
-const quantityUnits = ['Nos', 'Set', 'Unit', 'Lot'];
-const paymentTerms = ['Immediate', 'Net 30', 'Net 60', 'Net 90', '50% Advance / 50% on Delivery'];
-const procurementMethods = ['Direct Purchase', 'Quotation (RFQ)', 'Tender', 'Framework Agreement', 'Lease'];
-const warrantyTypes = ['Manufacturer Warranty', 'Extended Warranty', 'Vendor Warranty', 'No Warranty'];
-const periodUnits = ['Days', 'Months', 'Years'];
-const supportCoverages = ['Parts & Labour', 'Parts Only', 'Labour Only', 'Comprehensive (24/7)', 'Business Hours'];
-const serviceProviders = ['ABC Engineering', 'Al Futtaim Engineering', 'Siemens LLC', 'Caterpillar Service', 'Dell Gulf'];
 
 /// Largest invoice / document upload.
 const maxUploadMb = 10;
-
-// ---- Step 5
-const operatingShifts = ['Day Shift', 'Night Shift', '2 Shifts', '24/7'];
-const utilizationLevels = ['Standby', 'Low (< 30%)', 'Medium (30–70%)', 'High (> 70%)'];
-const maintenanceFrequencyUnits = ['Days', 'Weeks', 'Months', 'Run Hours'];
-const complianceStandards = [
-  'ISO 8528',
-  'ISO 9001',
-  'ISO 14001',
-  'ISO 45001',
-  'NFPA 20',
-  'NFPA 110',
-  'IEC 60034',
-  'ASHRAE 62.1',
-  'Dubai Civil Defence',
-];
-const customFieldTypes = ['Text', 'Number', 'Date', 'Yes / No'];
-const dimensionUnits = ['mm', 'cm', 'm'];
-const weightUnits = ['kg', 't'];
-const lifespanUnits = ['Years', 'Months'];

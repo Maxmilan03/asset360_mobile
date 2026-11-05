@@ -5,58 +5,74 @@ import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
-import 'package:asset360_mobile/data/models/registration_form.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/models/asset_registration.dart';
+import 'package:asset360_mobile/data/db/location_seed.dart';
+import 'package:asset360_mobile/data/reference/asset_options.dart';
 import 'package:asset360_mobile/data/reference/registration_options.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/more/registration/registration_fields.dart';
-import 'package:asset360_mobile/features/more/registration/registration_logic.dart';
+import 'package:asset360_mobile/data/models/asset_registration_mapping.dart';
+import 'package:asset360_mobile/features/more/registration/live_options.dart';
 import 'package:asset360_mobile/features/more/registration/registration_widgets.dart';
 
 /// Step 3 Location & Assignment (AssetLocationAssignmentDto). Site › Building › Floor › Zone come
-/// from the location tree (LocationField: dropdowns or a scanned location tag).
+/// from the location tree (LocationField: dropdowns or a scanned location tag) and are stored as
+/// IDs (location codes) + names. [errors] by backend field path. The Asset service has no location
+/// endpoint, so API mode keeps the local tree (and says so); Ownership Type comes from the server.
 class StepLocation extends ConsumerWidget {
-  const StepLocation({super.key, required this.form, required this.edit, this.locationError, this.dateError});
+  const StepLocation({super.key, required this.form, required this.edit, required this.errors});
 
-  final RegistrationForm form;
+  final AssetRegistration form;
   final FormEdit edit;
-  final String? locationError;
-  final String? dateError;
+  final Map<String, String> errors;
+
+  /// Writes the picked location's names and IDs.
+  static void setLocation(AssetLocation l, LocationValue v) {
+    l
+      ..siteName = v.site
+      ..siteId = locationCodeOf(v.site)
+      ..buildingName = v.building
+      ..buildingId = locationCodeOf(v.site, v.building)
+      ..floorName = v.floor
+      ..floorId = locationCodeOf(v.site, v.building, v.floor)
+      ..zoneName = v.room
+      ..zoneId = locationCodeOf(v.site, v.building, v.floor, v.room);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = form.locationAssignment.location, a = form.locationAssignment.assignment;
-    final sites = countries[l.countryName] ?? const <String>[];
+    final sites = countries[l.countryId]?.sites ?? const <String>[];
+    final locationError = errors['Location.SiteId'] ?? errors['Location.BuildingId'] ?? errors['Location.FloorId'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (apiMode)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: IconLine(icon: Icons.info_outline_rounded, text: 'Locations are not from the server yet'),
+          ),
         RegDropdown(
           label: 'Country',
           required: true,
-          value: l.countryName,
+          value: l.countryId,
           options: countries.keys.toList(),
+          labelOf: (id) => countries[id]?.name ?? id,
+          error: errors['Location.CountryId'],
           onChanged: (v) => edit(() {
-            l.countryName = v;
-            if (!(countries[v] ?? const []).contains(l.siteName)) {
-              l
-                ..siteName = null
-                ..buildingName = null
-                ..floorName = null
-                ..zoneName = null;
-            }
+            l
+              ..countryId = v
+              ..countryName = countries[v]?.name;
+            if (!(countries[v]?.sites ?? const []).contains(l.siteName)) setLocation(l, LocationValue.empty);
           }),
         ),
-        if (l.countryName != null && sites.isNotEmpty) ...[
+        if (l.countryId != null && sites.isNotEmpty) ...[
           LocationField(
             value: LocationValue(site: l.siteName, building: l.buildingName, floor: l.floorName, room: l.zoneName),
             roomLabel: 'Zone / Area',
             errorText: locationError,
-            onChanged: (v) => edit(() {
-              l
-                ..siteName = v.site
-                ..buildingName = v.building
-                ..floorName = v.floor
-                ..zoneName = v.room;
-            }),
+            onChanged: (v) => edit(() => setLocation(l, v)),
           ),
           regGap,
         ],
@@ -73,7 +89,8 @@ class StepLocation extends ConsumerWidget {
           label: 'Custodian / Department',
           required: true,
           value: a.custodianDepartment,
-          options: departments,
+          options: AssetOptions.departments,
+          error: errors['Assignment.CustodianDepartment'],
           onChanged: (v) => edit(() => a.custodianDepartment = v),
         ),
         LabeledField(
@@ -91,7 +108,7 @@ class StepLocation extends ConsumerWidget {
                       a
                         ..assignedToUserId = id
                         ..assignedToName = p?.name;
-                      if (p?.department != null && departments.contains(p!.department)) {
+                      if (p?.department != null && AssetOptions.departments.contains(p!.department)) {
                         a.custodianDepartment ??= p.department;
                       }
                     });
@@ -112,22 +129,22 @@ class StepLocation extends ConsumerWidget {
           ),
         ),
         regGap,
-        RegDropdown(
+        RegDropdown.source(
+          RegLists(ref).ownershipTypes,
           label: 'Ownership Type',
           value: a.ownershipType,
-          options: ownershipTypes,
           onChanged: (v) => edit(() => a.ownershipType = v),
         ),
         RegDropdown(
           label: 'Cost Center',
           value: a.costCenter,
-          options: costCenters,
+          options: AssetOptions.costCenters,
           onChanged: (v) => edit(() => a.costCenter = v),
         ),
         RegDropdown(
           label: 'Responsible Team',
           value: a.responsibleTeam,
-          options: responsibleTeams,
+          options: AssetOptions.responsibleTeams,
           onChanged: (v) => edit(() => a.responsibleTeam = v),
         ),
         RegDateField(
@@ -138,7 +155,7 @@ class StepLocation extends ConsumerWidget {
         RegDateField(
           label: 'Assignment End Date',
           value: a.assignmentEndDate,
-          error: dateError,
+          error: errors['Assignment.AssignmentEndDate'],
           onPicked: (d) => edit(() => a.assignmentEndDate = d),
         ),
         CheckboxListTile(
@@ -159,7 +176,7 @@ class StepLocation extends ConsumerWidget {
 class _AssignmentPreview extends ConsumerWidget {
   const _AssignmentPreview({required this.form});
 
-  final RegistrationForm form;
+  final AssetRegistration form;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -195,13 +212,14 @@ class _AssignmentPreview extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 10),
-          IconLine(icon: Icons.location_on_outlined, text: l.parts.isEmpty ? 'No location yet' : l.parts.join(' › ')),
+          IconLine(icon: Icons.location_on_outlined, text: l.locationPath ?? 'No location yet'),
           const SizedBox(height: 6),
           InfoRow(label: 'Ownership', value: a.ownershipType ?? '—', labelWidth: 110),
           InfoRow(label: 'Responsible Team', value: a.responsibleTeam ?? '—', labelWidth: 110),
           InfoRow(
             label: 'Assignment',
-            value: '${date(a.assignmentStartDate)} – ${a.assignmentEndDate == null ? 'Open' : date(a.assignmentEndDate)}',
+            value:
+                '${date(a.assignmentStartDate)} – ${a.assignmentEndDate == null ? 'Open' : date(a.assignmentEndDate)}',
             labelWidth: 110,
           ),
         ],

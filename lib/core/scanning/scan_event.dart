@@ -47,6 +47,8 @@ class ScanResult {
     this.location,
     this.logId,
     this.viaLink = false,
+    this.problem,
+    this.candidates = const [],
   });
 
   final ScanEvent event;
@@ -62,6 +64,13 @@ class ScanResult {
 
   /// Resolved through a TagLinks row.
   final bool viaLink;
+
+  /// API mode: why the code could not be resolved although it may be registered (the server's
+  /// "matches more than one asset" message, or a connection error). [matchType] is then none.
+  final String? problem;
+
+  /// API mode: the assetRegistrationIds a 409 named.
+  final List<String> candidates;
 
   bool get isKnown => matchType != MatchType.none;
 }

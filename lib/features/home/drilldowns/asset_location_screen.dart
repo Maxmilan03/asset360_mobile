@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
@@ -23,7 +24,7 @@ import 'package:asset360_mobile/features/home/home_style.dart';
 /// Status chips of the map (null = All).
 const _statusChips = <String?>[null, AssetStatus.active, AssetStatus.underMaintenance, AssetStatus.inRepair];
 
-Color _pinColor(String status) => assetStatusColors[status] ?? AppColors.blue;
+Color _pinColor(String status) => assetStatusColors[AssetStatus.bucketOf(status)] ?? AppColors.blue;
 
 /// Metres walked from the floor's "You are here" marker to [p] along the L route.
 int _distanceMetres(MapPin p) {
@@ -138,12 +139,13 @@ class _AssetLocationScreenState extends ConsumerState<AssetLocationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (apiMode) return const NotAvailableDrilldown(title: 'Asset Location (Live)', feature: 'Live asset location');
     ref.watch(trackingLiveProvider); // FL-012 moves every few seconds while the map is open
     ref.watch(trackingProvider);
     final all = ref.watch(mapPinsProvider);
     final floor = mapFloors.firstWhere((f) => f.id == _floorId);
     final onFloor = all.where((p) => p.floor.id == floor.id).toList();
-    final shown = onFloor.where((p) => _status == null || p.asset.status == _status).toList();
+    final shown = onFloor.where((p) => _status == null || AssetStatus.bucketOf(p.asset.status) == _status).toList();
     final selected = shown.where((p) => p.asset.id == _selected).firstOrNull;
     final q = _query.trim().toLowerCase();
     final results = q.isEmpty
@@ -178,7 +180,7 @@ class _AssetLocationScreenState extends ConsumerState<AssetLocationScreen> {
                   padding: const EdgeInsets.only(right: 8),
                   child: PillChip(
                     label:
-                        '${s ?? 'All'} (${s == null ? onFloor.length : onFloor.where((p) => p.asset.status == s).length})',
+                        '${s ?? 'All'} (${s == null ? onFloor.length : onFloor.where((p) => AssetStatus.bucketOf(p.asset.status) == s).length})',
                     selected: _status == s,
                     onTap: () => setState(() {
                       _status = s;
@@ -280,9 +282,7 @@ class _AssetLocationScreenState extends ConsumerState<AssetLocationScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        SeriesLegend(
-          items: [for (final s in AssetStatus.all) (s, _pinColor(s))],
-        ),
+        SeriesLegend(items: [for (final s in AssetStatus.all) (s, _pinColor(s))]),
         const SizedBox(height: 12),
         if (shown.isEmpty)
           EmptyState(
@@ -600,7 +600,7 @@ class _AssetCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              StatusChip(a.status),
+              AssetStatusChip(a.status),
             ],
           ),
           if (directions) ...[

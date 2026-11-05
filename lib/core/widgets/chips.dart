@@ -154,6 +154,17 @@ class StatusChip extends StatelessWidget {
 }
 
 /// Critical / High / Medium / Low chip, a little wider than a status chip.
+/// Asset status / condition chip in the asset_options colours (green / amber / red; any other
+/// value, e.g. "Inactive" or "Retired", is grey).
+class AssetStatusChip extends StatelessWidget {
+  const AssetStatusChip(this.value, {super.key});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => StatusChip(value, tone: ChipTone.forAsset(value));
+}
+
 class PriorityChip extends StatelessWidget {
   const PriorityChip(this.priority, {super.key, this.onTap});
 

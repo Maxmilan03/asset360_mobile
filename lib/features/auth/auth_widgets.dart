@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:asset360_mobile/app/theme/app_colors.dart';
+import 'package:asset360_mobile/app/theme/app_text.dart';
+import 'package:asset360_mobile/core/widgets/widgets.dart';
 
 /// Status bar with dark icons on the light sign-in screens.
 const authOverlay = SystemUiOverlayStyle(
@@ -407,4 +410,121 @@ class ArrowLabel extends StatelessWidget {
       ],
     );
   }
+}
+
+// ---------------------------------------------------------------- shared sheets
+
+/// Asset360 administrator contact (Login, Forgot password and "Can't access your authenticator?").
+const adminContactEmail = 'admin@purpleiq.ae';
+const adminContactPhone = '+971 4 000 0000';
+
+/// "Contact your administrator" sheet with copyable email and phone.
+Future<void> showContactAdminSheet(
+  BuildContext context, {
+  String message = 'Your Asset360 administrator can create your account and reset access.',
+}) {
+  Widget row(BuildContext ctx, IconData icon, String label, String value) => ListTile(
+    leading: IconSquare(icon: icon, tone: TileTone.lavender, size: 38),
+    title: Text(label, style: AppText.caption),
+    subtitle: Text(value, style: AppText.bodyStrong),
+    trailing: TextButton.icon(
+      onPressed: () {
+        Clipboard.setData(ClipboardData(text: value));
+        ctx.showSnack('$label copied');
+      },
+      icon: const Icon(Icons.copy_rounded, size: 16),
+      label: const Text('Copy'),
+    ),
+  );
+  return showModalBottomSheet<void>(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('Contact your administrator', style: AppText.sectionTitle),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+              child: Text(message, style: AppText.secondary),
+            ),
+            row(ctx, Icons.mail_outline_rounded, 'Email', adminContactEmail),
+            row(ctx, Icons.phone_outlined, 'Phone', adminContactPhone),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Signed in: a green check pops for about a second, then closes (the caller opens Home).
+Future<void> showSignInSuccess(BuildContext context, {Duration duration = const Duration(milliseconds: 1000)}) async {
+  final nav = Navigator.of(context, rootNavigator: true);
+  unawaited(
+    showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.white.withValues(alpha: .92),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (_, _, _) => const _SignInSuccess(),
+    ),
+  );
+  await Future<void>.delayed(duration);
+  if (nav.mounted && nav.canPop()) nav.pop();
+}
+
+class _SignInSuccess extends StatelessWidget {
+  const _SignInSuccess();
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 550),
+      curve: Curves.easeOutBack,
+      builder: (_, t, child) => Transform.scale(
+        scale: .6 + .4 * t,
+        child: Opacity(opacity: t.clamp(0, 1), child: child),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 96,
+            height: 96,
+            decoration: const BoxDecoration(color: AppColors.green, shape: BoxShape.circle),
+            child: const Icon(Icons.check_rounded, color: Colors.white, size: 60),
+          ),
+          const SizedBox(height: 16),
+          const Material(
+            type: MaterialType.transparency,
+            child: Text(
+              'Signed in',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.heroNavy),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Small "Diagnostics" link on the sign-in screens (API mode), opens Auth diagnostics.
+class DiagnosticsLink extends StatelessWidget {
+  const DiagnosticsLink({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => TextButton.icon(
+    onPressed: onTap,
+    style: TextButton.styleFrom(minimumSize: const Size(0, 32), padding: const EdgeInsets.symmetric(horizontal: 8)),
+    icon: Icon(Icons.bug_report_outlined, size: 16, color: AppColors.textSecondary),
+    label: Text('Diagnostics', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+  );
 }

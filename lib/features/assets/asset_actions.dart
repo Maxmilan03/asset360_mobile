@@ -7,12 +7,14 @@ import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/models/movement.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
 import 'package:asset360_mobile/data/repositories/movements_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
+import 'package:asset360_mobile/features/assets/live/live_detail_upload.dart';
 import 'package:asset360_mobile/features/assets/more_actions/more_action_widgets.dart';
 
 // ---------------------------------------------------------------- Action grid
@@ -22,7 +24,9 @@ import 'package:asset360_mobile/features/assets/more_actions/more_action_widgets
 typedef AssetAction = (IconData icon, String label, TileTone tone, VoidCallback? onTap);
 
 /// The actions shared by the Asset 360° grid and Scan → Asset Identified, each prefilled with [asset].
-List<AssetAction> assetActions(BuildContext context, WidgetRef ref, Asset asset) {
+/// API mode: [liveAssetActions] for [registrationId] (else [Asset.id]); nothing touches mock data.
+List<AssetAction> assetActions(BuildContext context, WidgetRef ref, Asset asset, {String? registrationId}) {
+  if (apiMode) return liveAssetActions(context, ref, registrationId ?? asset.id);
   final plain = TileTone(AppColors.tileGrey, AppColors.text);
   final id = asset.id;
   return [
@@ -74,6 +78,24 @@ List<AssetAction> assetActions(BuildContext context, WidgetRef ref, Asset asset)
       plain,
       DemoGuard.tap(DemoAction.assetMoreActions, () => openMoreActions(context, assetId: id)),
     ),
+  ];
+}
+
+/// API mode grid for asset [registrationId]: Add Photo uploads to the Asset service, More Actions
+/// opens the live More Actions; the other modules have no backend yet.
+List<AssetAction> liveAssetActions(BuildContext context, WidgetRef ref, String registrationId) {
+  final plain = TileTone(AppColors.tileGrey, AppColors.text);
+  VoidCallback notYet(String feature) =>
+      () => showNotAvailableYet(context, feature);
+  return [
+    (Icons.build_rounded, 'Create Work Order', TileTone.sky, notYet('Create Work Order')),
+    (Icons.assignment_outlined, 'Create Inspection', TileTone.lavender, notYet('Create Inspection')),
+    (Icons.swap_horiz_rounded, 'Move Asset', TileTone.mint, notYet('Move Asset')),
+    (Icons.warning_rounded, 'Report Issue', TileTone.peach, notYet('Report Issue')),
+    (Icons.person_rounded, 'Check Out', plain, notYet('Check Out')),
+    (Icons.location_on_rounded, 'View on Map', plain, notYet('View on Map')),
+    (Icons.photo_camera_rounded, 'Add Photo', plain, () => addLivePhoto(context, ref, registrationId)),
+    (Icons.more_horiz_rounded, 'More Actions', plain, () => openMoreActions(context, assetId: registrationId)),
   ];
 }
 
@@ -346,21 +368,21 @@ void openMoreActions(BuildContext context, {String? assetId}) =>
 void openMoreAction(BuildContext context, MoreAction action, String assetId) =>
     context.push(Routes.moreActionFrom(GoRouterState.of(context).uri.path, action.slug, assetId));
 
-/// Retire (confirm) → status Other (the backend has no "Retired" status; the event says Retired).
+/// Retire (confirm) → status "Retired": kept as the raw value, shown grey and counted as Other.
 Future<void> retireAsset(BuildContext context, WidgetRef ref, Asset a) async {
-  if (a.status == AssetStatus.other || a.status == AssetStatus.disposed) {
+  if (AssetStatus.bucketOf(a.status) == AssetStatus.other || a.status == AssetStatus.disposed) {
     context.showSnack('${a.id} is already out of service (${a.status})');
     return;
   }
   final ok = await showConfirmDialog(
     context,
     title: 'Retire ${a.id}?',
-    message: 'The asset is taken out of service and its status changes to Other (Retired).',
+    message: 'The asset is taken out of service. Its status becomes Retired (counted as Other).',
     confirmLabel: 'Retire',
     destructive: true,
   );
   if (!ok || !context.mounted) return;
-  ref.read(assetsProvider.notifier).setStatus(a.id, AssetStatus.other, note: 'Retired from asset detail');
+  ref.read(assetsProvider.notifier).setStatus(a.id, AssetStatus.retired, note: 'Retired from asset detail');
   context.showSnack('${a.id} retired');
 }
 

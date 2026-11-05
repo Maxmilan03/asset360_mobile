@@ -6,12 +6,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asset360_mobile/core/platform/app_launcher.dart';
+import 'package:asset360_mobile/core/scanning/live_asset_lookup.dart';
 import 'package:asset360_mobile/core/scanning/scan_event.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/api/api_exception.dart';
 import 'package:asset360_mobile/data/db/db_providers.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/inventory_repository.dart';
 import 'package:asset360_mobile/data/repositories/repo_utils.dart';
 
+export 'package:asset360_mobile/core/scanning/live_asset_lookup.dart' show LiveLookup, LiveLookupStatus;
 export 'package:asset360_mobile/core/scanning/scan_event.dart';
 export 'package:asset360_mobile/data/db/location_seed.dart' show DbLocationX, DbLocationPath;
 
@@ -25,12 +29,14 @@ typedef ScanMatch = ({String id, String label});
 /// Every scan from any source goes through here: duplicate guard, match, ScanLog row.
 ///
 /// Match order: 1) TagLinks by tag key, 2) "LOC:" + location code, 3) asset ID / barcode / tag
-/// (then part number), 4) none.
+/// (then part number), 4) none. API mode: step 3 asks the Asset service ([lookupAsset]:
+/// GET /api/asset-registrations/lookup) instead of the mock register.
 class ScanService {
   ScanService(
     this.db, {
     required this.findAsset,
     this.findPart,
+    this.lookupAsset,
     DateTime Function()? clock,
     String? deviceInfo,
     this.duplicateWindow = const Duration(seconds: 2),
@@ -40,6 +46,9 @@ class ScanService {
   final AppDatabase db;
   final ScanMatch? Function(String code) findAsset;
   final ScanMatch? Function(String code)? findPart;
+
+  /// API mode: the live asset lookup (wins over [findAsset]).
+  final Future<LiveLookup> Function(ScanEvent e)? lookupAsset;
   final DateTime Function() clock;
   final String? _deviceInfo;
   final Duration duplicateWindow;
@@ -80,6 +89,8 @@ class ScanService {
       location: r.location,
       logId: id,
       viaLink: r.viaLink,
+      problem: r.problem,
+      candidates: r.candidates,
     );
   }
 
@@ -112,7 +123,25 @@ class ScanService {
       if (loc != null) return _location(e, loc);
     }
     // 3) An asset, then a spare part.
-    if (findAsset(value) case final a?) {
+    if (lookupAsset case final lookup?) {
+      try {
+        final r = await lookup(e);
+        switch (r.status) {
+          case LiveLookupStatus.found:
+            return ScanResult(event: e, matchType: MatchType.asset, matchId: r.id, matchLabel: r.label);
+          case LiveLookupStatus.ambiguous:
+            return ScanResult(event: e, matchType: MatchType.none, problem: r.message, candidates: r.ids);
+          case LiveLookupStatus.notFound:
+            break;
+        }
+      } catch (x) {
+        return ScanResult(
+          event: e,
+          matchType: MatchType.none,
+          problem: 'Could not look up this code: ${ApiException.from(x).message}',
+        );
+      }
+    } else if (findAsset(value) case final a?) {
       return ScanResult(event: e, matchType: MatchType.asset, matchId: a.id, matchLabel: a.label);
     }
     if (findPart?.call(value) case final p?) {
@@ -150,14 +179,15 @@ class ScanService {
   }
 
   /// Links the tag of [e] to an asset and updates its ScanLog row. Returns the new result.
-  Future<ScanResult> linkToAsset(ScanResult r, String assetId) async {
+  /// API mode: [assetId] is the assetRegistrationId and [label] its "AR000001 – name".
+  Future<ScanResult> linkToAsset(ScanResult r, String assetId, {String? label}) async {
     final a = findAsset(assetId);
     await db.linkTag(
       tagKey: r.event.tagKey,
       tagType: r.event.tagType,
       targetType: LinkTarget.asset,
       targetId: assetId,
-      label: a?.label ?? assetId,
+      label: label ?? a?.label ?? assetId,
       createdAt: clock(),
     );
     return _relink(
@@ -166,7 +196,7 @@ class ScanService {
         event: r.event,
         matchType: MatchType.asset,
         matchId: assetId,
-        matchLabel: a?.label ?? assetId,
+        matchLabel: label ?? a?.label ?? assetId,
         viaLink: true,
       ),
     );
@@ -206,10 +236,14 @@ ScanEvent scanEventOf(ScanLogEntry row) => ScanEvent(
 final scanServiceProvider = Provider<ScanService>(
   (ref) => ScanService(
     ref.watch(appDatabaseProvider),
-    findAsset: (code) => switch (ref.read(assetsProvider).byCode(code)) {
-      final a? => (id: a.id, label: '${a.id} – ${a.name}'),
-      null => null,
-    },
+    // API mode: never the mock register (assets come from the server lookup).
+    findAsset: (code) => apiMode
+        ? null
+        : switch (ref.read(assetsProvider).byCode(code)) {
+            final a? => (id: a.id, label: '${a.id} – ${a.name}'),
+            null => null,
+          },
+    lookupAsset: apiMode ? (e) => ref.read(liveAssetLookupProvider).findEvent(e) : null,
     findPart: (code) {
       final c = code.trim().toUpperCase();
       final p = ref.read(inventoryProvider).parts.firstWhereOrNull((p) => p.id.toUpperCase() == c);

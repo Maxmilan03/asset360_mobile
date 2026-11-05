@@ -7,6 +7,8 @@ import 'package:asset360_mobile/features/assets/asset_detail_screen.dart';
 import 'package:asset360_mobile/features/assets/assets_list_screen.dart';
 import 'package:asset360_mobile/features/assets/more_actions/more_actions_screen.dart';
 import 'package:asset360_mobile/features/auth/authenticator_screen.dart';
+import 'package:asset360_mobile/features/auth/auth_diagnostics_screen.dart';
+import 'package:asset360_mobile/features/auth/authenticator_setup_screen.dart';
 import 'package:asset360_mobile/features/auth/forgot_password_screen.dart';
 import 'package:asset360_mobile/features/auth/login_screen.dart';
 import 'package:asset360_mobile/features/auth/splash_screen.dart';
@@ -114,7 +116,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
       final onAuth = Routes.authRoutes.contains(loc);
       if (!session.loggedIn) {
-        if (loc == Routes.authenticator && !session.passwordVerified) return Routes.login;
+        if ((loc == Routes.authenticator || loc == Routes.authenticatorSetup) && !session.passwordVerified) {
+          return Routes.login;
+        }
         return onAuth ? null : Routes.login;
       }
       // Bare /scan… (no tab) opens Scan on the Home tab.
@@ -133,6 +137,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.login, pageBuilder: (_, state) => _fade(state, const LoginScreen())),
       GoRoute(path: Routes.forgotPassword, builder: (_, _) => const ForgotPasswordScreen()),
       GoRoute(path: Routes.authenticator, builder: (_, _) => const AuthenticatorScreen()),
+      GoRoute(path: Routes.authenticatorSetup, builder: (_, _) => const AuthenticatorSetupScreen()),
+      GoRoute(path: Routes.authDiagnostics, builder: (_, _) => const AuthDiagnosticsScreen()),
       StatefulShellRoute.indexedStack(
         pageBuilder: (_, state, shell) =>
             _fade(state, MainShell(navigationShell: shell, location: state.uri.path, branchKeys: branchKeys)),
@@ -556,6 +562,7 @@ GoRoute _moreRoute() => GoRoute(
       routes: [
         GoRoute(path: 'data-check', builder: (_, _) => const DataCheckScreen()),
         GoRoute(path: 'demo-tags', builder: (_, _) => const DemoTagsScreen()),
+        GoRoute(path: 'auth-diagnostics', builder: (_, _) => const AuthDiagnosticsScreen(inShell: true)),
       ],
     ),
     GoRoute(

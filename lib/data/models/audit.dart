@@ -14,7 +14,6 @@ abstract final class AuditResult {
   static const all = [verified, wrongLocation, notFound, unregistered];
 }
 
-
 /// How the asset was identified during the audit (the Tag ID label shows the scanned technology).
 abstract final class AuditMethod {
   static const qr = 'QR';
