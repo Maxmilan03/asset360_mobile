@@ -78,10 +78,10 @@ So every person picker in API mode lists employees and stores the employee recor
 
 | Screen | What it does |
 |---|---|
-| Assign Custodian (More Actions, `/work/movement/assign`) | Employee picker (`/employees`) + details card, Effective Date*, End Date (empty = open ended), Notes → `POST /api/asset-assignments` with `assignTo` "Employee", `assignmentType` "Custodian", `employee` = { employeeId = record id, employeeCode, employeeName, designation, departmentId, departmentName }. The server copies it onto the asset (`assignedToUserId`, `assignedToName`, `custodianDepartment`) and sets the asset status to "Assigned". |
+| Assign Custodian (More Actions, `/work/movement/assign`) | Employee picker (`/employees`) + details card, Effective Date*, End Date (empty = open ended), Notes → `POST /api/asset-assignments` with `assignTo` = the "Employee" value of `GET /api/asset-assignments/options`, `assignmentType` "Custodian", `employee` = { employeeId = record id, employeeCode, employeeName, designation, departmentId, departmentName }. The server copies it onto the asset (`assignedToUserId`, `assignedToName`, `custodianDepartment`) and sets the asset status to "Assigned". |
 | Check Out (More Actions, Asset grid, `/work/movement/check-out`) | Same request with `assignmentType` "Check Out", from today, Expected Return Date → `toDate` (empty = open ended), Purpose, Notes. |
 | Check In / Return | "Not available yet": the only way to end an assignment is `DELETE /api/asset-assignments/{id}` (soft-deletes the record), see question 50. |
-| Move Asset (Asset grid, `/work/movement/transfer?asset=`) | Current location + Master Data `MasterLocationField` (Country → Room, scan-to-fill; floor required) + Reason. **Move** says "Move Asset: Not available yet." and saves nothing: no service has a move / transfer endpoint and registered assets cannot be updated (question 51). |
+| Move Asset (Asset grid, `/work/movement/transfer?asset=`) | Current location + Master Data `MasterLocationField` (Country → Room, scan-to-fill; floor required) → `PUT /api/asset-registrations/{id}` with the complete `locationAssignment` (see `docs/asset_edit_report.md`). |
 
 Server rule shown to the user: one active assignment per asset (an "already assigned" notice appears when the asset's
 status is "Assigned"; the server's error is shown if it refuses).

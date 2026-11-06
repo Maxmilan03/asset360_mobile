@@ -39,10 +39,19 @@ import 'package:asset360_mobile/features/more/registration/step_purchase.dart';
 /// to the mock register. API mode (LiveRegistrationService): Next saves the step on the server
 /// (step 1 creates the draft "AR000123"), Save as Draft sends ?saveAsDraft=true, Submit posts the
 /// draft; server errors are shown under the fields, the form keeps what the user typed.
+///
+/// Edit Asset (API mode, [editAssetId]): the same steps pre-filled from GET /api/asset-registrations/
+/// {id}. Next only checks the step; Review's "Save changes" sends PUT /api/asset-registrations/{id}
+/// with the COMPLETE sections the user changed (the server replaces each section it receives and
+/// keeps the others), see [LiveAssetEditor.save]. No Save as Draft.
 class RegisterAssetScreen extends ConsumerStatefulWidget {
-  const RegisterAssetScreen({super.key, this.prefill});
+  const RegisterAssetScreen({super.key, this.prefill}) : editAssetId = null;
+
+  /// Edit Asset for the registered asset [editAssetId] ("AR000001").
+  const RegisterAssetScreen.edit({super.key, required String this.editAssetId}) : prefill = null;
 
   final RegistrationPrefill? prefill;
+  final String? editAssetId;
 
   @override
   ConsumerState<RegisterAssetScreen> createState() => _RegisterAssetScreenState();
@@ -54,9 +63,13 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
   late AssetRegistration f;
   int _step = 0;
 
-  /// API mode: loading a draft to resume (GET /drafts/{id}) and why it failed.
+  /// API mode: loading a draft to resume (GET /drafts/{id}) or the asset to edit, and why it failed.
   bool _loading = false;
   Object? _loadError;
+
+  /// Edit Asset: the asset as loaded from the server; "Save changes" sends the sections that differ.
+  AssetRegistration? _original;
+  bool get _editing => widget.editAssetId != null;
 
   /// API mode: steps changed since they were last saved on the server.
   final _unsaved = <int>{};
@@ -87,6 +100,12 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) refreshMasterData(ref);
       });
+    }
+    if (_editing) {
+      f = AssetRegistration(assetRegistrationId: widget.editAssetId!);
+      _loading = true;
+      _loadAsset();
+      return;
     }
     final p = widget.prefill;
     if (apiMode && p?.draftId != null) {
@@ -188,12 +207,33 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
     }
   }
 
+  /// Edit Asset: GET /api/asset-registrations/{id}; the form edits a copy.
+  Future<void> _loadAsset() async {
+    try {
+      final asset = await ref.read(assetsApiProvider).get(widget.editAssetId!);
+      if (!mounted) return;
+      setState(() {
+        _original = asset.copy();
+        f = asset.copy();
+        _loading = false;
+        _loadError = null;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadError = e;
+        });
+      }
+    }
+  }
+
   void _retryLoad() {
     setState(() {
       _loading = true;
       _loadError = null;
     });
-    _loadDraft();
+    _editing ? _loadAsset() : _loadDraft();
   }
 
   /// Mock mode only: the asset already using a tag / barcode / RFID value. API mode: null (the
@@ -221,8 +261,10 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
     setState(() {
       _step = step;
       _errors = const {};
-      // Steps 3 and 4 start from what earlier steps already know.
+      // Steps 3 and 4 start from what earlier steps already know (not when editing: only what the
+      // user changes is saved).
       final p = f.purchaseWarranty.purchase, a = f.locationAssignment.assignment;
+      if (_editing) return;
       if (step == 2) {
         a.custodianDepartment ??= f.classification.department;
         a.costCenter ??= f.classification.costCenter;
@@ -260,7 +302,7 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
     await _clearShownErrors();
     if (!mounted) return;
     if (!_show(_check(_step, mandatory: true), mandatory: true)) return;
-    if (!apiMode) return _goTo(_step + 1);
+    if (!apiMode || _editing) return _goTo(_step + 1);
     if (_uploadsRunning()) return;
     if (await _saveSteps([_step], saveAsDraft: false)) _goTo(_step + 1);
   }
@@ -365,7 +407,9 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
       final discard = await showConfirmDialog(
         context,
         title: 'Discard changes?',
-        message: _isSaved
+        message: _editing
+            ? 'Your changes to ${f.assetRegistrationId} will be lost.'
+            : _isSaved
             ? 'Changes since the last Save as Draft will be lost.'
             : 'The details you entered will be lost. Use Save as Draft to keep them.',
         confirmLabel: 'Discard',
@@ -461,6 +505,7 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
       context.showSnack('${registrationStepTitles[invalid.step]}: ${invalid.errors.values.first}');
       return;
     }
+    if (_editing) return _saveChanges();
     if (apiMode) return _submitToServer();
     setState(() => _busy = true);
     await Future<void>.delayed(const Duration(milliseconds: 700));
@@ -531,6 +576,49 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
     await _registered(asset.assetRegistrationId, asset.title);
   }
 
+  /// Edit Asset "Save changes": PUT with the complete sections that changed. Errors as on Submit:
+  /// "Classification.Department" … opens that step, a taken asset tag (409) opens step 1.
+  Future<void> _saveChanges() async {
+    if (_uploadsRunning()) return;
+    setState(() => _busy = true);
+    final AssetRegistration? saved;
+    final sections = UpdateAssetRegistrationRequest.changes(_original!, f).sections.toList();
+    try {
+      saved = await LiveAssetEditor(ref).save(_original!, f);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      final err = ApiException.from(e);
+      final byStep = submitErrorsByStep(err.fieldErrors);
+      if (err.kind == ApiErrorKind.validation && byStep.isNotEmpty) {
+        final first = byStep.keys.reduce((a, b) => a < b ? a : b);
+        _showStep(first, byStep[first]!, mandatory: true);
+        context.showSnack('${registrationStepTitles[first]}: ${byStep[first]!.values.first}');
+      } else {
+        _showServerError(err, step: 0, mandatory: true);
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _dirty = false;
+    });
+    if (saved == null) {
+      context.showSnack('No changes to save');
+      return;
+    }
+    final titles = [
+      for (final (i, key) in UpdateAssetRegistrationRequest.sectionKeys.indexed)
+        if (sections.contains(key)) registrationStepTitles[i],
+    ];
+    final messenger = ScaffoldMessenger.of(context);
+    context.pop();
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('${saved.title}: changes saved (${titles.join(', ')})')));
+  }
+
   /// The "Asset registered" sheet and what the user picked there.
   Future<void> _registered(String id, String name) async {
     final router = GoRouter.of(context);
@@ -556,7 +644,11 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
         header: const AppHeader(showBack: true),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
-            : LoadErrorState(error: _loadError!, title: 'Could not open the draft', onRetry: _retryLoad),
+            : LoadErrorState(
+                error: _loadError!,
+                title: _editing ? 'Could not open the asset' : 'Could not open the draft',
+                onRetry: _retryLoad,
+              ),
       );
     }
     return PopScope(
@@ -573,11 +665,12 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
               children: [
                 TextButton(onPressed: _cancel, child: const Text('Cancel')),
                 const Spacer(),
-                TextButton.icon(
-                  onPressed: _busy ? null : _saveDraft,
-                  icon: const Icon(Icons.save_outlined, size: 18),
-                  label: const Text('Save as Draft'),
-                ),
+                if (!_editing)
+                  TextButton.icon(
+                    onPressed: _busy ? null : _saveDraft,
+                    icon: const Icon(Icons.save_outlined, size: 18),
+                    label: const Text('Save as Draft'),
+                  ),
               ],
             ),
             Row(
@@ -603,7 +696,11 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: isReview
-                                  ? const [Icon(Icons.check_rounded, size: 20), SizedBox(width: 6), Text('Submit')]
+                                  ? [
+                                      const Icon(Icons.check_rounded, size: 20),
+                                      const SizedBox(width: 6),
+                                      Text(_editing ? 'Save changes' : 'Submit'),
+                                    ]
                                   : const [
                                       Text('Next'),
                                       SizedBox(width: 6),
@@ -632,12 +729,20 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
               children: [
                 PageTitle(
                   leading: Icon(Icons.radio_button_checked_rounded, color: AppColors.text, size: 22),
-                  title: 'Asset Registration',
+                  title: _editing ? 'Edit Asset' : 'Asset Registration',
                   subtitle: isReview
-                      ? 'Review details before submitting'
+                      ? (_editing ? 'Review your changes before saving' : 'Review details before submitting')
                       : 'Step ${_step + 1} of 5 · ${registrationStepSubtitles[_step]}',
                 ),
-                if (apiMode && LiveRegistrationService.isOnServer(f))
+                if (_editing)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: IconLine(
+                      icon: Icons.edit_outlined,
+                      text: '${f.assetRegistrationId} · only the steps you change are saved',
+                    ),
+                  )
+                else if (apiMode && LiveRegistrationService.isOnServer(f))
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: IconLine(

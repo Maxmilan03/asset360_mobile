@@ -137,11 +137,19 @@
   API-mode `showPersonPicker` / `PersonField` = employees (`masterPersonProvider`, id = employee record id).
   `features/assets/live/live_assignment_screens.dart`: `LiveAssignCustodianScreen` / `LiveCheckInOutScreen`
   (`AssetsApi.createAssignment` = POST /api/asset-assignments, assignTo Employee; Check In not available) and
-  `LiveMoveScreen` (MasterLocationField, no move endpoint → "Not available yet"); routed from More Actions,
-  the live asset grid and `/work/movement/{transfer,check-out,assign}` in API mode. Scans:
+  `LiveMoveScreen` (MasterLocationField → PUT locationAssignment, `movedTo`); routed from More Actions,
+  the live asset grid and `/work/movement/{transfer,check-out,assign}` in API mode. AssignTo = `/api/asset-assignments/
+  options` (`assignmentOptionsProvider`, `AssignmentOptions.employee`). Scans:
   `ScanService.findMasterLocation` (LOC:<code> via location code, tag links hold the Master Data id,
   `ScanResult.masterLocation`). Filter sheet merges Master Data values with `/filters`. Report:
   `docs/master_data_report.md`. Tests: `test/live/master_data_test.dart` (fake routes in `FakeAssetBackend.seedMasterData`).
+- Edit / delete (API mode): `PUT /api/asset-registrations/{id}` REPLACES each section sent, so only changed sections
+  are sent and each one COMPLETE: `UpdateAssetRegistrationRequest.changes(original, edited)` (asset_api_models.dart),
+  `LiveAssetEditor.save / delete` (live_assets_repository.dart; refreshes asset + lists). Edit Asset =
+  `/assets/detail/:id/edit` → `RegisterAssetScreen.edit` ("Save changes", no drafts); inline Key Information =
+  `features/assets/live/live_key_information.dart`; Delete = detail ⋮ (soft delete, back to the list). Status chip
+  colours = `AssetOptions.toneOf` (blue Assigned). Report: `docs/asset_edit_report.md`; tests:
+  `test/live/asset_edit_live_test.dart` (the fake backend keeps `stored` and replaces sections on PUT).
 - Scan (prompt 07): `features/assets/scan/` — `scan_screen.dart` (QR camera + simulated NFC/RFID/BLE, Manual Entry, Multi Scan,
   debug "Simulate scan" chip), `scan_result_screen.dart` (Asset Identified), `scan_history_screen.dart`. Every scan goes
   through `openScannedCode` (`scan_flow.dart`), which records history and routes. Code matching = `ScanHistoryNotifier.resolve`

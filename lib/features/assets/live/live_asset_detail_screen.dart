@@ -80,7 +80,7 @@ class _LiveAssetDetailScreenState extends ConsumerState<LiveAssetDetailScreen> {
         _refresh();
         context.showSnack('Refreshing ${r.title} …');
       case _Menu.edit:
-        showNotAvailableYet(context, 'Edit Asset');
+        context.push(Routes.assetEdit(_id));
       case _Menu.duplicate:
         showNotAvailableYet(context, 'Duplicate');
       case _Menu.linkIot:
@@ -88,7 +88,29 @@ class _LiveAssetDetailScreenState extends ConsumerState<LiveAssetDetailScreen> {
       case _Menu.retire:
         showNotAvailableYet(context, 'Retire Asset');
       case _Menu.delete:
-        showNotAvailableYet(context, 'Delete Asset');
+        _delete(r);
+    }
+  }
+
+  /// DELETE /api/asset-registrations/{id} (soft delete) after a confirmation, then back to the
+  /// refreshed list. Create Disposal Request stays in More Actions for a formal disposal.
+  Future<void> _delete(AssetRegistration r) async {
+    final ok = await showConfirmDialog(
+      context,
+      title: 'Delete ${r.title}?',
+      message: 'The asset will be removed from lists.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    try {
+      await LiveAssetEditor(ref).delete(_id);
+      if (!mounted) return;
+      // The SnackBar lives on the shell, so it stays while the list opens.
+      context.showSnack('${r.title} deleted');
+      context.go(Routes.assets);
+    } catch (e) {
+      if (mounted) context.showSnack('Could not delete ${r.title}: ${ApiException.from(e).message}');
     }
   }
 
@@ -235,7 +257,13 @@ class _Header extends ConsumerWidget {
                   children: [
                     Icon(icon, size: 20, color: m == _Menu.delete ? AppColors.red : AppColors.text),
                     const SizedBox(width: 12),
-                    Text(label, style: TextStyle(color: m == _Menu.delete ? AppColors.red : AppColors.text)),
+                    Flexible(
+                      child: Text(
+                        label,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: m == _Menu.delete ? AppColors.red : AppColors.text),
+                      ),
+                    ),
                   ],
                 ),
               ),

@@ -12,11 +12,14 @@ import 'package:asset360_mobile/features/assets/more_actions/more_action_widgets
 
 /// API mode Assign Custodian, Check Out and Move Asset.
 ///
-/// Assign Custodian and Check Out: POST /api/asset-assignments with AssignTo = "Employee" and the
-/// Master Data employee (record id, employee number, name, designation, department), the way the
-/// web's Assign Asset wizard does. The server copies the employee onto the asset's assignment
-/// (assignedToUserId / assignedToName / custodianDepartment) and sets its status to "Assigned".
-/// Check In and Move have no backend yet ("Not available yet").
+/// Assign Custodian and Check Out: POST /api/asset-assignments with AssignTo = the "Employee" value of
+/// GET /api/asset-assignments/options and the Master Data employee (record id, employee number, name,
+/// designation, department), the way the web's Assign Asset wizard does. The server copies the
+/// employee onto the asset's assignment (assignedToUserId / assignedToName / custodianDepartment) and
+/// sets its status to "Assigned". Check In has no backend yet ("Not available yet").
+///
+/// Move Asset: PUT /api/asset-registrations/{id} with the complete locationAssignment section (the
+/// new Master Data location + the asset's current assignment unchanged).
 
 /// Status the Asset service gives an asset while it is in an active assignment.
 const assignedStatus = 'Assigned';
@@ -76,9 +79,11 @@ MdEmployee? employeeById(WidgetRef ref, String? id, {bool watch = true}) {
 }
 
 /// Builds the request for [employee] (all its Master Data facts are copied, as the web does).
+/// [assignTo] = the server's "Employee" target ([AssignmentOptions.employee]).
 CreateAssetAssignmentRequest assignmentFor(
   AssetRegistration r,
   MdEmployee employee, {
+  required String assignTo,
   required String type,
   required DateTime from,
   DateTime? to,
@@ -86,6 +91,7 @@ CreateAssetAssignmentRequest assignmentFor(
   String? remarks,
 }) => CreateAssetAssignmentRequest(
   assetRegistrationIds: [r.assetRegistrationId],
+  assignTo: assignTo,
   assignmentType: type,
   fromDate: from,
   toDate: to,
@@ -104,12 +110,24 @@ mixin _AssignmentSubmit<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   final errors = <String, String>{};
   bool busy = false;
 
-  Future<void> submit(AssetRegistration r, CreateAssetAssignmentRequest request, String done) async {
+  /// [request] gets the server's AssignTo value for an employee (from /options).
+  Future<void> submit(
+    AssetRegistration r,
+    CreateAssetAssignmentRequest Function(String assignTo) request,
+    String done,
+  ) async {
+    final assignTo = ref.read(assignmentOptionsProvider).value?.employee;
+    if (assignTo == null) {
+      context.showSnack('The assignment options are not loaded; tap Retry first');
+      return;
+    }
     setState(() => busy = true);
     try {
-      final a = await ref.read(assetsApiProvider).createAssignment(request);
+      final a = await ref.read(assetsApiProvider).createAssignment(request(assignTo));
       invalidateLiveAsset(ref, r.assetRegistrationId);
-      ref.invalidate(liveAssetListProvider);
+      ref
+        ..invalidate(liveAssetListProvider)
+        ..invalidate(assetSummaryProvider);
       if (mounted) finishAction(context, '$done${a.assignmentNumber.isEmpty ? '' : ' (${a.assignmentNumber})'}');
     } catch (e) {
       if (!mounted) return;
@@ -122,9 +140,40 @@ mixin _AssignmentSubmit<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     }
   }
 
+  /// Loading / failed state of GET /api/asset-assignments/options (AssignTo values); null when the
+  /// server's "Employee" target is known.
+  Widget? assignToStatus() {
+    final v = ref.watch(assignmentOptionsProvider);
+    void retry() => ref.invalidate(assignmentOptionsProvider);
+    final Widget? status;
+    if (v.hasError && !v.isLoading) {
+      status = InlineRetry(
+        text: 'Could not load the assignment options: ${ApiException.from(v.error!).message}',
+        onRetry: retry,
+        error: true,
+      );
+    } else if (!v.hasValue) {
+      status = const Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    } else if (v.requireValue.employee == null) {
+      status = InlineRetry(
+        text:
+            'The server does not offer assigning to an employee '
+            '(Assign To: ${v.requireValue.assignTo.isEmpty ? 'none' : v.requireValue.assignTo.join(', ')})',
+        onRetry: retry,
+        error: true,
+      );
+    } else {
+      status = null;
+    }
+    return status == null ? null : Padding(padding: const EdgeInsets.only(bottom: 14), child: status);
+  }
+
   /// "In assignment ASG-… already" notice when the asset is assigned.
   Widget? assignedNotice(AssetRegistration r) {
-    if (r.basicInformation.status != assignedStatus) return null;
+    if (r.basicInformation.status?.trim().toLowerCase() != assignedStatus.toLowerCase()) return null;
     final who = r.locationAssignment.assignment.assignedToName;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -172,17 +221,19 @@ class _LiveAssignCustodianScreenState extends ConsumerState<LiveAssignCustodianS
     }
     setState(() {});
     if (errors.isNotEmpty) return;
+    final employee = e!;
     submit(
       r,
-      assignmentFor(
+      (assignTo) => assignmentFor(
         r,
-        e!,
+        employee,
+        assignTo: assignTo,
         type: CreateAssetAssignmentRequest.custodian,
         from: _from!,
         to: _to,
         remarks: blankToNull(_notes.text),
       ),
-      '${r.title}: custodian set to ${e.name}',
+      '${r.title}: custodian set to ${employee.name}',
     );
   }
 
@@ -194,6 +245,7 @@ class _LiveAssignCustodianScreenState extends ConsumerState<LiveAssignCustodianS
     builder: (context, r) {
       final current = r.locationAssignment.assignment.assignedToName;
       return [
+        ?assignToStatus(),
         ?assignedNotice(r),
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
@@ -281,18 +333,20 @@ class _LiveCheckInOutScreenState extends ConsumerState<LiveCheckInOutScreen>
     if (e == null) errors['Employee.EmployeeId'] = 'Choose who takes the asset';
     setState(() {});
     if (errors.isNotEmpty) return;
+    final employee = e!;
     submit(
       r,
-      assignmentFor(
+      (assignTo) => assignmentFor(
         r,
-        e!,
+        employee,
+        assignTo: assignTo,
         type: CreateAssetAssignmentRequest.checkOut,
         from: liveToday(),
         to: _return,
         purpose: blankToNull(_purpose.text),
         remarks: blankToNull(_notes.text),
       ),
-      '${r.title} checked out to ${e.name}${_return == null ? '' : ' until ${liveDate(_return)}'}',
+      '${r.title} checked out to ${employee.name}${_return == null ? '' : ' until ${liveDate(_return)}'}',
     );
   }
 
@@ -316,6 +370,7 @@ class _LiveCheckInOutScreenState extends ConsumerState<LiveCheckInOutScreen>
       if (_tab == 1)
         const NotAvailableYet(feature: 'Check In', icon: Icons.login_rounded)
       else ...[
+        ?assignToStatus(),
         ?assignedNotice(r),
         _EmployeePicker(
           label: 'Assign To',
@@ -368,8 +423,9 @@ class _LiveCheckInOutScreenState extends ConsumerState<LiveCheckInOutScreen>
 // ---------------------------------------------------------------- Move Asset
 
 /// API mode Move Asset: the new location from the Master Data tree (cascading Country → Room or a
-/// scanned location tag). No service can move an asset yet, so Move says "Not available yet" and
-/// nothing is saved.
+/// scanned location tag), saved with PUT /api/asset-registrations/{id}. The server replaces the
+/// whole Location & Assignment section, so the section is sent complete: [movedTo].
+/// The backend has no place for a move reason or a movement history, so none is asked.
 class LiveMoveScreen extends ConsumerStatefulWidget {
   const LiveMoveScreen({super.key, required this.assetId});
 
@@ -379,21 +435,54 @@ class LiveMoveScreen extends ConsumerStatefulWidget {
   ConsumerState<LiveMoveScreen> createState() => _LiveMoveScreenState();
 }
 
+/// [r] moved to [to]: a copy whose location is the picked Master Data path (ids, names and path of
+/// every level; levels below the pick cleared). The project id and the whole assignment (custodian,
+/// department, team, ownership, cost center, dates) stay as they are. The GPS position belonged to
+/// the old place, so it is cleared.
+AssetRegistration movedTo(AssetRegistration r, MdLocationPath to) {
+  final moved = r.copy();
+  final l = moved.locationAssignment.location;
+  to.writeTo(l);
+  l
+    ..latitude = null
+    ..longitude = null;
+  return moved;
+}
+
 class _LiveMoveScreenState extends ConsumerState<LiveMoveScreen> {
   MdLocationPath _to = MdLocationPath.empty;
   String? _error;
-  final _reason = TextEditingController();
+  bool _busy = false;
 
-  @override
-  void dispose() {
-    _reason.dispose();
-    super.dispose();
-  }
-
-  void _move() {
+  Future<void> _move(AssetRegistration r) async {
     final ok = (_to.level?.index ?? -1) >= MdLocationLevel.floor.index;
     setState(() => _error = ok ? null : 'Choose at least the country, site, building and floor');
-    if (ok) showNotAvailableYet(context, 'Move Asset');
+    if (!ok) return;
+    setState(() => _busy = true);
+    try {
+      final saved = await LiveAssetEditor(ref).save(r, movedTo(r, _to));
+      if (!mounted) return;
+      if (saved == null) {
+        setState(() => _busy = false);
+        context.showSnack('${r.title} is already at ${_to.label}');
+        return;
+      }
+      finishAction(context, '${r.title} moved to ${_to.label}');
+    } catch (e) {
+      if (!mounted) return;
+      final err = ApiException.from(e);
+      // "LocationAssignment.Location.FloorId" … under the location; any other field (the whole
+      // asset is re-checked) as a message that points to Edit Asset.
+      final location = err.fieldErrors.entries.where((f) => f.key.startsWith('LocationAssignment.')).firstOrNull;
+      final other = err.fieldErrors.entries.where((f) => !f.key.startsWith('LocationAssignment.')).firstOrNull;
+      setState(() {
+        _busy = false;
+        _error = location?.value;
+      });
+      context.showSnack(
+        other != null && location == null ? '${other.value} · fix it with Edit Asset, then move again' : err.message,
+      );
+    }
   }
 
   @override
@@ -401,8 +490,7 @@ class _LiveMoveScreenState extends ConsumerState<LiveMoveScreen> {
     title: 'Move Asset',
     subtitle: 'Move the asset to another location',
     assetId: widget.assetId,
-    button: (_) =>
-        FilledButton.icon(onPressed: _move, icon: const Icon(Icons.swap_horiz_rounded), label: const Text('Move')),
+    button: (r) => busyButton(busy: _busy, onPressed: () => _move(r), label: 'Move', icon: Icons.swap_horiz_rounded),
     builder: (context, r) => [
       const FieldLabel('Current Location'),
       Padding(
@@ -415,18 +503,8 @@ class _LiveMoveScreenState extends ConsumerState<LiveMoveScreen> {
       const FieldLabel('New Location', required: true),
       MasterLocationField(value: _to, errorText: _error, onChanged: (v) => setState(() => _to = v)),
       const SizedBox(height: 14),
-      formField(
-        'Reason',
-        TextField(
-          controller: _reason,
-          maxLength: 500,
-          textCapitalization: TextCapitalization.sentences,
-          style: inputStyle,
-          decoration: const InputDecoration(hintText: 'Why the asset moves'),
-        ),
-      ),
       Text(
-        'Moving assets is not connected to the server yet; nothing is saved.',
+        'The custodian, department and other assignment details stay as they are.',
         style: AppText.caption.copyWith(color: AppColors.textSecondary),
       ),
     ],

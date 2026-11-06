@@ -8,6 +8,7 @@ import 'package:asset360_mobile/data/repositories/live_assets_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_actions.dart';
 import 'package:asset360_mobile/features/assets/live/live_detail_common.dart';
 import 'package:asset360_mobile/features/assets/live/live_detail_upload.dart';
+import 'package:asset360_mobile/features/assets/live/live_key_information.dart';
 import 'package:asset360_mobile/features/assets/more_actions/more_action_widgets.dart';
 
 /// Tab contents of the live Asset 360° screen.
@@ -42,6 +43,8 @@ class LiveOverviewTab extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        LiveKeyInformationCard(key: ValueKey('keyInfo#${r.updatedAt}'), asset: r),
+        gap,
         LiveConditionCard(assetId: r.assetRegistrationId),
         gap,
         LiveCriticalityCard(assetId: r.assetRegistrationId),

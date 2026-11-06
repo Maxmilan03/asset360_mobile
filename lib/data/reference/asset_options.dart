@@ -35,7 +35,7 @@ abstract final class AssetStatus {
 }
 
 /// Colour group of an option value; [ChipTone.forAsset] turns it into a chip colour.
-enum OptionTone { green, amber, red, grey }
+enum OptionTone { green, blue, amber, red, grey }
 
 abstract final class AssetOptions {
   /// Status dropdowns (see [AssetStatus]).
@@ -208,10 +208,15 @@ abstract final class AssetOptions {
 
   /// One colour per value: green Active / Excellent / Good / Low, amber Fair / Under Maintenance /
   /// In Repair / Medium, red Poor / Critical / Disposed / High, grey Other and anything unknown.
-  static OptionTone toneOf(String value) => switch (value) {
-    AssetStatus.active || 'Excellent' || 'Good' || 'Low' => OptionTone.green,
-    'Fair' || AssetStatus.underMaintenance || AssetStatus.inRepair || 'Medium' => OptionTone.amber,
-    'Poor' || 'Critical' || AssetStatus.disposed || 'High' => OptionTone.red,
+  ///
+  /// Asset statuses (the server's /options list plus "Assigned" / "Available", which assignments
+  /// set): green Active / Available, blue Assigned, amber Under Maintenance / In Repair / In Storage,
+  /// red Out of Service / Disposed, grey Inactive and anything unknown. Case-insensitive.
+  static OptionTone toneOf(String value) => switch (value.trim().toLowerCase()) {
+    'active' || 'available' || 'excellent' || 'good' || 'low' => OptionTone.green,
+    'assigned' => OptionTone.blue,
+    'fair' || 'under maintenance' || 'in repair' || 'in storage' || 'medium' => OptionTone.amber,
+    'poor' || 'critical' || 'out of service' || 'disposed' || 'high' => OptionTone.red,
     _ => OptionTone.grey,
   };
 }

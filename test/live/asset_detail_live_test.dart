@@ -72,7 +72,13 @@ void main() {
   Finder page() => find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first;
 
   Future<void> see(WidgetTester tester, Finder f) async {
-    await tester.scrollUntilVisible(f, 250, scrollable: page());
+    // Scroll until it is built (lazy list), then bring the first match into view (a value can be
+    // shown twice, e.g. in Key Information and in its section).
+    for (var i = 0; i < 60 && f.evaluate().isEmpty; i++) {
+      await tester.drag(page(), const Offset(0, -250));
+      await tester.pump();
+    }
+    await tester.ensureVisible(f.first);
     await tester.pumpAndSettle();
     expect(f, findsWidgets);
   }

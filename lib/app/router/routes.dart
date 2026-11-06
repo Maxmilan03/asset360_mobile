@@ -60,6 +60,9 @@ abstract final class Routes {
   static String assetDetail(String assetId, {String? tab}) =>
       tab == null ? '/assets/detail/$assetId' : '/assets/detail/$assetId?tab=$tab';
 
+  /// API mode Edit Asset: the registration wizard pre-filled from the asset ("Save changes").
+  static String assetEdit(String assetId) => '/assets/detail/${Uri.encodeComponent(assetId)}/edit';
+
   // Scan (under the tab the user is in)
   static String scanFrom(String location) => '${tabRootOf(location)}/$scanSegment';
   static String scanResultFrom(String location, String assetId) => '${scanFrom(location)}/result/$assetId';

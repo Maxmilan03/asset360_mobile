@@ -158,31 +158,25 @@ void main() {
     expect(find.textContaining('checked out to Sara Ali'), findsOneWidget);
   });
 
-  testWidgets('Move Asset: Master Data location pickers; Move needs a floor, then says not available yet', (
-    tester,
-  ) async {
-    await open(tester, Routes.withAsset(Routes.transferAsset, 'AR000001'));
-    expect(find.text('Move Asset'), findsWidgets);
-    expect(find.text('UAE > Main Site > Block A > Ground'), findsOneWidget, reason: 'current location');
-    await tap(tester, button('Move'));
-    expect(find.text('Choose at least the country, site, building and floor'), findsOneWidget);
+  testWidgets('AssignTo comes from /api/asset-assignments/options; without it nothing is sent', (tester) async {
+    backend.on('GET', '/api/asset-assignments/options', (_) => const FakeReply(503, {'message': 'down'}));
+    await open(tester, Routes.moreActionFrom('/assets', 'assign-custodian', 'AR000001'));
+    expect(find.textContaining('Could not load the assignment options'), findsOneWidget);
+    await pickSara(tester);
+    await tap(tester, button('Assign Custodian'));
+    expect(backend.calls('POST', _assignments), isEmpty);
 
-    Future<void> pick(String label, String option) async {
-      final f = find.byWidgetPredicate((w) {
-        final k = w.key;
-        return w is FormField && k is ValueKey<String> && k.value.startsWith('$label#');
-      });
-      await tap(tester, f.first);
-      await tester.tap(find.text(option).last);
-      await tester.pumpAndSettle();
-    }
-
-    await pick('Country', 'UAE');
-    await pick('Site', 'Main Site');
-    await pick('Building', 'Block A');
-    await pick('Floor', 'First');
-    await tap(tester, button('Move'));
-    expect(find.text('Move Asset: $notAvailableYetMessage.'), findsOneWidget);
-    expect(backend.requests.where((r) => r.method != 'GET'), isEmpty, reason: 'nothing is saved');
+    // The server's own spelling is sent back.
+    backend.on(
+      'GET',
+      '/api/asset-assignments/options',
+      (_) => const FakeReply(200, {
+        'assignTo': ['EMPLOYEE', 'Department'],
+      }),
+    );
+    await tap(tester, find.text('Retry'));
+    expect(find.textContaining('Could not load the assignment options'), findsNothing);
+    await tap(tester, button('Assign Custodian'));
+    expect(sent()['assignTo'], 'EMPLOYEE');
   });
 }

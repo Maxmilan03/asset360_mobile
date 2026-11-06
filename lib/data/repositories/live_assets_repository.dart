@@ -170,7 +170,54 @@ List<ProviderOrFamily> liveAssetProviders(String id) => [
   liveCriticalityProvider(id),
 ];
 
+// ------------------------------------------------------------------ edit / delete
+
+/// Edit and delete a registered asset (PUT / DELETE /api/asset-registrations/{id}); both refresh the
+/// asset and every list after a success.
+class LiveAssetEditor {
+  const LiveAssetEditor(this.ref);
+
+  final WidgetRef ref;
+
+  AssetsApi get _api => ref.read(assetsApiProvider);
+
+  /// Sends the complete sections of [edited] that differ from [original] (the asset as loaded).
+  /// Null when nothing changed (no call is made). Errors: [ApiException] (400 fields keyed
+  /// "Step.Field", 409 asset tag taken).
+  Future<AssetRegistration?> save(AssetRegistration original, AssetRegistration edited) async {
+    final request = UpdateAssetRegistrationRequest.changes(original, edited);
+    if (request.isEmpty) return null;
+    final saved = await _api.update(original.assetRegistrationId, request);
+    _refresh(original.assetRegistrationId);
+    return saved;
+  }
+
+  /// Soft delete; the asset drops out of every list.
+  Future<void> delete(String assetRegistrationId) async {
+    await _api.delete(assetRegistrationId);
+    ref.read(liveFavoritesProvider.notifier).remove(assetRegistrationId);
+    _refresh(assetRegistrationId);
+  }
+
+  void _refresh(String id) {
+    for (final p in [
+      ...liveAssetProviders(id),
+      liveAssetListProvider,
+      recentLiveAssetsProvider,
+      assetSummaryProvider,
+      assetListFiltersProvider,
+    ]) {
+      ref.invalidate(p);
+    }
+  }
+}
+
 // ------------------------------------------------------------------ dropdowns
+
+/// GET /api/asset-assignments/options (kept for the session): the AssignTo values.
+final assignmentOptionsProvider = FutureProvider<AssignmentOptions>(
+  (ref) => ref.watch(assetsApiProvider).assignmentOptions(),
+);
 
 /// GET /api/asset-registrations/options (kept for the session).
 final registrationOptionsProvider = FutureProvider<RegistrationOptions>(
@@ -210,8 +257,15 @@ class LiveFavoritesNotifier extends Notifier<Set<String>> {
 
   bool isFavorite(String id) => state.contains(id);
 
-  Future<void> toggle(String id) async {
-    state = state.contains(id) ? ({...state}..remove(id)) : {...state, id};
+  Future<void> toggle(String id) => _save(state.contains(id) ? ({...state}..remove(id)) : {...state, id});
+
+  /// Drops [id] (a deleted asset).
+  Future<void> remove(String id) async {
+    if (state.contains(id)) await _save({...state}..remove(id));
+  }
+
+  Future<void> _save(Set<String> ids) async {
+    state = ids;
     try {
       await (await SharedPreferences.getInstance()).setStringList(storageKey, state.toList());
     } catch (_) {

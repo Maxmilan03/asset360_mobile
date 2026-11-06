@@ -3,6 +3,8 @@
 /// [AssetRegistration] model (lib/data/models/asset_registration.dart).
 library;
 
+import 'dart:convert';
+
 import 'package:asset360_mobile/data/api/assets/json_read.dart';
 import 'package:asset360_mobile/data/models/asset_registration.dart';
 
@@ -1057,13 +1059,14 @@ class RegistrationOptions {
 // ------------------------------------------------------------------ assignments
 
 /// POST /api/asset-assignments (`CreateAssetAssignmentRequest`, the web's Assign Asset wizard),
-/// used for Assign Custodian and Check Out with AssignTo = "Employee". The employee is the Master
+/// used for Assign Custodian and Check Out with AssignTo = the server's "Employee" target. The employee is the Master
 /// Data employee: [employeeId] = its record id (copied to the asset's `assignedToUserId`).
 /// Required on confirm: assetRegistrationIds, assignTo, assignmentType, fromDate, and toDate
 /// unless [isOpenEnded]; Employee.EmployeeId for an employee.
 class CreateAssetAssignmentRequest {
   const CreateAssetAssignmentRequest({
     required this.assetRegistrationIds,
+    required this.assignTo,
     required this.assignmentType,
     required this.fromDate,
     required this.employeeId,
@@ -1082,6 +1085,10 @@ class CreateAssetAssignmentRequest {
   static const checkOut = 'Check Out';
 
   final List<String> assetRegistrationIds;
+
+  /// One of GET /api/asset-assignments/options → assignTo (AssetAssignmentTargets): the app sends
+  /// the server's "Employee" value ([AssignmentOptions.employee]).
+  final String assignTo;
   final String assignmentType;
   final DateTime fromDate;
 
@@ -1096,7 +1103,7 @@ class CreateAssetAssignmentRequest {
   Map<String, dynamic> toJson() => {
     'selectionMode': assetRegistrationIds.length == 1 ? 'Single' : 'Multiple',
     'assetRegistrationIds': assetRegistrationIds,
-    'assignTo': 'Employee',
+    'assignTo': assignTo,
     'assignmentType': assignmentType,
     'fromDate': jDay(fromDate),
     'toDate': jDay(toDate),
@@ -1137,4 +1144,87 @@ class AssetAssignmentRecord {
       assignedToName: jStr(j['assignedToName']),
     );
   }
+}
+
+/// GET /api/asset-assignments/options (`AssetAssignmentOptionsResponse`). AssignTo is validated
+/// against these (Employee, Department, Location, Other Entity on the server today).
+class AssignmentOptions {
+  const AssignmentOptions({this.assignTo = const [], this.otherEntityTypes = const [], this.selectionModes = const []});
+
+  final List<String> assignTo, otherEntityTypes, selectionModes;
+
+  /// The server's spelling of the "Employee" target; null when the server does not offer it.
+  String? get employee => assignTo.where((t) => t.trim().toLowerCase() == 'employee').firstOrNull;
+
+  factory AssignmentOptions.fromJson(Object? json) {
+    final j = jMap(json);
+    return AssignmentOptions(
+      assignTo: jStrings(j['assignTo']),
+      otherEntityTypes: jStrings(j['otherEntityTypes']),
+      selectionModes: jStrings(j['selectionModes']),
+    );
+  }
+}
+
+// ------------------------------------------------------------------ edit a registered asset
+
+/// PUT /api/asset-registrations/{id} (`UpdateAssetRegistrationRequest`). The server REPLACES every
+/// section it receives and keeps the ones left out (null), so a section is only ever sent whole:
+/// [UpdateAssetRegistrationRequest.changes] compares the edited copy with the asset as loaded and
+/// keeps the complete sections that differ.
+class UpdateAssetRegistrationRequest {
+  const UpdateAssetRegistrationRequest({
+    this.basicInformation,
+    this.classification,
+    this.locationAssignment,
+    this.purchaseWarranty,
+    this.additionalInformation,
+  });
+
+  /// The complete sections of [edited] that are not the same as in [original] (the asset as loaded
+  /// from the server). Unchanged sections are left out, so the server keeps them as stored.
+  factory UpdateAssetRegistrationRequest.changes(AssetRegistration original, AssetRegistration edited) {
+    bool changed(Object a, Object b) => jsonEncode(a) != jsonEncode(b);
+    T? ifChanged<T extends Object>(T Function(AssetRegistration) section, Object Function(T) toJson) {
+      final before = section(original), after = section(edited);
+      return changed(toJson(before), toJson(after)) ? after : null;
+    }
+
+    return UpdateAssetRegistrationRequest(
+      basicInformation: ifChanged((r) => r.basicInformation, (s) => s.toJson()),
+      classification: ifChanged((r) => r.classification, (s) => s.toJson()),
+      locationAssignment: ifChanged((r) => r.locationAssignment, (s) => s.toJson()),
+      purchaseWarranty: ifChanged((r) => r.purchaseWarranty, (s) => s.toJson()),
+      additionalInformation: ifChanged((r) => r.additionalInformation, (s) => s.toJson()),
+    );
+  }
+
+  final AssetBasicInformation? basicInformation;
+  final AssetClassification? classification;
+  final AssetLocationAssignment? locationAssignment;
+  final AssetPurchaseWarranty? purchaseWarranty;
+  final AssetAdditionalInformation? additionalInformation;
+
+  /// Section keys in step order (Basic Information … Additional Information).
+  static const sectionKeys = [
+    'basicInformation',
+    'classification',
+    'locationAssignment',
+    'purchaseWarranty',
+    'additionalInformation',
+  ];
+
+  /// Nothing to send.
+  bool get isEmpty => toJson().isEmpty;
+
+  /// The section keys sent ("basicInformation", …).
+  Iterable<String> get sections => toJson().keys;
+
+  Map<String, dynamic> toJson() => {
+    if (basicInformation case final s?) 'basicInformation': s.toJson(),
+    if (classification case final s?) 'classification': s.toJson(),
+    if (locationAssignment case final s?) 'locationAssignment': s.toJson(),
+    if (purchaseWarranty case final s?) 'purchaseWarranty': s.toJson(),
+    if (additionalInformation case final s?) 'additionalInformation': s.toJson(),
+  };
 }

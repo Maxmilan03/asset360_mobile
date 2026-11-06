@@ -48,6 +48,25 @@ class AssetsApi {
     jMap((await client.get<Object?>('$registrations/${Uri.encodeComponent(assetRegistrationId)}')).data),
   );
 
+  /// PUT /api/asset-registrations/{assetRegistrationId} (UpdateAssetRegistrationAsync). Each section
+  /// sent REPLACES the stored one; sections left out are kept. The whole asset is then checked like a
+  /// submit: 400 keyed "Step.Field" (e.g. "LocationAssignment.Location.FloorId"), 409 when the
+  /// asset tag is used by another asset or draft, 404 when the asset is gone.
+  Future<AssetRegistration> update(String assetRegistrationId, UpdateAssetRegistrationRequest request) async =>
+      AssetRegistration.fromJson(
+        jMap(
+          (await client.put<Object?>(
+            '$registrations/${Uri.encodeComponent(assetRegistrationId)}',
+            data: request.toJson(),
+          )).data,
+        ),
+      );
+
+  /// DELETE /api/asset-registrations/{assetRegistrationId}: soft delete (204). The asset drops out
+  /// of every list and lookup; 404 when it is already gone.
+  Future<void> delete(String assetRegistrationId) =>
+      client.delete<Object?>('$registrations/${Uri.encodeComponent(assetRegistrationId)}');
+
   /// GET /api/asset-registrations/lookup?code=&type= — exact, case-insensitive match on asset tag,
   /// barcode (also QR), RFID tag ID, NFC UID or registration ID. Null when nothing matches (404).
   /// A code matching several assets is a 409 (thrown, with the server's message).
@@ -177,7 +196,13 @@ class AssetsApi {
 
   /// POST /api/asset-assignments (confirm, not a draft): Assign Custodian and Check Out.
   Future<AssetAssignmentRecord> createAssignment(CreateAssetAssignmentRequest request) async =>
-      AssetAssignmentRecord.fromJson((await client.post<Object?>('/api/asset-assignments', data: request.toJson())).data);
+      AssetAssignmentRecord.fromJson(
+        (await client.post<Object?>('/api/asset-assignments', data: request.toJson())).data,
+      );
+
+  /// GET /api/asset-assignments/options: AssignTo targets, other entity types, selection modes.
+  Future<AssignmentOptions> assignmentOptions() async =>
+      AssignmentOptions.fromJson((await client.get<Object?>('/api/asset-assignments/options')).data);
 
   /// GET /api/asset-criticality/current?assetRegistrationId= (null when none yet: 404).
   Future<AssetCriticalityAssessment?> currentCriticality(String assetRegistrationId) => _orNull(

@@ -17,6 +17,11 @@ class FakeAssetBackend implements HttpClientAdapter {
   }
 
   final requests = <RequestOptions>[];
+
+  /// AR000001 as the server stores it: PUT replaces the sections sent (as UpdateAssetRegistrationAsync
+  /// does), DELETE soft-deletes it (404 and out of the list afterwards).
+  Map<String, dynamic> stored = sampleRegistration();
+  final deleted = <String>{};
   final _routes = <String, FakeReply Function(RequestOptions o)>{};
 
   /// `on('GET', '/api/asset-registrations', (o) => FakeReply(200, {...}))`. [path] may end with
@@ -63,7 +68,8 @@ class FakeAssetBackend implements HttpClientAdapter {
       final status = q['status'];
       final items = [
         for (final a in sampleAssets)
-          if ((search.isEmpty || '${a['assetName']} ${a['assetTag']}'.toLowerCase().contains(search)) &&
+          if (!deleted.contains(a['assetRegistrationId']) &&
+              (search.isEmpty || '${a['assetName']} ${a['assetTag']}'.toLowerCase().contains(search)) &&
               (status == null || a['status'] == status))
             a,
       ];
@@ -79,7 +85,26 @@ class FakeAssetBackend implements HttpClientAdapter {
     });
     on('GET', '/api/asset-registrations/filters', (_) => const FakeReply(200, sampleFilters));
     on('GET', '/api/asset-registrations/options', (_) => const FakeReply(200, sampleOptions));
-    on('GET', '/api/asset-registrations/AR000001', (_) => FakeReply(200, sampleRegistration()));
+    const ar1 = '/api/asset-registrations/AR000001';
+    FakeReply gone() => const FakeReply(404, {'message': "Asset registration 'AR000001' was not found."});
+    on('GET', ar1, (_) => deleted.contains('AR000001') ? gone() : FakeReply(200, stored));
+    on('PUT', ar1, (o) {
+      if (deleted.contains('AR000001')) return gone();
+      final body = jsonDecode(jsonEncode(o.data)) as Map<String, dynamic>;
+      stored = {
+        ...stored,
+        for (final k in UpdateAssetRegistrationRequest.sectionKeys)
+          if (body[k] != null) k: body[k],
+        'updatedBy': 'max.milan',
+        'updatedAt': '2026-11-06T09:00:00Z',
+      };
+      return FakeReply(200, stored);
+    });
+    on('DELETE', ar1, (_) {
+      if (!deleted.add('AR000001')) return gone();
+      return const FakeReply(204);
+    });
+    on('GET', '/api/asset-assignments/options', (_) => const FakeReply(200, sampleAssignmentOptions));
     on('GET', '/api/asset-registrations/lookup', (o) {
       final code = (o.uri.queryParameters['code'] ?? '').toUpperCase();
       if (code == 'TAG-0001' || code == 'AR000001' || code == 'E2000017221101441890ABCD') {
@@ -226,6 +251,21 @@ ProviderContainer liveContainer(FakeAssetBackend backend, {List<Override> overri
     ProviderContainer(overrides: [...backend.overrides, ...overrides]);
 
 // ------------------------------------------------------------------ contract-shaped samples
+
+/// GET /api/asset-assignments/options (AssetAssignmentTargets, other entity types, selection modes).
+const sampleAssignmentOptions = {
+  'assignTo': ['Employee', 'Department', 'Location', 'Other Entity'],
+  'otherEntityTypes': [
+    'Vendor / Supplier',
+    'Contractor',
+    'Customer / Client',
+    'Partner',
+    'Project',
+    'Cost Center',
+    'Other',
+  ],
+  'selectionModes': ['Single', 'Multiple', 'Scan'],
+};
 
 const sampleSummary = {'total': 2, 'active': 1, 'underMaintenance': 1, 'inRepair': 0, 'disposed': 0, 'other': 0};
 

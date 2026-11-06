@@ -72,8 +72,8 @@ Read from the source in `docs/backend_ref/Services/Asset` and `Services/Media` (
     asset-audits and service-requests exist on the server; the app shows "Not available yet" for them. Also no
     endpoints yet for location history, IoT, maintenance / inspection history, financial (depreciation) and the
     asset activity history.
-34. **Edit a registered asset** — there is no PUT for a registered asset (only drafts). How does the web edit an
-    asset after submit?
+34. ~~**Edit a registered asset**~~ — answered: `PUT /api/asset-registrations/{id}` (sections sent replace the
+    stored ones) and `DELETE /api/asset-registrations/{id}` (soft delete). Follow-ups in 52–57.
 
 ## Master Data Management service (port 5500) — Master data phase
 
@@ -139,14 +139,33 @@ server. The app calls it directly at `MASTER_DATA_BASE_URL` (DEV default `http:/
     tree (codes are unique per client: create / update answer 409). Is `code` meant to be printed on labels?
 
 50. **Ending an assignment (Check In / Return)** — Assign Custodian and Check Out now `POST /api/asset-assignments`
-    (assignTo "Employee", assignmentType "Custodian" / "Check Out"). The only way to end one is
+    (assignTo = the "Employee" value of `GET /api/asset-assignments/options`, assignmentType "Custodian" /
+    "Check Out"). The only way to end one is
     `DELETE /api/asset-assignments/{id}`, which soft-deletes the record (it disappears from the list) and gives the
     asset back its previous status. Is there (or will there be) a "return / release" call that keeps the history?
     Until then the app shows "Not available yet" for Check In and Return. Also: are "Custodian" and "Check Out" the
     right `assignmentType` values (free text on the server)?
-51. **Moving an asset** — no service has a move / transfer endpoint, assignments never change
-    `locationAssignment.location`, and a registered asset cannot be updated (34). How should the app move an asset
-    to a new Master Data location? The Move screen is built with the Master Data pickers and says "Not available yet".
+51. ~~**Moving an asset**~~ — answered: the app now moves an asset with `PUT /api/asset-registrations/{id}`
+    sending the complete `locationAssignment` (new Master Data location + the current assignment). See 52 and 53.
+
+## Asset service — edit / delete / move phase
+
+52. **Move reason and history** — `UpdateAssetRegistrationRequest` and the entity have no place for a move reason,
+    a "from" location or a movement record; the only trace is the EventLog "Updated" entry (no details). The app
+    therefore does not ask for a reason. Should there be a movement / location-history record (who, when, from, to,
+    reason)?
+53. **GPS on move** — `location.latitude / longitude` describe the old place, so the app clears them when it moves
+    an asset. Correct, or should the server / the app keep them?
+54. **Whole-asset check on every edit** — `ValidateForUpdate` re-checks all five sections as on submit, so an asset
+    with any missing required field (e.g. one imported or created before a rule was added) cannot be moved or have
+    its status changed until that field is fixed. The app shows the error and points to Edit Asset. Intended?
+55. **Status by edit** — Status is only required on update, not checked against `/options`. Should editing to
+    "Assigned" / "Available" (set by assignments) be refused? And should editing the status of an asset in an
+    active assignment be allowed?
+56. **Deleting an asset in an assignment / disposal** — `DELETE /api/asset-registrations/{id}` does not look at
+    active assignments, disposal requests, audits or components. What should happen to them (block, cascade)?
+57. **Concurrent edits** — PUT has no version / ETag check, so two people editing the same section overwrite each
+    other (last save wins). Planned?
 
 ## API Gateway (port 5296) — not used for now (the app calls the services directly)
 

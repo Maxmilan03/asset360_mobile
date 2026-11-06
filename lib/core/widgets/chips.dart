@@ -99,6 +99,7 @@ enum ChipTone {
   /// values are grey.
   static ChipTone forAsset(String value) => switch (AssetOptions.toneOf(value)) {
     OptionTone.green => green,
+    OptionTone.blue => blue,
     OptionTone.amber => amber,
     OptionTone.red => red,
     OptionTone.grey => grey,

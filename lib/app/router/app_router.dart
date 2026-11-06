@@ -258,6 +258,15 @@ GoRoute _assetsRoute() => GoRoute(
       path: 'detail/:assetId',
       builder: (_, state) =>
           AssetDetailScreen(assetId: state.pathParameters['assetId']!, initialTab: state.uri.queryParameters['tab']),
+      routes: [
+        GoRoute(
+          path: 'edit',
+          // API mode only (the mock detail edits Key Information in place).
+          builder: (_, state) => apiMode
+              ? RegisterAssetScreen.edit(editAssetId: state.pathParameters['assetId']!)
+              : const AppScaffold(body: NotAvailableYet(feature: 'Edit Asset')),
+        ),
+      ],
     ),
     ..._shared(),
   ],
