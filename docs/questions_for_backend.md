@@ -47,14 +47,9 @@ Could the swagger include response schemas (and the 400 / 401 replies)? Until th
 
 Read from the source in `docs/backend_ref/Services/Asset` and `Services/Media` (the app calls both directly).
 
-23. **Master data for registration dropdowns** — `GET /api/asset-registrations/options` covers the fixed lists only.
-    Manufacturer, Department, Business Unit, Cost Center, Supplier, Service Provider, Team, Shift, UoM, Standards and
-    the Location tree (sites / buildings / floors / zones) live in the Master Data service (`/api/master-data/*`,
-    `/api/organization/locations`). Which port / base URL should the app use for it, and is it the next phase?
-    Until then the app keeps its local lists for these and shows "Locations are not from the server yet".
-24. **Location IDs** — the registration stores `countryId`, `siteId`, `buildingId`, `floorId`, `zoneId`, `roomId`.
-    The app sends its local location codes (e.g. `BLD-A-GF`). What ids does the web send (Master Data ids)? Assets
-    registered from the phone will not match the web's location filter until both use the same ids.
+23. ~~Master data for registration dropdowns~~ — answered: the Master Data Management service (port 5500); see
+    the Master Data section below.
+24. ~~Location IDs~~ — the app now sends the Master Data location ids and names (see 36).
 25. **Image type / document type lists** — `ImageType` (images) and `DocumentType` / document `LifecycleStage` are
     required but free text on the server. What values does the web offer? The app uses a temporary list
     (General, Front View, Nameplate, Installation, Damage) and the registration lifecycle stages.
@@ -73,12 +68,85 @@ Read from the source in `docs/backend_ref/Services/Asset` and `Services/Media` (
     `GET /api/auth/me` returns (`id`)? If /me has no id the app hides My Assets.
 31. **Favorites** — there is no favorites endpoint; the app keeps favorites on the device. Planned?
 32. **Health** — `GET /health` on Asset and Media (and Login) are public? The connection test calls them without a token.
-33. **Not in this phase** — asset-assignments (check out / in, custodian), asset-disposals, asset-dashboard,
+33. **Not in this phase** — asset-assignment Check In / Return (see 50), asset-disposals, asset-dashboard,
     asset-audits and service-requests exist on the server; the app shows "Not available yet" for them. Also no
     endpoints yet for location history, IoT, maintenance / inspection history, financial (depreciation) and the
     asset activity history.
 34. **Edit a registered asset** — there is no PUT for a registered asset (only drafts). How does the web edit an
     asset after submit?
+
+## Master Data Management service (port 5500) — Master data phase
+
+Read from `docs/backend_ref/Services/MasterDataManagement` (endpoints, contracts, repositories) and the Asset service
+code that reads its collections (`AssignmentMasterDataRepository`). Only read-only GETs were made against the
+server. The app calls it directly at `MASTER_DATA_BASE_URL` (DEV default `http://172.16.100.26:5500`).
+
+35. **The server has no data** — on 172.16.100.26:5500 every list (asset-categories, asset-subcategories,
+    asset-types, asset-models, manufacturers, conditions, criticalities, departments, business-units, suppliers,
+    amc-vendors, service-providers, teams, shifts, uoms, employees, users, locations, locations/tree, sites,
+    buildings, floors, zones, master-data-items) returns `[]`. The app shows "No … on the server yet" with Retry.
+    Can the dev server be seeded (at least a location tree, categories → sub categories → types, departments and
+    employees)?
+36. **Two location models** — there is (a) the generic `locations` collection with `type`, `parentLocationId` and
+    `GET /locations/tree`, and (b) separate `sites`, `buildings`, `floors`, `zones` collections (sites hold the
+    country as a NAME only; there are no country or room records). The app uses the TREE, the only source with an id
+    for every level the Asset DTO stores (countryId … roomId). Which one does the web use? The Asset service's
+    `AssetLocation` comment says "Levels come from the Project service hierarchy (Site = Area, Room = SubZone)" and
+    has `projectId`, and bulk assignment matches against BOTH `master_sites/buildings/floors` and
+    `master_locations`. Which source is authoritative for `locationAssignment.location`?
+37. **Location `type` values** — free text, not validated. The app takes the level from the tree depth (roots =
+    Country, then Site, Building, Floor, Zone, Room). Is there a fixed list of types, and does the tree always start at
+    the country?
+38. **Map data** — no location record (location, site, building, floor, zone) has latitude / longitude, a floor-plan
+    image, or zone geometry (polygon / bounds). Only `capacity` and `area` (buildings / floors / zones) and
+    `city` / `country` (sites) exist. The asset itself has `latitude` / `longitude` (`AssetLocation`). Where will
+    floor plans and zone shapes for the IoT map come from (Locating / Tracking service?)
+39. **Asset types ↔ sub categories** — an asset type links to an asset CATEGORY (`category` reference, filter
+    `categoryId`); a sub category only has a free-text `assetType`. The app lists the types of the chosen category
+    and, when the sub category's `assetType` names one of them, offers only that one. Will types link to sub
+    categories?
+40. **Category hierarchy** — `asset-categories` has `parentCategory` (children via `/{id}/children`) AND there is a
+    separate `asset-subcategories` collection. The app shows only top-level categories (no parent) in Category and
+    the `/{categoryId}/subcategories` in Sub Category. Are child categories used anywhere?
+41. **Names, not ids** — the Asset service stores category, subCategory, assetType, criticality, condition,
+    department, businessUnit, custodianDepartment, responsibleTeam, manufacturer, model, supplierVendor,
+    serviceProvider, quantityUnit and operatingShift as TEXT, so the app sends the Master Data NAME. Renaming in
+    Master Data updates the other Master Data records only, not registered assets. Does the web also send names?
+42. **Condition / criticality values** — registration only checks that Criticality is present, so the app offers
+    Master Data `/conditions` and `/criticalities` there. Condition and criticality ASSESSMENTS validate fixed values
+    (`AssetConditionRatings` Excellent / Good / Fair / Poor / Critical; `AssetRiskRatings` for criticality), so
+    Update Condition keeps the Asset service's `/ratings`. Should the Master Data names match those values? (They
+    cannot be compared yet: the server lists are empty.)
+43. **master-data-items types** — `GET /api/master-data-items/type/{masterType}` matches `masterType` exactly
+    (case-sensitive) and has no status filter, and no masterType value is defined anywhere in the code. Which
+    masterType names will hold Cost Center, Lifecycle Stage, Ownership Type, Payment Terms, Procurement Method,
+    Warranty Type, Function / Purpose and Compliance Category? Until then Cost Center stays a local list and the
+    others come from the Asset service's `/options`.
+44. **Quantity Unit / Operating Shift** — now Master Data `/uoms` and `/shifts` (names). The Asset service's own
+    `/options` lists differ ("Unit(s)", "Day Shift" …) but are not validated. Confirm the web uses Master Data.
+45. **AMC vendor** — the Asset DTO has no AMC vendor field; the app offers `/amc-vendors` in Service Provider when
+    Warranty Type is "AMC" (otherwise `/service-providers`). Is that right?
+46. **People** — `assignment.assignedToUserId` holds the Master Data EMPLOYEE record id: the Asset service's assign
+    wizard sets `AssignedToUserId = Employee.EmployeeId`, and bulk assignment resolves rows against
+    `master_employees` and stores its `_id`. The app's person pickers therefore use `/api/master-data/employees`
+    (id + `employeeName`; `employeeId` = the employee number is only shown). But "My Assets" filters on the /me
+    user id (UserAccount), and there is no link between a login user / system user and an employee. How does the web
+    find "my" assets?
+47. **No authentication** — the Master Data API has no `RequireAuthorization` and allows any origin. Intended? The
+    app sends the Bearer token anyway.
+48. **No paging** — every list returns all rows. Fine for dropdowns; will `/employees` stay small enough?
+49. **Location codes** — the app prints / reads location labels as `LOC:<code>` and resolves the code through the
+    tree (codes are unique per client: create / update answer 409). Is `code` meant to be printed on labels?
+
+50. **Ending an assignment (Check In / Return)** — Assign Custodian and Check Out now `POST /api/asset-assignments`
+    (assignTo "Employee", assignmentType "Custodian" / "Check Out"). The only way to end one is
+    `DELETE /api/asset-assignments/{id}`, which soft-deletes the record (it disappears from the list) and gives the
+    asset back its previous status. Is there (or will there be) a "return / release" call that keeps the history?
+    Until then the app shows "Not available yet" for Check In and Return. Also: are "Custodian" and "Check Out" the
+    right `assignmentType` values (free text on the server)?
+51. **Moving an asset** — no service has a move / transfer endpoint, assignments never change
+    `locationAssignment.location`, and a registered asset cannot be updated (34). How should the app move an asset
+    to a new Master Data location? The Move screen is built with the Master Data pickers and says "Not available yet".
 
 ## API Gateway (port 5296) — not used for now (the app calls the services directly)
 

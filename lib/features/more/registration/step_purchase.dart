@@ -60,20 +60,20 @@ class StepPurchase extends ConsumerWidget {
           caps: TextCapitalization.characters,
           onChanged: (v) => p.invoiceNumber = v,
         ),
-        RegAutocomplete(
+        RegAutocomplete.source(
+          lists.suppliers(suppliers), // API mode: Master Data /suppliers
           label: 'Supplier / Vendor',
           required: true,
           value: p.supplierVendor,
-          options: suppliers, // Master Management, still local
           hint: 'Supplier',
           error: errors['Purchase.SupplierVendor'],
           onChanged: (v) => p.supplierVendor = v,
         ),
-        RegAutocomplete(
+        RegAutocomplete.source(
+          lists.manufacturers(() => ref.watch(masterDataProvider).manufacturers),
           label: 'Manufacturer',
           required: true,
           value: p.manufacturer,
-          options: lists.manufacturers(() => ref.watch(masterDataProvider).manufacturers),
           hint: 'e.g. Cummins',
           error: errors['Purchase.Manufacturer'],
           onChanged: (v) => p.manufacturer = v,
@@ -237,11 +237,11 @@ class StepPurchase extends ConsumerWidget {
           value: w.supportCoverage,
           onChanged: (v) => edit(() => w.supportCoverage = v),
         ),
-        RegDropdown(
-          // Master Management, still local.
+        RegDropdown.source(
+          // API mode: Master Data /service-providers, or /amc-vendors for an AMC warranty.
+          lists.serviceProviders(w.warrantyType),
           label: 'Service Provider',
           value: w.serviceProvider,
-          options: AssetOptions.serviceProviders,
           onChanged: (v) => edit(() => w.serviceProvider = v),
         ),
         RegTextField(

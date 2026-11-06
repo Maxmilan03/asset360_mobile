@@ -1053,3 +1053,88 @@ class RegistrationOptions {
         },
   });
 }
+
+// ------------------------------------------------------------------ assignments
+
+/// POST /api/asset-assignments (`CreateAssetAssignmentRequest`, the web's Assign Asset wizard),
+/// used for Assign Custodian and Check Out with AssignTo = "Employee". The employee is the Master
+/// Data employee: [employeeId] = its record id (copied to the asset's `assignedToUserId`).
+/// Required on confirm: assetRegistrationIds, assignTo, assignmentType, fromDate, and toDate
+/// unless [isOpenEnded]; Employee.EmployeeId for an employee.
+class CreateAssetAssignmentRequest {
+  const CreateAssetAssignmentRequest({
+    required this.assetRegistrationIds,
+    required this.assignmentType,
+    required this.fromDate,
+    required this.employeeId,
+    this.employeeCode,
+    this.employeeName,
+    this.designation,
+    this.departmentId,
+    this.departmentName,
+    this.toDate,
+    this.purpose,
+    this.remarks,
+  });
+
+  /// Values the app sends in AssignmentType (free text on the server, max 200).
+  static const custodian = 'Custodian';
+  static const checkOut = 'Check Out';
+
+  final List<String> assetRegistrationIds;
+  final String assignmentType;
+  final DateTime fromDate;
+
+  /// Null = open ended.
+  final DateTime? toDate;
+  final String employeeId;
+  final String? employeeCode, employeeName, designation, departmentId, departmentName;
+  final String? purpose, remarks;
+
+  bool get isOpenEnded => toDate == null;
+
+  Map<String, dynamic> toJson() => {
+    'selectionMode': assetRegistrationIds.length == 1 ? 'Single' : 'Multiple',
+    'assetRegistrationIds': assetRegistrationIds,
+    'assignTo': 'Employee',
+    'assignmentType': assignmentType,
+    'fromDate': jDay(fromDate),
+    'toDate': jDay(toDate),
+    'isOpenEnded': isOpenEnded,
+    'employee': {
+      'employeeId': employeeId,
+      'employeeCode': employeeCode,
+      'employeeName': employeeName,
+      'designation': designation,
+      'departmentId': departmentId,
+      'departmentName': departmentName,
+      'manager': null,
+    },
+    'purpose': purpose,
+    'remarks': remarks,
+  };
+}
+
+/// The parts of `AssetAssignmentResponse` the app shows.
+class AssetAssignmentRecord {
+  const AssetAssignmentRecord({required this.id, required this.assignmentNumber, this.status, this.assignedToName});
+
+  final String id;
+
+  /// "ASG-000001".
+  final String assignmentNumber;
+
+  /// "Draft" or "Active".
+  final String? status;
+  final String? assignedToName;
+
+  factory AssetAssignmentRecord.fromJson(Object? json) {
+    final j = jMap(json);
+    return AssetAssignmentRecord(
+      id: jStr(j['id']) ?? '',
+      assignmentNumber: jStr(j['assignmentNumber']) ?? '',
+      status: jStr(j['status']),
+      assignedToName: jStr(j['assignedToName']),
+    );
+  }
+}

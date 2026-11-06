@@ -83,7 +83,14 @@ enum MoreAction {
 
   /// Actions the backend supports in API mode (the rest say "Not available yet").
   bool get availableLive => switch (this) {
-    updateCondition || addDocument || addMedia || favorites || printTag || share => true,
+    updateCondition ||
+    addDocument ||
+    addMedia ||
+    favorites ||
+    printTag ||
+    share ||
+    checkInOut ||
+    assignCustodian => true,
     _ => false,
   };
 }

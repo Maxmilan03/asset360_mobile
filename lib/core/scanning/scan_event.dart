@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:asset360_mobile/data/api/master_data/location_index.dart';
 import 'package:asset360_mobile/data/db/app_database.dart';
 
 export 'package:asset360_mobile/data/db/app_database.dart' show ScanSource, MatchType, TagType, LinkTarget;
@@ -45,6 +46,7 @@ class ScanResult {
     this.matchId,
     this.matchLabel,
     this.location,
+    this.masterLocation,
     this.logId,
     this.viaLink = false,
     this.problem,
@@ -54,10 +56,15 @@ class ScanResult {
   final ScanEvent event;
   final MatchType matchType;
 
-  /// Asset ID, part number or location code.
+  /// Asset ID, part number or location code (API mode: the Master Data location id).
   final String? matchId;
   final String? matchLabel;
+
+  /// Mock mode: the local Locations row of a location match.
   final DbLocation? location;
+
+  /// API mode: the Master Data location of a location match (country → … → the scanned node).
+  final MdLocationPath? masterLocation;
 
   /// The ScanLog row.
   final int? logId;

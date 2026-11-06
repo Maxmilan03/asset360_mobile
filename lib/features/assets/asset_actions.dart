@@ -81,8 +81,10 @@ List<AssetAction> assetActions(BuildContext context, WidgetRef ref, Asset asset,
   ];
 }
 
-/// API mode grid for asset [registrationId]: Add Photo uploads to the Asset service, More Actions
-/// opens the live More Actions; the other modules have no backend yet.
+/// API mode grid for asset [registrationId]: Add Photo uploads to the Asset service, Check Out opens
+/// the live Check Out (Asset-service assignment, Master Data employee), Move Asset the live Move
+/// (Master Data location pickers; no move endpoint yet), More Actions the live More Actions; the
+/// other modules have no backend yet.
 List<AssetAction> liveAssetActions(BuildContext context, WidgetRef ref, String registrationId) {
   final plain = TileTone(AppColors.tileGrey, AppColors.text);
   VoidCallback notYet(String feature) =>
@@ -90,9 +92,14 @@ List<AssetAction> liveAssetActions(BuildContext context, WidgetRef ref, String r
   return [
     (Icons.build_rounded, 'Create Work Order', TileTone.sky, notYet('Create Work Order')),
     (Icons.assignment_outlined, 'Create Inspection', TileTone.lavender, notYet('Create Inspection')),
-    (Icons.swap_horiz_rounded, 'Move Asset', TileTone.mint, notYet('Move Asset')),
+    (
+      Icons.swap_horiz_rounded,
+      'Move Asset',
+      TileTone.mint,
+      () => context.push(Routes.withAsset(Routes.transferAsset, registrationId)),
+    ),
     (Icons.warning_rounded, 'Report Issue', TileTone.peach, notYet('Report Issue')),
-    (Icons.person_rounded, 'Check Out', plain, notYet('Check Out')),
+    (Icons.person_rounded, 'Check Out', plain, () => openMoreAction(context, MoreAction.checkInOut, registrationId)),
     (Icons.location_on_rounded, 'View on Map', plain, notYet('View on Map')),
     (Icons.photo_camera_rounded, 'Add Photo', plain, () => addLivePhoto(context, ref, registrationId)),
     (Icons.more_horiz_rounded, 'More Actions', plain, () => openMoreActions(context, assetId: registrationId)),

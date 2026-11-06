@@ -6,7 +6,6 @@ import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/models/asset_registration.dart';
-import 'package:asset360_mobile/data/reference/asset_options.dart';
 import 'package:asset360_mobile/data/reference/registration_options.dart';
 import 'package:asset360_mobile/features/more/registration/live_options.dart';
 import 'package:asset360_mobile/features/more/registration/registration_fields.dart';
@@ -38,9 +37,9 @@ const _subTypeIcons = <String, IconData>{
 };
 
 /// Step 2 Classification (AssetClassificationDto). The only place Category / Sub Category /
-/// Asset Type and Criticality are entered. [errors] by backend field path. API mode: categories,
-/// types, criticality and the fixed lists come from the server (RegLists); Department, Cost Center
-/// and Business Unit (Master Management) and the Asset Sub Type cards stay local.
+/// Asset Type and Criticality are entered. [errors] by backend field path. API mode: every list
+/// comes from the server (RegLists: Master Data or the Asset service's options); Cost Center and
+/// the Asset Sub Type cards stay local.
 class StepClassification extends ConsumerStatefulWidget {
   const StepClassification({
     super.key,
@@ -116,24 +115,24 @@ class _StepClassificationState extends ConsumerState<StepClassification> {
           onChanged: (v) => edit(() => c.functionPurpose = v),
         ),
         CriticalityField(form: form, edit: edit, required: true, error: errors['Criticality']),
-        RegDropdown(
+        RegDropdown.source(
+          lists.departments,
           label: 'Department',
           required: true,
           value: c.department,
-          options: AssetOptions.departments,
           error: errors['Department'],
           onChanged: (v) => edit(() => c.department = v),
         ),
-        RegDropdown(
+        RegDropdown.source(
+          lists.costCenters,
           label: 'Cost Center',
           value: c.costCenter,
-          options: AssetOptions.costCenters,
           onChanged: (v) => edit(() => c.costCenter = v),
         ),
-        RegDropdown(
+        RegDropdown.source(
+          lists.businessUnits,
           label: 'Business Unit',
           value: c.businessUnit,
-          options: AssetOptions.businessUnits,
           onChanged: (v) => edit(() => c.businessUnit = v),
         ),
         RegChoiceChips.source(

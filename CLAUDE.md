@@ -109,7 +109,7 @@
   the demo user so mock modules keep working). Screens: `features/auth/authenticator_setup_screen.dart`,
   `auth_diagnostics_screen.dart` (`/auth-diagnostics`, `/more/settings/auth-diagnostics`); Login / Authenticator /
   Splash / confirmLogout / Profile branch on `apiMode`. Shared: `showContactAdminSheet`, `showSignInSuccess`
-  (auth_widgets.dart). `connection_repository.dart` (Test connection = GET /health on AUTH / ASSET / MEDIA) + `backend_connection_card.dart` (Administration). Sources:
+  (auth_widgets.dart). `connection_repository.dart` (Test connection = GET /health on AUTH / ASSET / MEDIA / MASTER DATA) + `backend_connection_card.dart` (Administration). Sources:
   `docs/api/useraccount_swagger.json` (requests only), `docs/api/openapi.json` (not downloaded yet); unknowns in
   `docs/questions_for_backend.md`. Tests: test/api_client_test.dart, test/auth_api_test.dart (fake adapters).
 - Assets live phase (apiMode = true: NO mock assets anywhere; apiMode = false unchanged): API `lib/data/api/assets/`
@@ -124,6 +124,24 @@
   registration `live_options.dart` (`RegLists`), Home `sections/live_home.dart` (`HomeNotAvailableCard`), scan
   `core/scanning/live_asset_lookup.dart` (GET /lookup, fallback search + exact match). No backend yet → `NotAvailableYet` /
   `showNotAvailableYet` (core/widgets/live_states.dart). Tests: `test/live/` (`FakeAssetBackend`, `no_mock_assets_test.dart`).
+- Master Data (port 5500, `MASTER_DATA_BASE_URL`, DEV default 172.16.100.26:5500): `lib/data/api/master_data/` —
+  `master_data_models.dart` (typed `Md*` models per contract, `MdEntry` id/name/code/status, `mdParseList` drops
+  inactive rows), `master_data_api.dart` (paths; lists asked with `status=Active`), `master_data_repository.dart`
+  (`MasterDataRepository.fetch`: drift `CachedResponses` copy used only on no network / timeout; session providers
+  `mdCategoriesProvider`, `mdSubCategoriesProvider(categoryId)`, `mdAssetTypesProvider(categoryId)`,
+  `mdAssetModelsProvider(assetTypeId)`, `mdEmployeesProvider`, `mdLocationTreeProvider` … ; `refreshMasterData`,
+  `masterDataSessionProvider` = reload when the form is reopened), `location_index.dart` (`MdLocationIndex`,
+  `MdLocationPath` levels by depth Country → Room, `writeTo(AssetLocation)` = ids + names). API-mode registration lists
+  = `RegLists` (live_options.dart; values saved as NAMES; Cost Center still local; fixed lists from Asset `/options`).
+  Locations: `MasterLocationField` / `MasterLocationSelector` (core/widgets/master_location_field.dart). People:
+  API-mode `showPersonPicker` / `PersonField` = employees (`masterPersonProvider`, id = employee record id).
+  `features/assets/live/live_assignment_screens.dart`: `LiveAssignCustodianScreen` / `LiveCheckInOutScreen`
+  (`AssetsApi.createAssignment` = POST /api/asset-assignments, assignTo Employee; Check In not available) and
+  `LiveMoveScreen` (MasterLocationField, no move endpoint → "Not available yet"); routed from More Actions,
+  the live asset grid and `/work/movement/{transfer,check-out,assign}` in API mode. Scans:
+  `ScanService.findMasterLocation` (LOC:<code> via location code, tag links hold the Master Data id,
+  `ScanResult.masterLocation`). Filter sheet merges Master Data values with `/filters`. Report:
+  `docs/master_data_report.md`. Tests: `test/live/master_data_test.dart` (fake routes in `FakeAssetBackend.seedMasterData`).
 - Scan (prompt 07): `features/assets/scan/` — `scan_screen.dart` (QR camera + simulated NFC/RFID/BLE, Manual Entry, Multi Scan,
   debug "Simulate scan" chip), `scan_result_screen.dart` (Asset Identified), `scan_history_screen.dart`. Every scan goes
   through `openScannedCode` (`scan_flow.dart`), which records history and routes. Code matching = `ScanHistoryNotifier.resolve`

@@ -133,11 +133,57 @@ class FakeAssetBackend implements HttpClientAdapter {
     on('GET', '/api/asset-category-types', (_) => const FakeReply(200, sampleTypes));
     on('GET', '/api/asset-models', (_) => const FakeReply(200, sampleModels));
     on('GET', '/api/asset-registrations/drafts', (_) => const FakeReply(200, []));
+    seedMasterData();
     on('POST', '/api/media/upload', (o) {
       final form = o.data as FormData;
       final category = form.fields.firstWhere((f) => f.key == 'category').value;
       return FakeReply(200, {'url': 'http://localhost:5300/uploads/$category/${form.files.single.value.filename}'});
     });
+  }
+
+  /// Master Data Management (port 5500): every list the app reads, contract-shaped. Like the real
+  /// repositories, `status` is a case-insensitive exact match and the link filters
+  /// (categoryId, assetTypeId) narrow the list.
+  void seedMasterData() {
+    FakeReply list(RequestOptions o, List<Map<String, Object?>> rows, [Map<String, String> links = const {}]) {
+      final q = o.uri.queryParameters;
+      final status = q['status']?.toLowerCase();
+      return FakeReply(200, [
+        for (final r in rows)
+          if ((status == null || '${r['status']}'.toLowerCase() == status) &&
+              links.entries.every((l) {
+                final want = q[l.key];
+                if (want == null) return true;
+                final ref = r[l.value];
+                return ref is Map && ref['id'] == want;
+              }))
+            r,
+      ]);
+    }
+
+    const md = '/api/master-data';
+    on('GET', '$md/asset-categories', (o) => list(o, mdCategories));
+    on('GET', '$md/asset-categories/md-cat-1/subcategories', (o) => list(o, mdSubCategories));
+    on('GET', '$md/asset-categories/md-cat-2/subcategories', (o) => list(o, const []));
+    on('GET', '$md/asset-types', (o) => list(o, mdAssetTypes, {'categoryId': 'category'}));
+    on('GET', '$md/asset-models', (o) => list(o, mdAssetModels, {'assetTypeId': 'assetType'}));
+    for (final (path, rows) in [
+      ('manufacturers', mdManufacturers),
+      ('conditions', mdConditions),
+      ('criticalities', mdCriticalities),
+      ('departments', mdDepartments),
+      ('business-units', mdBusinessUnits),
+      ('suppliers', mdSuppliers),
+      ('amc-vendors', mdAmcVendors),
+      ('service-providers', mdServiceProviders),
+      ('teams', mdTeams),
+      ('shifts', mdShifts),
+      ('uoms', mdUoms),
+      ('employees', mdEmployees),
+    ]) {
+      on('GET', '$md/$path', (o) => list(o, rows));
+    }
+    on('GET', '$md/locations/tree', (_) => FakeReply(200, mdLocationTree));
   }
 
   /// Containers / widget tests: route the Asset and Media clients here (config checks off).
@@ -147,6 +193,9 @@ class FakeAssetBackend implements HttpClientAdapter {
       apiClientProvider.overrideWithValue(ApiClient(dio('http://asset.test:5401'), checkConfig: false)),
       mediaClientProvider.overrideWithValue(
         ApiClient(dio('http://media.test:5300'), checkConfig: false, service: BackendService.media),
+      ),
+      masterDataClientProvider.overrideWithValue(
+        ApiClient(dio('http://md.test:5500'), checkConfig: false, service: BackendService.masterData),
       ),
     ];
   }
@@ -567,4 +616,238 @@ const sampleModels = [
     'manufacturerName': 'Cummins',
     'status': 'Active',
   },
+];
+
+// ------------------------------------------------------------------ Master Data samples
+// Shapes: docs/backend_ref/Services/MasterDataManagement/Api/A360.MasterDataManagement.Api/Contracts.
+
+Map<String, Object?> _audit(String status) => {
+  'createdBy': 'admin',
+  'createdAt': '2026-09-01T08:00:00Z',
+  'updatedBy': null,
+  'updatedAt': null,
+  'clientId': 'C1',
+  'tenantId': 'T1',
+  'status': status,
+  'isDeleted': false,
+};
+
+Map<String, Object?> _category(
+  String id,
+  String name,
+  String code, {
+  Map<String, String>? parent,
+  String status = 'Active',
+}) => {
+  'id': id,
+  'categoryName': name,
+  'code': code,
+  'assetType': null,
+  'description': null,
+  'parentCategory': parent,
+  'assets': const <Object?>[],
+  'assetCount': 0,
+  ..._audit(status),
+};
+
+final mdCategories = [
+  _category('md-cat-1', 'Machinery & Equipment', 'MCH'),
+  _category('md-cat-2', 'HVAC', 'HVAC'),
+  // A child category (not offered in the Category dropdown) and an inactive one.
+  _category('md-cat-4', 'Diesel Sets', 'DSL', parent: {'id': 'md-cat-1', 'name': 'Machinery & Equipment'}),
+  _category('md-cat-3', 'Retired Category', 'OLD', status: 'Inactive'),
+];
+
+final mdSubCategories = [
+  {
+    'subCategoryId': 'md-sub-1',
+    'subCategoryName': 'Power Generation',
+    'code': 'PG',
+    'categoryId': 'md-cat-1',
+    'categoryName': 'Machinery & Equipment',
+    'assetType': null,
+    'description': null,
+    'assets': const <Object?>[],
+    'assetCount': 0,
+    ..._audit('Active'),
+  },
+  {
+    'subCategoryId': 'md-sub-2',
+    'subCategoryName': 'Pumping',
+    'code': 'PMP',
+    'categoryId': 'md-cat-1',
+    'categoryName': 'Machinery & Equipment',
+    'assetType': 'Pump',
+    'description': null,
+    'assets': const <Object?>[],
+    'assetCount': 0,
+    ..._audit('Active'),
+  },
+];
+
+Map<String, Object?> _type(String id, String name, String categoryId, String categoryName) => {
+  'id': id,
+  'assetTypeName': name,
+  'code': name.toUpperCase(),
+  'category': {'id': categoryId, 'name': categoryName},
+  'assetClass': 'Fixed',
+  'description': null,
+  'depreciationMethod': 'Straight Line',
+  'defaultLifetime': 10,
+  ..._audit('Active'),
+};
+
+final mdAssetTypes = [
+  _type('md-type-1', 'Generator', 'md-cat-1', 'Machinery & Equipment'),
+  _type('md-type-2', 'Pump', 'md-cat-1', 'Machinery & Equipment'),
+  _type('md-type-3', 'Chiller', 'md-cat-2', 'HVAC'),
+];
+
+final mdAssetModels = [
+  {
+    'id': 'md-model-1',
+    'modelName': 'C500 D5',
+    'modelCode': 'C500',
+    'manufacturer': {'id': 'md-man-1', 'name': 'Cummins'},
+    'assetType': {'id': 'md-type-1', 'name': 'Generator'},
+    'category': {'id': 'md-cat-1', 'name': 'Machinery & Equipment'},
+    'description': null,
+    'lifecycle': 'Active',
+    ..._audit('Active'),
+  },
+];
+
+Map<String, Object?> _named(String nameKey, String id, String name, [Map<String, Object?> extra = const {}]) => {
+  'id': id,
+  nameKey: name,
+  'code': id.toUpperCase(),
+  ...extra,
+  ..._audit('Active'),
+};
+
+final mdManufacturers = [
+  _named('manufacturerName', 'md-man-1', 'Cummins', {'country': 'USA', 'models': const <Object?>[], 'modelCount': 0}),
+  _named('manufacturerName', 'md-man-2', 'Carrier', {'country': 'USA', 'models': const <Object?>[], 'modelCount': 0}),
+];
+
+final mdConditions = [
+  _named('conditionName', 'md-con-1', 'Excellent', {
+    'type': 'Operational',
+    'color': '#16A34A',
+    'defaultCondition': false,
+    'healthScore': 95,
+  }),
+  _named('conditionName', 'md-con-2', 'Good', {
+    'type': 'Operational',
+    'color': '#22C55E',
+    'defaultCondition': true,
+    'healthScore': 80,
+  }),
+  _named('conditionName', 'md-con-3', 'Needs Attention', {
+    'type': 'Operational',
+    'color': '#F59E0B',
+    'defaultCondition': false,
+    'healthScore': 50,
+  }),
+];
+
+final mdCriticalities = [
+  _named('criticalityName', 'md-crit-1', 'Low', {
+    'riskLevel': 'Low',
+    'maintenancePriority': 'P4',
+    'color': '#3B82F6',
+    'defaultCriticality': false,
+  }),
+  _named('criticalityName', 'md-crit-2', 'High', {
+    'riskLevel': 'High',
+    'maintenancePriority': 'P2',
+    'color': '#EF4444',
+    'defaultCriticality': true,
+  }),
+];
+
+final mdDepartments = [
+  _named('departmentName', 'md-dep-1', 'Facilities Management', {
+    'businessUnit': {'id': 'md-bu-1', 'name': 'Head Office'},
+  }),
+  _named('departmentName', 'md-dep-2', 'Production'),
+];
+
+final mdBusinessUnits = [_named('businessUnitName', 'md-bu-1', 'Head Office')];
+final mdSuppliers = [
+  _named('supplierName', 'md-sup-1', 'Gulf Power Supplies LLC', {'category': 'Equipment', 'country': 'UAE'}),
+];
+final mdAmcVendors = [
+  _named('amcVendorName', 'md-amc-1', 'CoolCare AMC', {
+    'startDate': '2026-01-01',
+    'endDate': '2026-12-31',
+    'contractType': 'Comprehensive',
+  }),
+];
+final mdServiceProviders = [
+  _named('serviceProviderName', 'md-sp-1', 'FixIt Services', {'serviceType': 'Maintenance'}),
+];
+final mdTeams = [
+  _named('teamName', 'md-team-1', 'Electrical Team', {
+    'department': {'id': 'md-dep-1', 'name': 'Facilities Management'},
+  }),
+];
+final mdShifts = [
+  _named('shiftName', 'md-shift-1', 'Day Shift', {
+    'shiftTime': 'Day',
+    'startTime': '08:00',
+    'endTime': '16:00',
+    'duration': 8,
+    'workingDays': ['Mon'],
+  }),
+];
+final mdUoms = [
+  _named('uomName', 'md-uom-1', 'Each', {'type': 'Count', 'symbol': 'ea', 'conversionFactor': 1}),
+  _named('uomName', 'md-uom-2', 'Set', {'type': 'Count', 'symbol': 'set', 'conversionFactor': 1}),
+];
+
+final mdEmployees = [
+  {
+    'id': '6650a1b2c3d4e5f600000e01',
+    'employeeName': 'Sara Ali',
+    'employeeId': 'EMP-0042',
+    'department': {'id': 'md-dep-1', 'name': 'Facilities Management'},
+    'designation': 'Facilities Technician',
+    'email': 'sara.ali@example.com',
+    'phoneNumber': '+971500000001',
+    ..._audit('Active'),
+  },
+];
+
+Map<String, Object?> _node(
+  String id,
+  String name,
+  String code,
+  String type,
+  String? parent, [
+  List<Object?> children = const [],
+]) => {
+  'id': id,
+  'locationName': name,
+  'code': code,
+  'type': type,
+  'parentLocationId': parent,
+  'status': 'Active',
+  'children': children,
+};
+
+/// UAE > Main Site > Block A > (Ground > Zone 1 > Room 101 | First).
+final mdLocationTree = [
+  _node('loc-ae', 'UAE', 'AE', 'Country', null, [
+    _node('loc-ms', 'Main Site', 'MS', 'Site', 'loc-ae', [
+      _node('loc-ba', 'Block A', 'BLD-A', 'Building', 'loc-ms', [
+        _node('loc-gf', 'Ground', 'BLD-A-GF', 'Floor', 'loc-ba', [
+          _node('loc-z1', 'Zone 1', 'BLD-A-GF-Z1', 'Zone', 'loc-gf', [
+            _node('loc-r101', 'Room 101', 'R101', 'Room', 'loc-z1'),
+          ]),
+        ]),
+        _node('loc-f1', 'First', 'BLD-A-F1', 'Floor', 'loc-ba'),
+      ]),
+    ]),
+  ]),
 ];

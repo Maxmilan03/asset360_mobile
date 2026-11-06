@@ -175,6 +175,10 @@ class AssetsApi {
         (await client.post<Object?>('/api/asset-condition-assessments', data: request.toJson())).data,
       );
 
+  /// POST /api/asset-assignments (confirm, not a draft): Assign Custodian and Check Out.
+  Future<AssetAssignmentRecord> createAssignment(CreateAssetAssignmentRequest request) async =>
+      AssetAssignmentRecord.fromJson((await client.post<Object?>('/api/asset-assignments', data: request.toJson())).data);
+
   /// GET /api/asset-criticality/current?assetRegistrationId= (null when none yet: 404).
   Future<AssetCriticalityAssessment?> currentCriticality(String assetRegistrationId) => _orNull(
     () async => AssetCriticalityAssessment.fromJson(

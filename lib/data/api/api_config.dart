@@ -5,7 +5,8 @@
 /// flutter run --dart-define=USE_API=true \
 ///   --dart-define=API_BASE_URL=http://<backend-ip>:5401 \
 ///   --dart-define=MEDIA_BASE_URL=http://<backend-ip>:5300 \
-///   --dart-define=AUTH_BASE_URL=http://<backend-ip>:5018
+///   --dart-define=AUTH_BASE_URL=http://<backend-ip>:5018 \
+///   --dart-define=MASTER_DATA_BASE_URL=http://<backend-ip>:5500
 /// ```
 ///
 /// See README → "Connecting to the backend".
@@ -25,6 +26,15 @@ const String kMediaBaseUrl = String.fromEnvironment('MEDIA_BASE_URL');
 
 /// UserAccount (login) service root, e.g. http://192.168.1.20:5018.
 const String kAuthBaseUrl = String.fromEnvironment('AUTH_BASE_URL');
+
+/// Master Data Management service root (dropdown lists, locations, employees).
+///
+/// DEV default: the shared test server, so dropdowns work without the extra define. Override it
+/// with --dart-define=MASTER_DATA_BASE_URL=... (env/api_dev.json sets it) before any release build.
+const String kMasterDataBaseUrl = String.fromEnvironment(
+  'MASTER_DATA_BASE_URL',
+  defaultValue: 'http://172.16.100.26:5500',
+);
 
 /// Optional debug override: a Bearer token for the Asset / Media services, used only while nobody is signed in.
 const String kDevToken = String.fromEnvironment('DEV_TOKEN');
@@ -51,11 +61,15 @@ String? get mediaConfigProblem => _urlProblem('MEDIA_BASE_URL', kMediaBaseUrl, '
 /// What is missing to call the login service, or null when AUTH_BASE_URL is usable.
 String? get authConfigProblem => _urlProblem('AUTH_BASE_URL', kAuthBaseUrl, '5018');
 
-/// The three backend services the app calls directly.
+/// What is missing to call the Master Data service, or null when MASTER_DATA_BASE_URL is usable.
+String? get masterDataConfigProblem => _urlProblem('MASTER_DATA_BASE_URL', kMasterDataBaseUrl, '5500');
+
+/// The backend services the app calls directly.
 enum BackendService {
   auth('AUTH', 'AUTH_BASE_URL', 'Login service'),
   asset('ASSET', 'API_BASE_URL', 'Asset service'),
-  media('MEDIA', 'MEDIA_BASE_URL', 'Media service');
+  media('MEDIA', 'MEDIA_BASE_URL', 'Media service'),
+  masterData('MASTER DATA', 'MASTER_DATA_BASE_URL', 'Master Data service');
 
   const BackendService(this.code, this.define, this.label);
 
@@ -70,11 +84,13 @@ enum BackendService {
     auth => kAuthBaseUrl,
     asset => kApiBaseUrl,
     media => kMediaBaseUrl,
+    masterData => kMasterDataBaseUrl,
   };
 
   String? get configProblem => switch (this) {
     auth => authConfigProblem,
     asset => apiConfigProblem,
     media => mediaConfigProblem,
+    masterData => masterDataConfigProblem,
   };
 }

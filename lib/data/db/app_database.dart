@@ -67,6 +67,20 @@ class TagLinks extends Table {
   DateTimeColumn get createdAt => dateTime()();
 }
 
+/// Last good reply of a read-only backend list (Master Data dropdowns, the location tree), so the
+/// lists still open offline. [key] = the request ("/api/master-data/conditions?status=Active").
+@DataClassName('CachedResponse')
+class CachedResponses extends Table {
+  TextColumn get key => text()();
+
+  /// The JSON body exactly as received.
+  TextColumn get body => text()();
+  DateTimeColumn get fetchedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {key};
+}
+
 /// Local Data filters (all optional).
 class ScanFilter {
   const ScanFilter({
@@ -132,12 +146,12 @@ class ScanFilter {
 /// Header figures of the Local Data screen.
 typedef ScanStats = ({int total, int today, int nfc, int codes, int links});
 
-@DriftDatabase(tables: [ScanLog, Locations, TagLinks])
+@DriftDatabase(tables: [ScanLog, Locations, TagLinks, CachedResponses])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? openAppDatabase());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -145,6 +159,9 @@ class AppDatabase extends _$AppDatabase {
       await m.createAll();
       // First launch: the location tree the mock data already uses.
       await batch((b) => b.insertAll(locations, seedLocationRows()));
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) await m.createTable(cachedResponses);
     },
   );
 
@@ -260,6 +277,17 @@ class AppDatabase extends _$AppDatabase {
   );
 
   Future<int> unlinkTag(int id) => (delete(tagLinks)..where((t) => t.id.equals(id))).go();
+
+  // ---------------------------------------------------------------- Cached responses
+
+  Future<CachedResponse?> cachedResponse(String key) =>
+      (select(cachedResponses)..where((c) => c.key.equals(key))).getSingleOrNull();
+
+  Future<void> putCachedResponse(String key, String body, DateTime fetchedAt) => into(
+    cachedResponses,
+  ).insertOnConflictUpdate(CachedResponsesCompanion.insert(key: key, body: body, fetchedAt: fetchedAt));
+
+  Future<int> clearCachedResponses() => delete(cachedResponses).go();
 }
 
 /// Opens the on-device database (drift_flutter runs queries on a background isolate).

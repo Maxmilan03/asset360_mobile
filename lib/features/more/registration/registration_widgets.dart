@@ -358,7 +358,9 @@ class RegDropdown extends StatelessWidget {
       forceErrorText: error ?? loadError,
       decoration: const InputDecoration(errorMaxLines: 3),
     );
-    final withRetry = loadError == null || onRetry == null
+    // Retry under a failed list, and under an empty server list ("No … on the server yet").
+    final retry = onRetry != null && !loading && (loadError != null || shown.isEmpty);
+    final withRetry = !retry
         ? field
         : Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -377,7 +379,7 @@ class RegDropdown extends StatelessWidget {
   }
 }
 
-/// "Retry" under a field whose server options failed to load.
+/// "Retry" under a field whose server options failed to load or came back empty.
 class RetryLink extends StatelessWidget {
   const RetryLink({super.key, required this.onRetry});
 
@@ -410,7 +412,17 @@ Widget? optionSourceStatus(OptionSource s) {
       ],
     );
   }
-  if (s.options.isEmpty) return Text(s.empty ?? '—', style: AppText.caption);
+  if (s.options.isEmpty) {
+    final text = Text(s.empty ?? '—', style: AppText.caption);
+    return s.onRetry == null
+        ? text
+        : Row(
+            children: [
+              Expanded(child: text),
+              RetryLink(onRetry: s.onRetry!),
+            ],
+          );
+  }
   return null;
 }
 

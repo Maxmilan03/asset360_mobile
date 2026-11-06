@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/widgets/empty_state.dart';
 import 'package:asset360_mobile/core/widgets/feedback.dart';
@@ -58,5 +60,48 @@ class LoadErrorState extends StatelessWidget {
     message: ApiException.from(error).message,
     actionLabel: 'Retry',
     onAction: onRetry,
+  );
+}
+
+/// One line for a server list inside a form field: a spinner while it loads, the error with Retry,
+/// or "No `what` on the server yet" with Retry. Null when the list has items (show the field).
+Widget? serverListStatus<T>(AsyncValue<List<T>> v, {required String what, required VoidCallback onRetry}) {
+  if (v.hasError && !v.isLoading) {
+    return InlineRetry(
+      text: 'Could not load $what: ${ApiException.from(v.error!).message}',
+      onRetry: onRetry,
+      error: true,
+    );
+  }
+  if (!v.hasValue) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 6),
+      child: SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+    );
+  }
+  if (v.requireValue.isEmpty) return InlineRetry(text: 'No $what on the server yet', onRetry: onRetry);
+  return null;
+}
+
+/// A short message with a Retry button on the right.
+class InlineRetry extends StatelessWidget {
+  const InlineRetry({super.key, required this.text, required this.onRetry, this.error = false});
+
+  final String text;
+  final VoidCallback onRetry;
+  final bool error;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Text(text, style: error ? AppText.caption.copyWith(color: AppColors.red) : AppText.caption),
+      ),
+      TextButton.icon(
+        onPressed: onRetry,
+        icon: const Icon(Icons.refresh_rounded, size: 18),
+        label: const Text('Retry'),
+      ),
+    ],
   );
 }

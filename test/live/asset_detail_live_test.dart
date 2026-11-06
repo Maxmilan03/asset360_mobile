@@ -284,10 +284,20 @@ void main() {
     expect(backend.calls('GET', '/api/asset-registrations/lookup'), isNotEmpty, reason: 'a tag is looked up');
     expect(find.text('Diesel Generator 500 kVA'), findsOneWidget);
     expect(find.text('Not available yet'), findsWidgets);
-    await tester.tap(find.text('Assign Custodian'));
+    await tester.ensureVisible(find.text('Create Disposal Request'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create Disposal Request'));
     await tester.pump();
-    expect(find.text('Assign Custodian: Not available yet.'), findsOneWidget);
+    expect(find.text('Create Disposal Request: Not available yet.'), findsOneWidget);
     await tester.pumpAndSettle(const Duration(seconds: 5));
+    // Assign Custodian now has a backend (Asset-service assignment with a Master Data employee).
+    await tester.ensureVisible(find.text('Assign Custodian'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Assign Custodian'));
+    await tester.pumpAndSettle();
+    expect(find.text('Search by name or employee ID'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Add to Favorites'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add to Favorites'));

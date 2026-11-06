@@ -363,9 +363,22 @@ class LiveAssetLoader extends ConsumerWidget {
 
 /// Frame of a live More Actions screen: title, the asset card, the form and a sticky [button].
 class LiveActionPage extends StatelessWidget {
-  const LiveActionPage({super.key, required this.action, required this.assetId, required this.builder, this.button});
+  const LiveActionPage({super.key, required this.action, required this.assetId, required this.builder, this.button})
+    : title = null,
+      subtitle = null;
 
-  final MoreAction action;
+  /// A page that is not one of the More Actions (e.g. Move Asset).
+  const LiveActionPage.titled({
+    super.key,
+    required String this.title,
+    required String this.subtitle,
+    required this.assetId,
+    required this.builder,
+    this.button,
+  }) : action = null;
+
+  final MoreAction? action;
+  final String? title, subtitle;
   final String? assetId;
   final List<Widget> Function(BuildContext context, AssetRegistration asset) builder;
   final Widget Function(AssetRegistration asset)? button;
@@ -390,7 +403,7 @@ class LiveActionPage extends StatelessWidget {
         body: ListView(
           padding: button == null ? context.pagePadding : const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
-            PageTitle(title: action.title, subtitle: action.subtitle),
+            PageTitle(title: title ?? action!.title, subtitle: subtitle ?? action!.subtitle),
             const SizedBox(height: 14),
             LiveAssetCard(asset: r),
             const SizedBox(height: 16),

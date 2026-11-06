@@ -186,7 +186,7 @@ void main() {
     );
   });
 
-  test('Test connection: GET /health on AUTH, ASSET and MEDIA, one result each', () async {
+  test('Test connection: GET /health on AUTH, ASSET, MEDIA and MASTER DATA, one result each', () async {
     final adapter = _HealthAdapter();
     final c = ProviderContainer(
       overrides: [
@@ -195,6 +195,7 @@ void main() {
           BackendService.auth: (baseUrl: 'http://h.test:5018', problem: null),
           BackendService.asset: (baseUrl: 'http://h.test:5401/', problem: null),
           BackendService.media: (baseUrl: '', problem: 'MEDIA_BASE_URL is not set.'),
+          BackendService.masterData: (baseUrl: 'http://h.test:5500', problem: null),
         }),
       ],
     );
@@ -212,7 +213,9 @@ void main() {
     expect(r[1].error, contains('503'));
     expect(r[2].ok, isFalse);
     expect(r[2].error, contains('MEDIA_BASE_URL'));
-    expect(adapter.calls, ['http://h.test:5018/health', 'http://h.test:5401/health']);
+    expect(r[3].ok, isTrue);
+    expect(r[3].url, 'http://h.test:5500/health');
+    expect(adapter.calls, ['http://h.test:5018/health', 'http://h.test:5401/health', 'http://h.test:5500/health']);
   });
 }
 
@@ -223,7 +226,7 @@ class _HealthAdapter implements HttpClientAdapter {
   @override
   Future<ResponseBody> fetch(RequestOptions o, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
     calls.add(o.uri.toString());
-    final ok = o.uri.port == 5018;
+    final ok = o.uri.port == 5018 || o.uri.port == 5500;
     return ResponseBody.fromString(
       ok ? jsonEncode({'status': 'Healthy', 'service': 'UserAccount'}) : '',
       ok ? 200 : 503,

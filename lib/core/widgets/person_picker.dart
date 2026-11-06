@@ -5,11 +5,32 @@ import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/core/widgets/dialogs.dart';
 import 'package:asset360_mobile/core/widgets/form_fields.dart';
+import 'package:asset360_mobile/core/widgets/live_states.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/api/master_data/master_data_repository.dart';
 import 'package:asset360_mobile/data/models/person.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 
+/// API mode: a Master Data employee as a [Person]. [Person.id] is the employee RECORD id, which
+/// the Asset service stores as `assignedToUserId` (its assign wizard and bulk assignment do the
+/// same); the employee number ("EMP-0042") is only shown.
+Person personOfEmployee(MdEmployee e) =>
+    Person(id: e.id, name: e.name, role: e.designation ?? 'Employee', department: e.department?.name, phone: e.phone);
+
+/// API mode: the employee with record id [id] as a person (null while loading or unknown).
+final masterPersonProvider = Provider.family<Person?, String?>((ref, id) {
+  if (id == null) return null;
+  final e = ref.watch(mdEmployeesProvider).value?.where((e) => e.id == id).firstOrNull;
+  return e == null ? null : personOfEmployee(e);
+});
+
+/// The person with [id] in the current mode (mock people, or Master Data employees).
+Person? personOf(WidgetRef ref, String? id) =>
+    apiMode ? ref.watch(masterPersonProvider(id)) : ref.watch(personByIdProvider(id));
+
 /// Bottom sheet with a searchable people list (name, role, department, employee ID).
-/// Returns the chosen person's ID.
+/// Returns the chosen person's ID. API mode: Master Data /employees (active), with loading,
+/// error + Retry and "No employees on the server yet".
 Future<String?> showPersonPicker(BuildContext context, {String title = 'Select Person', String? selectedId}) {
   return showModalBottomSheet<String>(
     context: context,
@@ -37,15 +58,23 @@ class _PersonPickerSheetState extends ConsumerState<_PersonPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final q = _query.trim().toLowerCase();
-    final people = ref
-        .watch(peopleProvider)
+    final employees = apiMode ? ref.watch(mdEmployeesProvider) : null;
+    final status = employees == null
+        ? null
+        : serverListStatus(employees, what: 'employees', onRetry: () => ref.invalidate(mdEmployeesProvider));
+    final codes = {for (final e in employees?.value ?? const <MdEmployee>[]) e.id: e.employeeCode};
+    String idOf(Person p) => apiMode ? (codes[p.id] ?? '') : employeeId(p);
+    final all = employees == null
+        ? ref.watch(peopleProvider)
+        : [for (final e in employees.value ?? const <MdEmployee>[]) personOfEmployee(e)];
+    final people = all
         .where(
           (p) =>
               q.isEmpty ||
               p.name.toLowerCase().contains(q) ||
               p.role.toLowerCase().contains(q) ||
               (p.department?.toLowerCase().contains(q) ?? false) ||
-              employeeId(p).toLowerCase().contains(q),
+              idOf(p).toLowerCase().contains(q),
         )
         .toList();
     return SafeArea(
@@ -72,8 +101,11 @@ class _PersonPickerSheetState extends ConsumerState<_PersonPickerSheet> {
                   onChanged: (v) => setState(() => _query = v),
                 ),
               ),
+              if (status != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: status),
               Expanded(
-                child: people.isEmpty
+                child: status != null
+                    ? const SizedBox.shrink()
+                    : people.isEmpty
                     ? Center(child: Text('No one matches "$_query"', style: AppText.secondary))
                     : ListView.builder(
                         itemCount: people.length,
@@ -84,7 +116,7 @@ class _PersonPickerSheetState extends ConsumerState<_PersonPickerSheet> {
                             leading: PersonAvatar(person: p),
                             title: Text(p.name, style: AppText.bodyStrong),
                             subtitle: Text(
-                              '${p.role}${p.department == null ? '' : ' · ${p.department}'} · ${employeeId(p)}',
+                              [p.role, ?p.department, if (idOf(p).isNotEmpty) idOf(p)].join(' · '),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppText.caption,
@@ -130,8 +162,11 @@ class PersonField extends ConsumerWidget {
     this.hint = 'Search people',
     this.error,
     this.title = 'Select Person',
+    this.fallbackLabel,
   });
 
+  /// Shown when [personId] is set but not in the list (yet), e.g. a saved assignedToName.
+  final String? fallbackLabel;
   final String? personId;
   final ValueChanged<String> onChanged;
   final String hint;
@@ -140,7 +175,8 @@ class PersonField extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final p = ref.watch(personByIdProvider(personId));
+    final p = personOf(ref, personId);
+    final label = p?.labelWithRole ?? (personId == null ? null : fallbackLabel);
     return InkWell(
       borderRadius: BorderRadius.circular(10),
       onTap: () async {
@@ -154,10 +190,10 @@ class PersonField extends ConsumerWidget {
           suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
         ),
         child: Text(
-          p == null ? hint : p.labelWithRole,
+          label ?? hint,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: p == null ? hintStyle : inputStyle,
+          style: label == null ? hintStyle : inputStyle,
         ),
       ),
     );

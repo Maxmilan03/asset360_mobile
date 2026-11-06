@@ -1,8 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
+import 'package:flutter_riverpod/misc.dart' show ProviderListenable, ProviderOrFamily;
 
 import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/api/api_exception.dart';
+import 'package:asset360_mobile/data/api/master_data/master_data_repository.dart';
 import 'package:asset360_mobile/data/reference/asset_options.dart';
 import 'package:asset360_mobile/data/reference/registration_options.dart';
 import 'package:asset360_mobile/data/repositories/live_assets_repository.dart';
@@ -17,6 +18,8 @@ class OptionSource {
 
   /// Why loading failed (the server's message); shown with [onRetry].
   final String? error;
+
+  /// Reloads a server list (shown with [error], and with [empty] when the list is empty).
   final void Function()? onRetry;
 
   /// Hint when [options] is empty ("No categories on the server yet").
@@ -25,10 +28,20 @@ class OptionSource {
   bool get ready => !loading && error == null;
 }
 
-/// Every Register Asset value list for the current mode. API mode: GET
-/// /api/asset-registrations/options (fixed lists), /api/asset-categories, /api/asset-category-types,
-/// /api/asset-models, /api/asset-criticality/options and /api/asset-condition-assessments/ratings.
-/// Lists the server does not provide (Department, Cost Center, Supplier …) stay local.
+/// Every Register Asset value list for the current mode.
+///
+/// API mode:
+/// * Master Data service (MASTER_DATA_BASE_URL): Category, Sub Category, Asset Type, Model,
+///   Manufacturer, Condition, Criticality, Department (+ Custodian / Department), Business Unit,
+///   Supplier / Vendor, Service Provider (AMC vendors when Warranty Type is AMC), Responsible Team,
+///   Operating Shift, Quantity Unit. See master_data_repository.dart.
+/// * Asset service GET /api/asset-registrations/options: Status, Function / Purpose, Tagging
+///   Method, Compliance Category, Lifecycle Stage, Ownership Type, Currency, Payment Terms,
+///   Procurement Method, Warranty Type, Period Unit, Support Coverage and the step-5 units (Master
+///   Data has no list for them: no master-data-items types are defined).
+/// * Local: Cost Center (no list on any service yet).
+///
+/// Every value is saved as its NAME: the Asset service stores these fields as text.
 class RegLists {
   RegLists(this.ref);
 
@@ -42,7 +55,6 @@ class RegLists {
   ) {
     final v = ref.watch(provider);
     final empty = 'No $what on the server yet';
-    if (v.hasValue && !v.isLoading) return OptionSource(pick(v.requireValue), empty: empty);
     if (v.hasError && !v.isLoading) {
       return OptionSource(
         const [],
@@ -51,8 +63,18 @@ class RegLists {
         empty: empty,
       );
     }
+    // A reload keeps showing the previous list until the new one arrives.
+    if (v.hasValue) return OptionSource(pick(v.requireValue), empty: empty, onRetry: retry);
     return OptionSource(const [], loading: true, empty: empty);
   }
+
+  /// A Master Data list as names (first of each name only), or [local] in mock mode.
+  OptionSource _md<T extends MdEntry>(
+    ProviderListenable<AsyncValue<List<T>>> provider,
+    ProviderOrFamily invalidate,
+    String what, {
+    List<String> local = const [],
+  }) => apiMode ? _from(provider, namesOf, what, () => ref.invalidate(invalidate)) : OptionSource(local);
 
   /// A list from GET /api/asset-registrations/options, or [local] in mock mode.
   OptionSource _options(List<String> local, List<String> Function(RegistrationOptions) pick, String what) => apiMode
@@ -61,19 +83,19 @@ class RegLists {
 
   // Step 1
   OptionSource get statuses => _options(AssetOptions.statuses, (o) => o.statuses, 'statuses');
-  OptionSource get conditions => apiMode
-      ? _from(conditionRatingsProvider, (l) => l, 'condition ratings', () => ref.invalidate(conditionRatingsProvider))
-      : const OptionSource(AssetOptions.conditions);
+  OptionSource get conditions =>
+      _md(mdConditionsProvider, mdConditionsProvider, 'conditions', local: AssetOptions.conditions);
 
   // Step 2
-  OptionSource get criticalities => apiMode
-      ? _from(
-          criticalityOptionsProvider,
-          (o) => o.criticalityLevels,
-          'criticality levels',
-          () => ref.invalidate(criticalityOptionsProvider),
-        )
-      : const OptionSource(AssetOptions.criticalityLevels);
+  OptionSource get criticalities =>
+      _md(mdCriticalitiesProvider, mdCriticalitiesProvider, 'criticalities', local: AssetOptions.criticalityLevels);
+  OptionSource get departments =>
+      _md(mdDepartmentsProvider, mdDepartmentsProvider, 'departments', local: AssetOptions.departments);
+  OptionSource get businessUnits =>
+      _md(mdBusinessUnitsProvider, mdBusinessUnitsProvider, 'business units', local: AssetOptions.businessUnits);
+
+  /// Local in both modes: neither Master Data nor the Asset service has a cost center list.
+  OptionSource get costCenters => const OptionSource(AssetOptions.costCenters);
   OptionSource get functionPurposes =>
       _options(AssetOptions.functionPurposes, (o) => o.functionPurposes, 'functions / purposes');
   OptionSource get taggingMethods => _options(AssetOptions.taggingMethods, (o) => o.taggingMethods, 'tagging methods');
@@ -84,9 +106,25 @@ class RegLists {
 
   // Step 3
   OptionSource get ownershipTypes => _options(AssetOptions.ownershipTypes, (o) => o.ownershipTypes, 'ownership types');
+  OptionSource get responsibleTeams =>
+      _md(mdTeamsProvider, mdTeamsProvider, 'teams', local: AssetOptions.responsibleTeams);
 
   // Step 4
-  OptionSource get quantityUnits => _options(AssetOptions.quantityUnits, (o) => o.quantityUnits, 'quantity units');
+  OptionSource get quantityUnits => apiMode
+      ? _md(mdUomsProvider, mdUomsProvider, 'units of measure')
+      : _options(AssetOptions.quantityUnits, (o) => o.quantityUnits, 'quantity units');
+
+  /// Supplier / Vendor suggestions (free text stays allowed). Mock mode: [local].
+  OptionSource suppliers(List<String> local) =>
+      _md(mdSuppliersProvider, mdSuppliersProvider, 'suppliers', local: local);
+
+  /// Service Provider: the AMC vendors when [warrantyType] is "AMC", else the service providers.
+  OptionSource serviceProviders(String? warrantyType) {
+    if (!apiMode) return const OptionSource(AssetOptions.serviceProviders);
+    return warrantyType?.trim().toUpperCase() == 'AMC'
+        ? _md(mdAmcVendorsProvider, mdAmcVendorsProvider, 'AMC vendors')
+        : _md(mdServiceProvidersProvider, mdServiceProvidersProvider, 'service providers');
+  }
 
   /// Mock mode stores the ISO code ("AED", label "AED - UAE Dirham"); the server's list holds the
   /// labels themselves, stored as sent.
@@ -108,7 +146,11 @@ class RegLists {
   OptionSource get lifespanUnits => additional('lifespanUnits', AssetOptions.lifespanUnits, 'lifespan units');
   OptionSource get operatingHoursUnits =>
       additional('operatingHoursUnits', AssetOptions.operatingHoursUnits, 'operating hours units');
-  OptionSource get operatingShifts => additional('operatingShifts', AssetOptions.operatingShifts, 'operating shifts');
+
+  /// API mode: Master Data /shifts.
+  OptionSource get operatingShifts => apiMode
+      ? _md(mdShiftsProvider, mdShiftsProvider, 'shifts')
+      : additional('operatingShifts', AssetOptions.operatingShifts, 'operating shifts');
   OptionSource get utilizations => additional('utilizations', AssetOptions.utilizations, 'utilizations');
   OptionSource get maintenanceFrequencyUnits =>
       additional('maintenanceFrequencyUnits', AssetOptions.maintenanceFrequencyUnits, 'frequency units');
@@ -119,92 +161,96 @@ class RegLists {
 
   // ---------------------------------------------------------------- categories, types, models
 
-  /// API mode: every category, or null while loading / failed.
-  List<AssetCategoryItem>? get _liveCategories => ref.watch(liveCategoriesProvider).value;
+  /// API mode: the top-level category named [name] (null when unknown or not loaded).
+  MdCategory? mdCategory(String? name) => name == null
+      ? null
+      : ref.watch(mdCategoriesProvider).value?.where((c) => c.isTopLevel && c.name == name).firstOrNull;
+
+  /// API mode: the sub category [name] under [category].
+  MdSubCategory? mdSubCategory(String? category, String? name) {
+    final parent = mdCategory(category);
+    if (parent == null || name == null) return null;
+    return ref.watch(mdSubCategoriesProvider(parent.id)).value?.where((s) => s.name == name).firstOrNull;
+  }
 
   OptionSource get categories => apiMode
       ? _from(
-          liveCategoriesProvider,
-          (l) => [
-            for (final c in l)
-              if (c.isTopLevel) c.name,
-          ],
+          mdCategoriesProvider,
+          (l) => namesOf(l.where((c) => c.isTopLevel)),
           'categories',
-          () => ref.invalidate(liveCategoriesProvider),
+          () => ref.invalidate(mdCategoriesProvider),
         )
       : OptionSource([for (final o in assetCategories) o.name]);
 
-  /// The server's sub category [name] under [category] (null when unknown or not loaded).
-  AssetCategoryItem? liveSubCategory(String? category, String? name) {
-    final all = _liveCategories;
-    if (all == null || category == null || name == null) return null;
-    final parent = all.firstWhereOrNull((c) => c.isTopLevel && c.name == category);
-    return all.firstWhereOrNull((c) => c.parentCategoryId == parent?.id && parent != null && c.name == name);
-  }
-
+  /// API mode: GET /asset-categories/{categoryId}/subcategories of the chosen category.
   OptionSource subCategories(String? category) {
     if (!apiMode) {
-      final c = assetCategories.firstWhereOrNull((o) => o.name == category);
+      final c = assetCategories.where((o) => o.name == category).firstOrNull;
       return OptionSource([for (final s in c?.subCategories ?? const <SubCategoryOption>[]) s.name]);
     }
     if (category == null) return const OptionSource([], empty: 'Choose a category first');
-    final src = categories;
-    if (!src.ready) return src;
-    final all = _liveCategories ?? const <AssetCategoryItem>[];
-    final parent = all.firstWhereOrNull((c) => c.isTopLevel && c.name == category);
-    return OptionSource([
-      for (final c in all)
-        if (parent != null && c.parentCategoryId == parent.id) c.name,
-    ], empty: 'No sub categories on the server yet');
-  }
-
-  /// API mode: the Asset Types of the sub category (GET /api/asset-category-types?categoryId=).
-  /// Mock mode: [local] (the reference tree plus Master Data types).
-  OptionSource assetTypes(String? category, String? subCategory, {required List<String> local}) {
-    if (!apiMode) return OptionSource(local);
-    if (subCategory == null) return const OptionSource([], empty: 'Choose a sub category first');
-    final sub = liveSubCategory(category, subCategory);
-    if (sub == null) {
+    final parent = mdCategory(category);
+    if (parent == null) {
       final src = categories;
-      return src.ready ? const OptionSource([], empty: 'No asset types on the server yet') : src;
+      return src.ready ? const OptionSource([], empty: 'No sub categories on the server yet') : src;
     }
     return _from(
-      liveCategoryTypesProvider(sub.id),
-      (l) => [for (final t in l) t.typeName],
-      'asset types',
-      () => ref.invalidate(liveCategoryTypesProvider(sub.id)),
+      mdSubCategoriesProvider(parent.id),
+      namesOf,
+      'sub categories',
+      () => ref.invalidate(mdSubCategoriesProvider(parent.id)),
     );
   }
 
-  /// API mode: the server's asset type [typeName] (null when unknown or not loaded).
-  AssetCategoryType? liveType(String? category, String? subCategory, String? typeName) {
-    final sub = liveSubCategory(category, subCategory);
-    if (sub == null || typeName == null) return null;
-    return ref.watch(liveCategoryTypesProvider(sub.id)).value?.firstWhereOrNull((t) => t.typeName == typeName);
+  /// API mode: the asset types linked to the chosen category (GET /asset-types?categoryId=). A
+  /// sub category can name one asset type (`assetType`, free text); when that name is in the list
+  /// only it is offered. Mock mode: [local] (the reference tree plus Master Data types).
+  OptionSource assetTypes(String? category, String? subCategory, {required List<String> local}) {
+    if (!apiMode) return OptionSource(local);
+    if (subCategory == null) return const OptionSource([], empty: 'Choose a sub category first');
+    final parent = mdCategory(category);
+    if (parent == null) {
+      final src = categories;
+      return src.ready ? const OptionSource([], empty: 'No asset types on the server yet') : src;
+    }
+    final named = mdSubCategory(category, subCategory)?.assetType?.trim().toLowerCase();
+    return _from(
+      mdAssetTypesProvider(parent.id),
+      (types) {
+        final all = namesOf(types);
+        final only = [
+          for (final t in all)
+            if (t.toLowerCase() == named) t,
+        ];
+        return only.isEmpty ? all : only;
+      },
+      'asset types',
+      () => ref.invalidate(mdAssetTypesProvider(parent.id)),
+    );
+  }
+
+  /// API mode: the server's asset type [typeName] under [category] (null when unknown / not loaded).
+  MdAssetType? mdAssetType(String? category, String? typeName) {
+    final parent = mdCategory(category);
+    if (parent == null || typeName == null) return null;
+    return ref.watch(mdAssetTypesProvider(parent.id)).value?.where((t) => t.name == typeName).firstOrNull;
   }
 
   /// API mode: the models of the chosen asset type (all models until a type is chosen), for the
   /// Model suggestions; free text stays allowed. Empty in mock mode.
-  List<AssetModelItem> models(String? category, String? subCategory, String? typeName) {
-    if (!apiMode) return const [];
-    final type = liveType(category, subCategory, typeName);
-    return ref.watch(liveModelsProvider(type?.id)).value ?? const [];
+  OptionSource models(String? category, String? typeName) {
+    if (!apiMode) return const OptionSource([]);
+    final p = mdAssetModelsProvider(mdAssetType(category, typeName)?.id);
+    return _md(p, p, 'asset models');
   }
 
-  /// Manufacturer suggestions. API mode: the manufacturers of the server's asset models (Master
-  /// Management's manufacturer list is not called); mock mode: [local].
-  List<String> manufacturers(List<String> Function() local) {
-    if (!apiMode) return local();
-    final all = ref.watch(liveModelsProvider(null)).value ?? const <AssetModelItem>[];
-    return ({for (final m in all) m.manufacturerName}..remove('')).toList()..sort();
-  }
+  /// Manufacturer suggestions. API mode: Master Data /manufacturers; mock mode: [local].
+  OptionSource manufacturers(List<String> Function() local) =>
+      apiMode ? _md(mdManufacturersProvider, mdManufacturersProvider, 'manufacturers') : OptionSource(local());
 }
 
-extension<T> on Iterable<T> {
-  T? firstWhereOrNull(bool Function(T) test) {
-    for (final e in this) {
-      if (test(e)) return e;
-    }
-    return null;
-  }
-}
+/// The names of [entries], each once, in the server's order.
+List<String> namesOf(Iterable<MdEntry> entries) => {
+  for (final e in entries)
+    if (e.name.isNotEmpty) e.name,
+}.toList();

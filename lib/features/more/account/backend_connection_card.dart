@@ -9,7 +9,7 @@ import 'package:asset360_mobile/data/repositories/auth_repository.dart';
 import 'package:asset360_mobile/data/repositories/connection_repository.dart';
 
 /// Administration → Backend API: the run-time settings (USE_API, AUTH / API / MEDIA base URLs),
-/// which token the Asset and Media services get, and Test connection (GET /health on all three).
+/// which token the Asset and Media services get, and Test connection (GET /health on all four).
 class BackendConnectionCard extends ConsumerWidget {
   const BackendConnectionCard({super.key});
 
@@ -64,11 +64,11 @@ class BackendConnectionCard extends ConsumerWidget {
               ],
             ),
             AsyncLoading() => Text(
-              'Calling ${ConnectionTestNotifier.healthPath} on AUTH, ASSET and MEDIA …',
+              'Calling ${ConnectionTestNotifier.healthPath} on AUTH, ASSET, MEDIA and MASTER DATA …',
               style: AppText.caption,
             ),
             _ => Text(
-              'Calls GET ${ConnectionTestNotifier.healthPath} on the login, Asset and Media services.',
+              'Calls GET ${ConnectionTestNotifier.healthPath} on the login, Asset, Media and Master Data services.',
               style: AppText.caption,
             ),
           },

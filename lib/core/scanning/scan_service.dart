@@ -10,6 +10,7 @@ import 'package:asset360_mobile/core/scanning/live_asset_lookup.dart';
 import 'package:asset360_mobile/core/scanning/scan_event.dart';
 import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/api/api_exception.dart';
+import 'package:asset360_mobile/data/api/master_data/master_data_repository.dart';
 import 'package:asset360_mobile/data/db/db_providers.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/inventory_repository.dart';
@@ -30,13 +31,16 @@ typedef ScanMatch = ({String id, String label});
 ///
 /// Match order: 1) TagLinks by tag key, 2) "LOC:" + location code, 3) asset ID / barcode / tag
 /// (then part number), 4) none. API mode: step 3 asks the Asset service ([lookupAsset]:
-/// GET /api/asset-registrations/lookup) instead of the mock register.
+/// GET /api/asset-registrations/lookup) instead of the mock register, and locations come from the
+/// Master Data tree ([findMasterLocation]): a location tag link holds the Master Data location id,
+/// and "LOC:<code>" matches the location's `code`.
 class ScanService {
   ScanService(
     this.db, {
     required this.findAsset,
     this.findPart,
     this.lookupAsset,
+    this.findMasterLocation,
     DateTime Function()? clock,
     String? deviceInfo,
     this.duplicateWindow = const Duration(seconds: 2),
@@ -49,6 +53,10 @@ class ScanService {
 
   /// API mode: the live asset lookup (wins over [findAsset]).
   final Future<LiveLookup> Function(ScanEvent e)? lookupAsset;
+
+  /// API mode: the Master Data location with this id or code (path from the country down), or an
+  /// empty path when there is none. Throws when the tree cannot be loaded.
+  final Future<MdLocationPath> Function({String? id, String? code})? findMasterLocation;
   final DateTime Function() clock;
   final String? _deviceInfo;
   final Duration duplicateWindow;
@@ -87,6 +95,7 @@ class ScanService {
       matchId: r.matchId,
       matchLabel: r.matchLabel,
       location: r.location,
+      masterLocation: r.masterLocation,
       logId: id,
       viaLink: r.viaLink,
       problem: r.problem,
@@ -103,6 +112,11 @@ class ScanService {
       if (link == null) continue;
       switch (link.targetType) {
         case LinkTarget.location:
+          if (findMasterLocation case final find?) {
+            final r = await _master(e, () => find(id: link.targetId), viaLink: true);
+            if (r != null) return r;
+            continue;
+          }
           final loc = await db.locationByCode(link.targetId);
           if (loc != null) return _location(e, loc, viaLink: true);
         case LinkTarget.asset:
@@ -119,8 +133,13 @@ class ScanService {
     // 2) A printed location label.
     if (value.toUpperCase().startsWith(locPrefix)) {
       final rest = value.substring(locPrefix.length).trim();
-      final loc = await db.locationByCode(rest) ?? await _locationByPath(rest);
-      if (loc != null) return _location(e, loc);
+      if (findMasterLocation case final find?) {
+        final r = await _master(e, () => find(code: rest));
+        if (r != null) return r;
+      } else {
+        final loc = await db.locationByCode(rest) ?? await _locationByPath(rest);
+        if (loc != null) return _location(e, loc);
+      }
     }
     // 3) An asset, then a spare part.
     if (lookupAsset case final lookup?) {
@@ -159,6 +178,43 @@ class ScanService {
     location: loc,
     viaLink: viaLink,
   );
+
+  /// A Master Data location match, null when [find] found nothing, or a problem result when the
+  /// location tree could not be loaded.
+  Future<ScanResult?> _master(ScanEvent e, Future<MdLocationPath> Function() find, {bool viaLink = false}) async {
+    try {
+      final path = await find();
+      return path.isEmpty ? null : _masterResult(e, path, viaLink: viaLink);
+    } catch (x) {
+      return ScanResult(
+        event: e,
+        matchType: MatchType.none,
+        problem: 'Could not load the locations: ${ApiException.from(x).message}',
+      );
+    }
+  }
+
+  ScanResult _masterResult(ScanEvent e, MdLocationPath path, {bool viaLink = false}) => ScanResult(
+    event: e,
+    matchType: MatchType.location,
+    matchId: path.deepest!.id,
+    matchLabel: path.label,
+    masterLocation: path,
+    viaLink: viaLink,
+  );
+
+  /// API mode: links the tag of [r] to a Master Data location (its real id) and updates the ScanLog row.
+  Future<ScanResult> linkToMasterLocation(ScanResult r, MdLocationPath path) async {
+    await db.linkTag(
+      tagKey: r.event.tagKey,
+      tagType: r.event.tagType,
+      targetType: LinkTarget.location,
+      targetId: path.deepest!.id,
+      label: path.label,
+      createdAt: clock(),
+    );
+    return _relink(r, _masterResult(r.event, path, viaLink: true));
+  }
 
   Future<DbLocation?> _locationByPath(String path) async {
     final p = path.toLowerCase();
@@ -210,6 +266,7 @@ class ScanService {
       matchId: next.matchId,
       matchLabel: next.matchLabel,
       location: next.location,
+      masterLocation: next.masterLocation,
       logId: old.logId,
       viaLink: true,
     );
@@ -244,6 +301,12 @@ final scanServiceProvider = Provider<ScanService>(
             null => null,
           },
     lookupAsset: apiMode ? (e) => ref.read(liveAssetLookupProvider).findEvent(e) : null,
+    findMasterLocation: apiMode
+        ? ({id, code}) async {
+            final tree = await ref.read(mdLocationTreeProvider.future);
+            return tree.pathTo(id != null ? tree.byId(id) : tree.byCode(code));
+          }
+        : null,
     findPart: (code) {
       final c = code.trim().toUpperCase();
       final p = ref.read(inventoryProvider).parts.firstWhereOrNull((p) => p.id.toUpperCase() == c);

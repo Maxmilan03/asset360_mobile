@@ -130,13 +130,17 @@ void main() {
     expect(find.text('Showing 2 of 2'), findsOneWidget);
   });
 
-  testWidgets('filter sheet: values from /filters, types narrowed by category, one value sent per filter', (
-    tester,
-  ) async {
+  testWidgets('filter sheet: Master Data values first plus /filters values, types narrowed by category, one value '
+      'sent per filter', (tester) async {
     await pump(tester);
     await tap(tester, find.text('Filter'));
     expect(backend.calls('GET', '/api/asset-registrations/filters'), isNotEmpty);
     expect(find.widgetWithText(FilterChip, 'Generator'), findsOneWidget);
+    // Master Data department / condition / pump type, and the value only an asset holds.
+    for (final v in ['Facilities Management', 'Facilities', 'Needs Attention', 'Pump']) {
+      expect(find.widgetWithText(FilterChip, v, skipOffstage: false), findsOneWidget, reason: v);
+    }
+    expect(find.widgetWithText(FilterChip, 'Diesel Sets', skipOffstage: false), findsNothing, reason: 'child category');
     await tap(tester, find.widgetWithText(FilterChip, 'HVAC'));
     expect(find.widgetWithText(FilterChip, 'Generator'), findsNothing, reason: 'types of HVAC only');
     expect(find.widgetWithText(FilterChip, 'Chiller'), findsOneWidget);

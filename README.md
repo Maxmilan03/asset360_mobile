@@ -77,18 +77,21 @@ the API Gateway (port 5296) is **not used for now**. Nothing is stored in the co
 flutter run --dart-define=USE_API=true \
   --dart-define=API_BASE_URL=http://<backend-ip>:5401 \
   --dart-define=MEDIA_BASE_URL=http://<backend-ip>:5300 \
-  --dart-define=AUTH_BASE_URL=http://<backend-ip>:5018
+  --dart-define=AUTH_BASE_URL=http://<backend-ip>:5018 \
+  --dart-define=MASTER_DATA_BASE_URL=http://<backend-ip>:5500
 
 # Release APK for testing on a phone (no logs needed: see Auth diagnostics below)
 flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/symbols \
   --dart-define=USE_API=true \
   --dart-define=API_BASE_URL=http://<backend-ip>:5401 \
   --dart-define=MEDIA_BASE_URL=http://<backend-ip>:5300 \
-  --dart-define=AUTH_BASE_URL=http://<backend-ip>:5018
+  --dart-define=AUTH_BASE_URL=http://<backend-ip>:5018 \
+  --dart-define=MASTER_DATA_BASE_URL=http://<backend-ip>:5500
 ```
 
 Example for the current test server: `API_BASE_URL=http://172.16.100.26:5401`,
-`MEDIA_BASE_URL=http://172.16.100.26:5300`, `AUTH_BASE_URL=http://172.16.100.26:5018`.
+`MEDIA_BASE_URL=http://172.16.100.26:5300`, `AUTH_BASE_URL=http://172.16.100.26:5018`,
+`MASTER_DATA_BASE_URL=http://172.16.100.26:5500` (or `--dart-define-from-file=env/api_dev.json`).
 
 | Define | Meaning |
 |---|---|
@@ -96,6 +99,7 @@ Example for the current test server: `API_BASE_URL=http://172.16.100.26:5401`,
 | `API_BASE_URL` | Asset service root, without `/api` (e.g. `http://192.168.1.20:5401`): every `/api/asset-*` call. |
 | `MEDIA_BASE_URL` | Media service root (e.g. `http://192.168.1.20:5300`): `POST /api/media/upload` and the `/uploads/...` files. |
 | `AUTH_BASE_URL` | UserAccount (login) service root (e.g. `http://192.168.1.20:5018`). |
+| `MASTER_DATA_BASE_URL` | Master Data Management service root (e.g. `http://192.168.1.20:5500`): every dropdown list, the location tree and employees. DEV default = the test server above; set it explicitly for any other backend. |
 | `DEV_TOKEN` | Optional, debugging only: a token sent to the Asset / Media services while nobody is signed in. Not needed for testing. |
 
 The Asset and Media services receive the signed-in user's Bearer token (they read it for CreatedBy); a missing token

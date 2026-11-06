@@ -9,6 +9,7 @@ import 'package:asset360_mobile/core/scanning/scan_dispatch.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/features/assets/live/live_assignment_screens.dart';
 import 'package:asset360_mobile/features/assets/live/live_detail_condition.dart';
 import 'package:asset360_mobile/features/assets/live/live_detail_more_actions.dart';
 import 'package:asset360_mobile/features/assets/live/live_detail_upload.dart';
@@ -36,6 +37,8 @@ Widget moreActionScreen(String slug, String? assetId) => switch (MoreAction.bySl
   MoreAction.addDocument when apiMode => LiveAddDocumentScreen(assetId: assetId),
   MoreAction.addMedia when apiMode => LiveAddPhotoScreen(assetId: assetId),
   MoreAction.favorites when apiMode => LiveFavoriteScreen(assetId: assetId),
+  MoreAction.checkInOut when apiMode => LiveCheckInOutScreen(assetId: assetId),
+  MoreAction.assignCustodian when apiMode => LiveAssignCustodianScreen(assetId: assetId),
   MoreAction.checkInOut => CheckInOutScreen(assetId: assetId),
   MoreAction.assignCustodian => AssignCustodianScreen(assetId: assetId),
   MoreAction.updateCondition => UpdateConditionScreen(assetId: assetId),

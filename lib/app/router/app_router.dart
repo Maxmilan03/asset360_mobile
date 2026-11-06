@@ -61,6 +61,9 @@ import 'package:asset360_mobile/features/work/movement/custody_screen.dart';
 import 'package:asset360_mobile/features/work/movement/movement_hub_screen.dart';
 import 'package:asset360_mobile/features/work/movement/movement_pages.dart';
 import 'package:asset360_mobile/features/work/movement/transfer_asset_screen.dart';
+import 'package:asset360_mobile/features/assets/live/live_assignment_screens.dart';
+import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/core/widgets/widgets.dart' show AppScaffold, NotAvailableYet;
 import 'package:asset360_mobile/features/more/insights/reports_screen.dart';
 import 'package:asset360_mobile/features/more/registration/register_asset_screen.dart';
 import 'package:asset360_mobile/features/more/registration/registration_hub_screen.dart';
@@ -344,12 +347,15 @@ GoRoute _workRoute() => GoRoute(
       routes: [
         GoRoute(
           path: 'transfer',
-          builder: (_, state) => TransferAssetScreen(
-            assetIds: [
-              ?state.uri.queryParameters['asset'],
-              ...?state.uri.queryParameters['assets']?.split(',').where((s) => s.isNotEmpty),
-            ],
-          ),
+          // API mode: Move with the Master Data location pickers (no move endpoint yet).
+          builder: (_, state) => apiMode
+              ? LiveMoveScreen(assetId: state.uri.queryParameters['asset'])
+              : TransferAssetScreen(
+                  assetIds: [
+                    ?state.uri.queryParameters['asset'],
+                    ...?state.uri.queryParameters['assets']?.split(',').where((s) => s.isNotEmpty),
+                  ],
+                ),
         ),
         GoRoute(path: 'history', builder: (_, _) => const MovementHistoryScreen()),
         GoRoute(
@@ -364,7 +370,17 @@ GoRoute _workRoute() => GoRoute(
         ])
           GoRoute(
             path: path,
-            builder: (_, state) => CustodyScreen(action: action, assetId: state.uri.queryParameters['asset']),
+            // API mode: Check Out / Assign post an Asset-service assignment with a Master Data
+            // employee; Check In / Return are not available yet.
+            builder: (_, state) {
+              final asset = state.uri.queryParameters['asset'];
+              if (!apiMode) return CustodyScreen(action: action, assetId: asset);
+              return switch (action) {
+                CustodyAction.checkOut => LiveCheckInOutScreen(assetId: asset),
+                CustodyAction.assign => LiveAssignCustodianScreen(assetId: asset),
+                _ => AppScaffold(body: NotAvailableYet(feature: action.title)),
+              };
+            },
           ),
       ],
     ),

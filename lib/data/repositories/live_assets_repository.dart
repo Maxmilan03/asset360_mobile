@@ -177,25 +177,11 @@ final registrationOptionsProvider = FutureProvider<RegistrationOptions>(
   (ref) => ref.watch(assetsApiProvider).options(),
 );
 
-/// GET /api/asset-categories (every level).
-final liveCategoriesProvider = FutureProvider<List<AssetCategoryItem>>(
-  (ref) => ref.watch(assetsApiProvider).categories(),
-);
+// Categories, types, models, criticality levels and the Master Management lists come from the
+// Master Data service: lib/data/api/master_data/master_data_repository.dart.
 
-/// GET /api/asset-category-types?categoryId= (null = every type).
-final liveCategoryTypesProvider = FutureProvider.family<List<AssetCategoryType>, String?>(
-  (ref, categoryId) => ref.watch(assetsApiProvider).categoryTypes(categoryId: categoryId),
-);
-
-/// GET /api/asset-models?assetTypeId= (null = every model).
-final liveModelsProvider = FutureProvider.family<List<AssetModelItem>, String?>(
-  (ref, typeId) => ref.watch(assetsApiProvider).models(assetTypeId: typeId),
-);
-
-final criticalityOptionsProvider = FutureProvider<CriticalityOptions>(
-  (ref) => ref.watch(assetsApiProvider).criticalityOptions(),
-);
-
+/// GET /api/asset-condition-assessments/ratings: the values the Asset service VALIDATES for a
+/// condition assessment (Update Condition), which may differ from Master Data /conditions.
 final conditionRatingsProvider = FutureProvider<List<String>>((ref) => ref.watch(assetsApiProvider).conditionRatings());
 
 // ------------------------------------------------------------------ favorites (device only)

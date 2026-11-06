@@ -295,7 +295,7 @@ class RegMultiChips extends StatelessWidget {
   );
 }
 
-/// Text field with suggestions (Manufacturer, Supplier / Vendor).
+/// Text field with suggestions (Model, Manufacturer, Supplier / Vendor). Free text is allowed.
 class RegAutocomplete extends StatelessWidget {
   const RegAutocomplete({
     super.key,
@@ -306,7 +306,21 @@ class RegAutocomplete extends StatelessWidget {
     this.required = false,
     this.hint,
     this.error,
-  });
+  }) : status = null;
+
+  /// Suggestions from an [OptionSource]: its loading / error / empty state (with Retry) shows
+  /// under the field, which stays editable.
+  RegAutocomplete.source(
+    OptionSource source, {
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.required = false,
+    this.hint,
+    this.error,
+  }) : options = source.options,
+       status = optionSourceStatus(source);
 
   final String label;
   final String? value;
@@ -315,10 +329,10 @@ class RegAutocomplete extends StatelessWidget {
   final bool required;
   final String? hint;
   final String? error;
+  final Widget? status;
 
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 14),
+  Widget _field({double bottom = 14}) => Padding(
+    padding: EdgeInsets.only(bottom: bottom),
     child: LabeledField(
       label: label,
       required: required,
@@ -339,6 +353,17 @@ class RegAutocomplete extends StatelessWidget {
       ),
     ),
   );
+
+  @override
+  Widget build(BuildContext context) => status == null
+      ? _field()
+      : Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _field(bottom: 2),
+            Padding(padding: const EdgeInsets.only(bottom: 12), child: status),
+          ],
+        );
 }
 
 /// Asset Images: several photos, the first is primary; tap a photo to view, make primary or remove.

@@ -7,6 +7,7 @@ import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/api/api_exception.dart';
+import 'package:asset360_mobile/data/api/master_data/master_data_repository.dart';
 import 'package:asset360_mobile/data/mock/more_actions_mock.dart';
 import 'package:asset360_mobile/data/models/document.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
@@ -81,6 +82,12 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
   @override
   void initState() {
     super.initState();
+    // API mode: reopening the form reloads the Master Data lists (kept for the session otherwise).
+    if (apiMode && ref.read(masterDataSessionProvider).reopened()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) refreshMasterData(ref);
+      });
+    }
     final p = widget.prefill;
     if (apiMode && p?.draftId != null) {
       f = AssetRegistration(assetRegistrationId: p!.draftId!);
@@ -100,13 +107,15 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
     f = AssetRegistration(assetRegistrationId: apiMode ? '' : _drafts.newDraftId());
     f.basicInformation
       ..status = AssetStatus.active
-      ..condition = 'Good'
+      ..condition = apiMode ? null : 'Good'
       ..barcode = p?.barcode
       ..rfidTagId = p?.tagId
       ..images = [?p?.photo];
-    f.locationAssignment.location
-      ..countryId = countries.keys.first
-      ..countryName = countries.values.first.name;
+    if (!apiMode) {
+      f.locationAssignment.location
+        ..countryId = countries.keys.first
+        ..countryName = countries.values.first.name;
+    }
     f.purchaseWarranty.purchase
       ..quantity = 1
       ..taxPercent = 5;
@@ -115,6 +124,15 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
     if (apiMode) {
       ref.listenManual(registrationOptionsProvider, (_, next) {
         if (next.value case final o?) _applyServerDefaults(o);
+      }, fireImmediately: true);
+      // Master Data defaults: the condition marked default, the first unit of measure.
+      ref.listenManual(mdConditionsProvider, (_, next) {
+        final d = next.value?.where((c) => c.isDefault).firstOrNull;
+        if (d != null) _setDefault(() => f.basicInformation.condition ??= d.name);
+      }, fireImmediately: true);
+      ref.listenManual(mdUomsProvider, (_, next) {
+        final u = next.value?.firstOrNull;
+        if (u != null) _setDefault(() => f.purchaseWarranty.purchase.quantityUnit ??= u.name);
       }, fireImmediately: true);
       return;
     }
@@ -134,9 +152,8 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
     final p = f.purchaseWarranty.purchase;
     final t = f.additionalInformation.technical, op = f.additionalInformation.operational;
     void apply() {
-      p
-        ..quantityUnit ??= o.quantityUnits.firstOrNull
-        ..currency ??= o.currencies.firstOrNull;
+      // Quantity Unit comes from Master Data /uoms (see initState).
+      p.currency ??= o.currencies.firstOrNull;
       t
         ..dimensionUnit ??= o.additional('dimensionUnits').firstOrNull
         ..weightUnit ??= o.additional('weightUnits').firstOrNull;
@@ -147,6 +164,8 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
 
     mounted ? setState(apply) : apply();
   }
+
+  void _setDefault(VoidCallback apply) => mounted ? setState(apply) : apply();
 
   /// API mode: GET /drafts/{id}, then resume on the step after the last one saved.
   Future<void> _loadDraft() async {
@@ -600,47 +619,55 @@ class _RegisterAssetScreenState extends ConsumerState<RegisterAssetScreen> {
         ),
         body: Form(
           key: _formKey,
-          child: ListView(
-            controller: _scroll,
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            children: [
-              PageTitle(
-                leading: Icon(Icons.radio_button_checked_rounded, color: AppColors.text, size: 22),
-                title: 'Asset Registration',
-                subtitle: isReview
-                    ? 'Review details before submitting'
-                    : 'Step ${_step + 1} of 5 · ${registrationStepSubtitles[_step]}',
-              ),
-              if (apiMode && LiveRegistrationService.isOnServer(f))
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: IconLine(
-                    icon: Icons.cloud_done_outlined,
-                    text: 'Draft ${f.assetRegistrationId} · saved on the server',
+          child: RefreshIndicator(
+            // API mode: pull down to reload every Master Data list.
+            notificationPredicate: (n) => apiMode && n.depth == 0,
+            onRefresh: () async {
+              refreshMasterData(ref);
+              await ref.read(mdCategoriesProvider.future).then<void>((_) {}, onError: (_) {});
+            },
+            child: ListView(
+              controller: _scroll,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              children: [
+                PageTitle(
+                  leading: Icon(Icons.radio_button_checked_rounded, color: AppColors.text, size: 22),
+                  title: 'Asset Registration',
+                  subtitle: isReview
+                      ? 'Review details before submitting'
+                      : 'Step ${_step + 1} of 5 · ${registrationStepSubtitles[_step]}',
+                ),
+                if (apiMode && LiveRegistrationService.isOnServer(f))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: IconLine(
+                      icon: Icons.cloud_done_outlined,
+                      text: 'Draft ${f.assetRegistrationId} · saved on the server',
+                    ),
                   ),
-                ),
-              const SizedBox(height: 16),
-              StepperHeader(steps: registrationSteps, current: _step, onStepTap: _goTo),
-              const SizedBox(height: 18),
-              RegSection(registrationStepTitles[_step]),
-              switch (_step) {
-                0 => StepBasic(
-                  form: f,
-                  edit: _edit,
-                  revision: _rev,
-                  errors: _errors,
-                  onEditClassification: () => _goTo(1),
-                  onSuggestId: _suggestId,
-                  onGenerateQr: _generateQr,
-                  onPrintLabel: _printLabel,
-                ),
-                1 => StepClassification(form: f, edit: _edit, onTypePicked: _typePicked, errors: _errors),
-                2 => StepLocation(form: f, edit: _edit, errors: _errors),
-                3 => StepPurchase(form: f, edit: _edit, errors: _errors),
-                4 => StepAdditional(form: f, edit: _edit, errors: _errors),
-                _ => RegistrationReview(form: f, onEdit: _goTo),
-              },
-            ],
+                const SizedBox(height: 16),
+                StepperHeader(steps: registrationSteps, current: _step, onStepTap: _goTo),
+                const SizedBox(height: 18),
+                RegSection(registrationStepTitles[_step]),
+                switch (_step) {
+                  0 => StepBasic(
+                    form: f,
+                    edit: _edit,
+                    revision: _rev,
+                    errors: _errors,
+                    onEditClassification: () => _goTo(1),
+                    onSuggestId: _suggestId,
+                    onGenerateQr: _generateQr,
+                    onPrintLabel: _printLabel,
+                  ),
+                  1 => StepClassification(form: f, edit: _edit, onTypePicked: _typePicked, errors: _errors),
+                  2 => StepLocation(form: f, edit: _edit, errors: _errors),
+                  3 => StepPurchase(form: f, edit: _edit, errors: _errors),
+                  4 => StepAdditional(form: f, edit: _edit, errors: _errors),
+                  _ => RegistrationReview(form: f, onEdit: _goTo),
+                },
+              ],
+            ),
           ),
         ),
       ),

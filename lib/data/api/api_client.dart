@@ -13,7 +13,11 @@ final dioProvider = Provider<Dio>((ref) => _serviceDio(ref, kApiBaseUrl));
 /// The Dio instance for the Media service (MEDIA_BASE_URL: uploads and /uploads/... files).
 final mediaDioProvider = Provider<Dio>((ref) => _serviceDio(ref, kMediaBaseUrl));
 
-/// Both services read the Bearer token (for CreatedBy) but a missing token never blocks a call.
+/// The Dio instance for the Master Data service (MASTER_DATA_BASE_URL: dropdown lists, locations,
+/// employees). Same Bearer handling as the others.
+final masterDataDioProvider = Provider<Dio>((ref) => _serviceDio(ref, kMasterDataBaseUrl));
+
+/// Every service reads the Bearer token (for CreatedBy) but a missing token never blocks a call.
 Dio _serviceDio(Ref ref, String baseUrl) {
   final dio = Dio(
     BaseOptions(
@@ -40,6 +44,11 @@ final apiClientProvider = Provider<ApiClient>((ref) => ApiClient(ref.watch(dioPr
 /// The same wrapper for the Media service.
 final mediaClientProvider = Provider<ApiClient>(
   (ref) => ApiClient(ref.watch(mediaDioProvider), service: BackendService.media),
+);
+
+/// The same wrapper for the Master Data service.
+final masterDataClientProvider = Provider<ApiClient>(
+  (ref) => ApiClient(ref.watch(masterDataDioProvider), service: BackendService.masterData),
 );
 
 class ApiClient {

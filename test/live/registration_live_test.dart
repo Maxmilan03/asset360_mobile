@@ -5,6 +5,7 @@ import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/core/demo_clock.dart';
 import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/data/api/master_data/master_data_repository.dart';
 import 'package:asset360_mobile/data/repositories/network_repository.dart';
 import 'package:asset360_mobile/features/more/registration/register_asset_screen.dart';
 import 'package:asset360_mobile/features/more/registration/registration_fields.dart';
@@ -104,7 +105,8 @@ Future<_Harness> _pump(WidgetTester tester, FakeAssetBackend backend) async {
       ),
     ],
   );
-  final c = ProviderContainer(overrides: backend.overrides);
+  // No automatic retry, so a failed list shows its error at once.
+  final c = ProviderContainer(retry: (_, _) => null, overrides: backend.overrides);
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: c,
@@ -168,14 +170,30 @@ void main() {
     expect(find.text('Step 2 of 5 · Category and type'), findsOneWidget);
     expect(find.text('Draft AR000123 · saved on the server'), findsOneWidget);
 
-    // Step 2: categories / types / criticality / fixed lists from the server.
-    await _pick(tester, 'Category', 'Machinery & Equipment');
+    // Step 2: categories / sub categories / types / criticality / departments from Master Data
+    // (active only, top-level categories only), fixed lists from the Asset service.
+    await _tapVisible(tester, _field('Category').first);
+    expect(find.text('Diesel Sets'), findsNothing, reason: 'child category');
+    expect(find.text('Retired Category'), findsNothing, reason: 'inactive');
+    await tester.tap(find.text('Machinery & Equipment').last);
+    await tester.pumpAndSettle();
+    expect(
+      backend.calls('GET', '/api/master-data/asset-categories').first.uri.queryParameters,
+      {'status': 'Active'},
+    );
     await _pick(tester, 'Sub Category', 'Power Generation');
     await _pick(tester, 'Asset Type', 'Generator');
-    expect(
-      backend.requests.any((r) => r.uri.path == '/api/asset-category-types' && r.uri.query == 'categoryId=cat2'),
-      isTrue,
-    );
+    expect(backend.calls('GET', '/api/master-data/asset-types').map((r) => r.uri.queryParameters), [
+      {'status': 'Active', 'categoryId': 'md-cat-1'},
+    ]);
+    // A sub category that names its asset type offers only that type.
+    await _pick(tester, 'Sub Category', 'Pumping');
+    await _tapVisible(tester, _field('Asset Type').first);
+    expect(find.text('Generator'), findsNothing);
+    await tester.tap(find.text('Pump').last);
+    await tester.pumpAndSettle();
+    await _pick(tester, 'Sub Category', 'Power Generation');
+    await _pick(tester, 'Asset Type', 'Generator');
     await _pick(tester, 'Function / Purpose', 'Other');
     await _pick(tester, 'Criticality', 'High');
     await _pick(tester, 'Department', 'Facilities Management');
@@ -201,12 +219,52 @@ void main() {
     });
     expect(backend.calls('POST', _drafts), hasLength(1), reason: 'the draft is created once');
 
-    // Step 3: local locations (said so) → Save as Draft.
+    // Step 3: the Master Data location tree (cascading, lower levels cleared), Master Data
+    // department / team, an employee as Assigned To → Save as Draft sends real ids AND names.
     expect(find.text('Step 3 of 5 · Where and with whom'), findsOneWidget);
-    expect(find.text('Locations are not from the server yet'), findsOneWidget);
+    expect(find.text('Locations are not from the server yet'), findsNothing);
+    expect(_field('Site'), findsNothing, reason: 'Site appears once a country is picked');
+    await _pick(tester, 'Country', 'UAE');
+    await _pick(tester, 'Site', 'Main Site');
+    await _pick(tester, 'Building', 'Block A');
+    await _pick(tester, 'Floor', 'First');
+    expect(_field('Zone'), findsNothing, reason: 'First has no zones');
+    await _pick(tester, 'Floor', 'Ground');
+    await _pick(tester, 'Zone', 'Zone 1');
+    await _pick(tester, 'Room', 'Room 101');
+    await _pick(tester, 'Building', 'Block A'); // same value: nothing cleared
+    await _pick(tester, 'Responsible Team', 'Electrical Team');
+    await _tapVisible(tester, find.text('Select person (optional)'));
+    expect(find.textContaining('EMP-0042'), findsOneWidget);
+    await tester.tap(find.text('Sara Ali'));
+    await tester.pumpAndSettle();
     await _tapVisible(tester, find.text('Save as Draft'));
     final save = backend.calls('PUT', '$_drafts/AR000123/location-assignment').single;
     expect(save.uri.queryParameters['saveAsDraft'], 'true');
+    final sent = _json(save.data);
+    expect(sent['location'], {
+      'projectId': null,
+      'countryId': 'loc-ae',
+      'countryName': 'UAE',
+      'siteId': 'loc-ms',
+      'siteName': 'Main Site',
+      'buildingId': 'loc-ba',
+      'buildingName': 'Block A',
+      'floorId': 'loc-gf',
+      'floorName': 'Ground',
+      'zoneId': 'loc-z1',
+      'zoneName': 'Zone 1',
+      'roomId': 'loc-r101',
+      'roomName': 'Room 101',
+      'locationPath': 'UAE > Main Site > Block A > Ground > Zone 1 > Room 101',
+      'latitude': null,
+      'longitude': null,
+    });
+    final assignment = sent['assignment'] as Map<String, dynamic>;
+    expect(assignment['assignedToUserId'], '6650a1b2c3d4e5f600000e01', reason: 'the employee record id');
+    expect(assignment['assignedToName'], 'Sara Ali');
+    expect(assignment['custodianDepartment'], 'Facilities Management', reason: "the employee's department");
+    expect(assignment['responsibleTeam'], 'Electrical Team');
     expect(find.textContaining('Draft AR000123 saved'), findsOneWidget);
   });
 
@@ -327,12 +385,14 @@ void main() {
     expect(find.text('Pump B'), findsNothing);
   });
 
-  testWidgets('dropdowns: a server-only currency from /options; empty categories → message', (tester) async {
+  testWidgets('dropdowns: a server-only currency from /options; empty Master Data categories → message + '
+      'Retry; reopening the form reloads the lists; Master Data down → error + Retry, no local list', (tester) async {
     final options = _json(sampleOptions);
     (options['purchaseWarranty'] as Map)['currencies'] = ['OMR - Omani Rial', 'AED - UAE Dirham'];
+    var categories = <Map<String, Object?>>[];
     backend
       ..on('GET', '/api/asset-registrations/options', (_) => FakeReply(200, options))
-      ..on('GET', '/api/asset-categories', (_) => const FakeReply(200, []))
+      ..on('GET', '/api/master-data/asset-categories', (_) => FakeReply(200, categories))
       ..on('GET', '$_drafts/AR000400', (_) => FakeReply(200, _draft('AR000400', 4)))
       // No category chosen yet, so the empty server list shows its hint.
       ..on('GET', '$_drafts/AR000401', (_) => FakeReply(200, {..._draft('AR000401', 2), 'classification': null}));
@@ -346,9 +406,40 @@ void main() {
     await tester.pumpAndSettle();
     if (find.text('Discard').evaluate().isNotEmpty) await _tapButton(tester, 'Discard');
 
+    final before = backend.calls('GET', '/api/master-data/asset-categories').length;
     await _openForm(tester, h, const RegistrationPrefill(draftId: 'AR000401'));
     expect(find.text('Step 2 of 5 · Category and type'), findsOneWidget);
+    expect(
+      backend.calls('GET', '/api/master-data/asset-categories').length,
+      greaterThan(before),
+      reason: 'reopening the form reloads the lists',
+    );
     expect(find.text('No categories on the server yet'), findsOneWidget);
+
+    // Retry under the empty list asks again.
+    categories = [mdCategories.first];
+    await _tapVisible(tester, find.descendant(of: find.byType(RetryLink), matching: find.text('Retry')).first);
+    await _tapVisible(tester, _field('Category').first);
+    expect(find.text('Machinery & Equipment'), findsWidgets);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+
+    // Unreachable: the error with Retry; the local list is never used.
+    await tester.scrollUntilVisible(
+      _field('Department'),
+      200,
+      scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first,
+    );
+    backend.on(
+      'GET',
+      '/api/master-data/departments',
+      (_) => const FakeReply(503, {'message': 'Master Data is down'}),
+    );
+    h.container.invalidate(mdDepartmentsProvider);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Could not load departments'), findsOneWidget);
+    await _tapVisible(tester, _field('Department').first);
+    expect(find.text('Facilities Management'), findsNothing, reason: 'no local fallback');
   });
 
   testWidgets('Bulk CSV is not available yet; Recent Scans (mock register) is not shown', (tester) async {

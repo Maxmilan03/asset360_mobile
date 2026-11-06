@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/api/master_data/master_data_repository.dart';
 import 'package:asset360_mobile/data/repositories/live_assets_repository.dart';
+import 'package:asset360_mobile/features/more/registration/live_options.dart' show namesOf;
 
-/// Filter sheet of the live Assets list: the values of GET /api/asset-registrations/filters, one
-/// value per filter (the server matches one value each). Returns the new query (search and sort
+/// Filter sheet of the live Assets list, one value per filter (the server matches one value each).
+/// Category, Asset Type, Department, Criticality, Manufacturer and Condition list the Master Data
+/// values first, then any other value the assets already hold (GET /api/asset-registrations/filters);
+/// Status, Location and Custodian are the /filters values. Returns the new query (search and sort
 /// kept), or null when dismissed.
 Future<AssetListQuery?> showLiveFilterSheet(
   BuildContext context, {
@@ -42,10 +47,31 @@ class _LiveFilterSheetState extends ConsumerState<_LiveFilterSheet> {
 
   List<_Option> _plain(Iterable<String> values) => [for (final v in values) (value: v, label: v)];
 
-  List<Widget> _groups(AssetListFilters f) {
-    final types = <String>{
+  /// Master Data names first, then the values only the assets hold.
+  List<String> _merged<T extends MdEntry>(FutureProvider<List<T>> master, List<String> server) =>
+      {...namesOf(ref.watch(master).value ?? <T>[]), ...server}.toList();
+
+  /// Asset types of [category] (all when null): Master Data types linked to it, then /filters'.
+  /// [read] is `ref.watch` in build and `ref.read` in a tap handler.
+  List<String> _typesOf(AssetListFilters f, String? category, T Function<T>(ProviderListenable<T>) read) {
+    final cat = category == null
+        ? null
+        : read(mdCategoriesProvider).value?.where((c) => c.isTopLevel && c.name == category).firstOrNull;
+    final master = category != null && cat == null
+        ? const <MdAssetType>[]
+        : read(mdAssetTypesProvider(cat?.id)).value ?? const <MdAssetType>[];
+    return {
+      ...namesOf(master),
       for (final t in f.assetTypes)
-        if (_q.category == null || t.category == _q.category) t.assetType,
+        if (category == null || t.category == category) t.assetType,
+    }.toList();
+  }
+
+  List<Widget> _groups(AssetListFilters f) {
+    final types = _typesOf(f, _q.category, ref.watch);
+    final categories = {
+      ...namesOf(ref.watch(mdCategoriesProvider).value?.where((c) => c.isTopLevel) ?? const <MdCategory>[]),
+      ...f.categories,
     };
     Widget group(String title, List<_Option> options, String? selected, void Function(String?) set) {
       if (options.isEmpty) return const SizedBox.shrink();
@@ -74,12 +100,9 @@ class _LiveFilterSheetState extends ConsumerState<_LiveFilterSheet> {
     }
 
     return [
-      group('Category', _plain(f.categories), _q.category, (v) {
+      group('Category', _plain(categories), _q.category, (v) {
         // Keep the asset type only when it belongs to the new category.
-        final keep =
-            v == null ||
-            _q.assetType == null ||
-            f.assetTypes.any((t) => t.assetType == _q.assetType && t.category == v);
+        final keep = v == null || _q.assetType == null || _typesOf(f, v, ref.read).contains(_q.assetType);
         _q = _q.copyWith(category: () => v, assetType: keep ? null : () => null);
       }),
       group('Asset Type', _plain(types), _q.assetType, (v) => _q = _q.copyWith(assetType: () => v)),
@@ -90,7 +113,12 @@ class _LiveFilterSheetState extends ConsumerState<_LiveFilterSheet> {
         _q.locationId,
         (v) => _q = _q.copyWith(locationId: () => v),
       ),
-      group('Department', _plain(f.departments), _q.department, (v) => _q = _q.copyWith(department: () => v)),
+      group(
+        'Department',
+        _plain(_merged(mdDepartmentsProvider, f.departments)),
+        _q.department,
+        (v) => _q = _q.copyWith(department: () => v),
+      ),
       if (widget.showCustodian)
         group(
           'Custodian',
@@ -98,9 +126,24 @@ class _LiveFilterSheetState extends ConsumerState<_LiveFilterSheet> {
           _q.custodianUserId,
           (v) => _q = _q.copyWith(custodianUserId: () => v),
         ),
-      group('Criticality', _plain(f.criticalities), _q.criticality, (v) => _q = _q.copyWith(criticality: () => v)),
-      group('Manufacturer', _plain(f.manufacturers), _q.manufacturer, (v) => _q = _q.copyWith(manufacturer: () => v)),
-      group('Condition', _plain(f.conditions), _q.condition, (v) => _q = _q.copyWith(condition: () => v)),
+      group(
+        'Criticality',
+        _plain(_merged(mdCriticalitiesProvider, f.criticalities)),
+        _q.criticality,
+        (v) => _q = _q.copyWith(criticality: () => v),
+      ),
+      group(
+        'Manufacturer',
+        _plain(_merged(mdManufacturersProvider, f.manufacturers)),
+        _q.manufacturer,
+        (v) => _q = _q.copyWith(manufacturer: () => v),
+      ),
+      group(
+        'Condition',
+        _plain(_merged(mdConditionsProvider, f.conditions)),
+        _q.condition,
+        (v) => _q = _q.copyWith(condition: () => v),
+      ),
     ];
   }
 

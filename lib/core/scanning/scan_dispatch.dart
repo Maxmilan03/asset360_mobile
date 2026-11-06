@@ -16,6 +16,8 @@ import 'package:asset360_mobile/core/widgets/demo_guard.dart';
 import 'package:asset360_mobile/core/widgets/dialogs.dart';
 import 'package:asset360_mobile/core/widgets/feedback.dart';
 import 'package:asset360_mobile/core/widgets/location_field.dart';
+import 'package:asset360_mobile/core/widgets/master_location_field.dart';
+import 'package:asset360_mobile/data/api/master_data/location_index.dart';
 import 'package:asset360_mobile/core/widgets/pulse_rings.dart';
 import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/db/db_providers.dart';
@@ -74,7 +76,11 @@ Future<void> openScanResult(BuildContext context, ScanResult r) async {
       final route = Routes.partDetail(r.matchId!);
       if (demoCanOpen(route)) await context.push(route);
     case MatchType.location:
-      if (r.location case final loc?) await showLocationSheet(context, loc);
+      if (r.location case final loc?) {
+        await showLocationSheet(context, loc);
+      } else if (r.masterLocation case final path?) {
+        await showMasterLocationSheet(context, path);
+      }
     case MatchType.none:
       break;
   }
@@ -231,6 +237,27 @@ Future<void> showLocationSheet(BuildContext context, DbLocation loc) => showModa
   ]),
 );
 
+/// API mode: "Location: UAE > Main Site > Block A" for a Master Data location tag scanned
+/// outside a form.
+Future<void> showMasterLocationSheet(BuildContext context, MdLocationPath path) => showModalBottomSheet<void>(
+  context: context,
+  builder: (sheet) => sheetFrame(sheet, [
+    Icon(Icons.place_rounded, size: 48, color: AppColors.primary),
+    const SizedBox(height: 8),
+    Text('Location: ${path.deepest!.name}', textAlign: TextAlign.center, style: AppText.sectionTitle),
+    const SizedBox(height: 6),
+    Text(path.label, textAlign: TextAlign.center, style: AppText.secondary),
+    const SizedBox(height: 4),
+    Text(
+      '${path.level!.label}${path.deepest!.code.isEmpty ? '' : ' · Code ${path.deepest!.code}'}',
+      textAlign: TextAlign.center,
+      style: AppText.caption,
+    ),
+    const SizedBox(height: 18),
+    OutlinedButton(onPressed: () => Navigator.pop(sheet), child: const Text('Close')),
+  ]),
+);
+
 /// Register a new asset for an unknown code (→ registration, prefilled with the RFID / NFC tag ID
 /// or the barcode).
 void registerScannedTag(BuildContext context, ScanEvent e) {
@@ -361,6 +388,11 @@ Future<ScanResult?> showUnknownTagSheet(
 }
 
 Future<ScanResult?> linkTagToLocation(BuildContext context, WidgetRef ref, ScanResult r) async {
+  if (apiMode) {
+    final path = await showLinkMasterLocationSheet(context);
+    if (path == null || !context.mounted) return null;
+    return ref.read(scanServiceProvider).linkToMasterLocation(r, path);
+  }
   final loc = await showLinkLocationSheet(context);
   if (loc == null || !context.mounted) return null;
   return ref.read(scanServiceProvider).linkToLocation(r, loc);
@@ -414,4 +446,46 @@ class _LinkLocationSheetState extends ConsumerState<_LinkLocationSheet> {
       ),
     ]);
   }
+}
+
+/// API mode: pick a Master Data location (at least the floor) and Save. The tag link stores the
+/// location's real id.
+Future<MdLocationPath?> showLinkMasterLocationSheet(BuildContext context) => showModalBottomSheet<MdLocationPath>(
+  context: context,
+  isScrollControlled: true,
+  builder: (_) => const _LinkMasterLocationSheet(),
+);
+
+class _LinkMasterLocationSheet extends StatefulWidget {
+  const _LinkMasterLocationSheet();
+
+  @override
+  State<_LinkMasterLocationSheet> createState() => _LinkMasterLocationSheetState();
+}
+
+class _LinkMasterLocationSheetState extends State<_LinkMasterLocationSheet> {
+  MdLocationPath _value = MdLocationPath.empty;
+  bool _tried = false;
+
+  bool get _ok => (_value.level?.index ?? -1) >= MdLocationLevel.floor.index;
+
+  @override
+  Widget build(BuildContext context) => sheetFrame(context, [
+    const SheetTitle('Link to a location', subtitle: 'Country › Site › Building › Floor › Zone › Room'),
+    MasterLocationSelector(value: _value, onChanged: (v) => setState(() => _value = v)),
+    if (_tried && !_ok)
+      Text(
+        'Choose at least the country, site, building and floor',
+        style: AppText.caption.copyWith(color: AppColors.red),
+      ),
+    if (_ok) Text('Tag will open ${_value.label}', style: AppText.caption),
+    const SizedBox(height: 14),
+    FilledButton(
+      onPressed: () {
+        if (!_ok) return setState(() => _tried = true);
+        Navigator.pop(context, _value);
+      },
+      child: const Text('Save'),
+    ),
+  ]);
 }

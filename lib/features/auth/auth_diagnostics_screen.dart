@@ -41,9 +41,9 @@ class AuthDiagnosticsScreen extends ConsumerWidget {
           title: 'Configuration',
           child: Column(
             children: [
-              InfoRow(label: 'USE_API', value: '$apiMode', labelWidth: 120),
+              InfoRow(label: 'USE_API', value: '$apiMode', labelWidth: 168),
               for (final s in BackendService.values)
-                InfoRow(label: s.define, value: s.baseUrl.isEmpty ? 'Not set' : s.baseUrl, labelWidth: 120),
+                InfoRow(label: s.define, value: s.baseUrl.isEmpty ? 'Not set' : s.baseUrl, labelWidth: 168),
             ],
           ),
         ),
