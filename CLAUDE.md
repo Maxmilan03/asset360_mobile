@@ -150,6 +150,22 @@
   `features/assets/live/live_key_information.dart`; Delete = detail ⋮ (soft delete, back to the list). Status chip
   colours = `AssetOptions.toneOf` (blue Assigned). Report: `docs/asset_edit_report.md`; tests:
   `test/live/asset_edit_live_test.dart` (the fake backend keeps `stored` and replaces sections on PUT).
+- Home dashboard (API mode, Dashboard service 5470, `DASHBOARD_BASE_URL`, DEV default 172.16.100.26:5470,
+  `BackendService.dashboard`, `dashboardClientProvider`): `lib/data/api/dashboard/` — `dashboard_models.dart` (`Dash*`
+  per MobileDashboardContracts.cs, `NetworkStatusCounts`, `TagRecordCount`), `dashboard_api.dart` (`DashboardApi`: one
+  method per endpoint, only the query params each endpoint reads; `liveUri`), `network_status_live.dart`
+  (`NetworkStatusSocket`: backoff 2/5/10/30 s, injectable `LiveSocketConnector` / `LiveScheduler`). Providers:
+  `data/repositories/dashboard_repository.dart` (`dash*Provider` per endpoint, paged `dashAlertsProvider` /
+  `dashRecentAssetsProvider`, `dashSiteProvider` + `dashSitesProvider` = Home site selector in API mode (only
+  maintenance-performance and recent-assets take `site=`), `liveDevicesProvider` + `setActive`, `refreshDashboard`).
+  UI: every Home card branches to `sections/live_dashboard_cards.dart` (each card = its own endpoint, `DashSection`
+  = shimmer / error + Retry / empty message; /mobile/home = greeting + 4 counters only), `sections/live_devices_card.dart`
+  (socket only while Home is visible (`TickerMode`) and the app is resumed), `features/home/devices_screen.dart`
+  (`/home/devices`), drill-downs in `drilldowns/live/` (each mock drill-down returns its live screen in API mode;
+  Recent Assets takes `?status=&type=&site=`, Recent Alerts `?severity=`), map = `dash_map.dart` (flutter_map + OSM),
+  shared bits `dash_ui.dart`. My Tasks stays "Not available yet". Tests: `test/live/dashboard_test.dart` (samples in
+  `dashboard_samples.dart`; `flutter_test_config.dart` gives every test an idle fake socket). Report:
+  `docs/home_dashboard_report.md`.
 - Scan (prompt 07): `features/assets/scan/` — `scan_screen.dart` (QR camera + simulated NFC/RFID/BLE, Manual Entry, Multi Scan,
   debug "Simulate scan" chip), `scan_result_screen.dart` (Asset Identified), `scan_history_screen.dart`. Every scan goes
   through `openScannedCode` (`scan_flow.dart`), which records history and routes. Code matching = `ScanHistoryNotifier.resolve`

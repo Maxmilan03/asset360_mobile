@@ -8,9 +8,8 @@ import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
-import 'package:asset360_mobile/data/repositories/live_assets_repository.dart';
 import 'package:asset360_mobile/features/home/home_style.dart';
-import 'package:asset360_mobile/features/home/sections/live_home.dart';
+import 'package:asset360_mobile/features/home/sections/live_dashboard_cards.dart';
 
 final _n = NumberFormat('#,###');
 
@@ -19,14 +18,12 @@ class AssetOverviewCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (apiMode) return const LiveAssetOverviewCard();
     return SectionCard(
       title: 'Asset Overview',
       actionLabel: 'View All',
       onAction: DemoGuard.push(context, Routes.assetOverview),
-      // API mode: the server's status summary (GET /api/asset-registrations?pageSize=1).
-      child: apiMode
-          ? LiveCardBody(provider: assetSummaryProvider, builder: (s) => _content(context, s.statusCounts))
-          : _content(context, ref.watch(orgSummaryProvider).statusCounts),
+      child: _content(context, ref.watch(orgSummaryProvider).statusCounts),
     );
   }
 

@@ -78,7 +78,8 @@ flutter run --dart-define=USE_API=true \
   --dart-define=API_BASE_URL=http://<backend-ip>:5401 \
   --dart-define=MEDIA_BASE_URL=http://<backend-ip>:5300 \
   --dart-define=AUTH_BASE_URL=http://<backend-ip>:5018 \
-  --dart-define=MASTER_DATA_BASE_URL=http://<backend-ip>:5500
+  --dart-define=MASTER_DATA_BASE_URL=http://<backend-ip>:5500 \
+  --dart-define=DASHBOARD_BASE_URL=http://<backend-ip>:5470
 
 # Release APK for testing on a phone (no logs needed: see Auth diagnostics below)
 flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/symbols \
@@ -86,12 +87,14 @@ flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build
   --dart-define=API_BASE_URL=http://<backend-ip>:5401 \
   --dart-define=MEDIA_BASE_URL=http://<backend-ip>:5300 \
   --dart-define=AUTH_BASE_URL=http://<backend-ip>:5018 \
-  --dart-define=MASTER_DATA_BASE_URL=http://<backend-ip>:5500
+  --dart-define=MASTER_DATA_BASE_URL=http://<backend-ip>:5500 \
+  --dart-define=DASHBOARD_BASE_URL=http://<backend-ip>:5470
 ```
 
 Example for the current test server: `API_BASE_URL=http://172.16.100.26:5401`,
 `MEDIA_BASE_URL=http://172.16.100.26:5300`, `AUTH_BASE_URL=http://172.16.100.26:5018`,
-`MASTER_DATA_BASE_URL=http://172.16.100.26:5500` (or `--dart-define-from-file=env/api_dev.json`).
+`MASTER_DATA_BASE_URL=http://172.16.100.26:5500`, `DASHBOARD_BASE_URL=http://172.16.100.26:5470`
+(or `--dart-define-from-file=env/api_dev.json`).
 
 | Define | Meaning |
 |---|---|
@@ -100,6 +103,7 @@ Example for the current test server: `API_BASE_URL=http://172.16.100.26:5401`,
 | `MEDIA_BASE_URL` | Media service root (e.g. `http://192.168.1.20:5300`): `POST /api/media/upload` and the `/uploads/...` files. |
 | `AUTH_BASE_URL` | UserAccount (login) service root (e.g. `http://192.168.1.20:5018`). |
 | `MASTER_DATA_BASE_URL` | Master Data Management service root (e.g. `http://192.168.1.20:5500`): every dropdown list, the location tree and employees. DEV default = the test server above; set it explicitly for any other backend. |
+| `DASHBOARD_BASE_URL` | Dashboard service root (e.g. `http://192.168.1.20:5470`): Home cards and drill-downs (`/api/dashboards/mobile/*`), network status and its WebSocket (`ws://` / `wss://` derived from this URL). DEV default = the test server above. |
 | `DEV_TOKEN` | Optional, debugging only: a token sent to the Asset / Media services while nobody is signed in. Not needed for testing. |
 
 The Asset and Media services receive the signed-in user's Bearer token (they read it for CreatedBy); a missing token

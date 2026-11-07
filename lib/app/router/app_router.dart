@@ -17,6 +17,7 @@ import 'package:asset360_mobile/features/more/documents/document_detail_screen.d
 import 'package:asset360_mobile/features/more/documents/document_viewer_screen.dart';
 import 'package:asset360_mobile/features/more/documents/documents_screen.dart';
 import 'package:asset360_mobile/features/more/account/help_screen.dart';
+import 'package:asset360_mobile/features/home/devices_screen.dart';
 import 'package:asset360_mobile/features/home/drilldowns/activities_screen.dart';
 import 'package:asset360_mobile/features/home/drilldowns/asset_health_screen.dart';
 import 'package:asset360_mobile/features/home/drilldowns/asset_location_screen.dart';
@@ -237,11 +238,23 @@ GoRoute _homeRoute() => GoRoute(
       path: 'activities',
       builder: (_, state) => ActivitiesScreen(calendar: state.uri.queryParameters['view'] == 'calendar'),
     ),
-    GoRoute(path: 'recent-alerts', builder: (_, _) => const RecentAlertsScreen()),
+    GoRoute(
+      path: 'recent-alerts',
+      builder: (_, state) => RecentAlertsScreen(severity: state.uri.queryParameters['severity']),
+    ),
     GoRoute(path: 'asset-location', builder: (_, _) => const AssetLocationScreen()),
     GoRoute(path: 'asset-health', builder: (_, _) => const AssetHealthScreen()),
     GoRoute(path: 'cost-summary', builder: (_, _) => const CostSummaryScreen()),
-    GoRoute(path: 'recent-assets', builder: (_, _) => const RecentAssetsScreen()),
+    GoRoute(
+      path: 'recent-assets',
+      builder: (_, state) => RecentAssetsScreen(
+        status: state.uri.queryParameters['status'],
+        type: state.uri.queryParameters['type'],
+        site: state.uri.queryParameters['site'],
+      ),
+    ),
+    // API mode: Live Devices → tags (not in the client demo allow-list).
+    GoRoute(path: 'devices', builder: (_, _) => const DevicesScreen()),
     ..._shared(),
   ],
 );

@@ -49,7 +49,7 @@ final serviceTargetsProvider = Provider<Map<BackendService, ({String baseUrl, St
   (ref) => {for (final s in BackendService.values) s: (baseUrl: s.baseUrl, problem: s.configProblem)},
 );
 
-/// Test connection: GET /health on AUTH, ASSET, MEDIA and MASTER DATA (in parallel), one result each.
+/// Test connection: GET /health on AUTH, ASSET, MEDIA, MASTER DATA and DASHBOARD (in parallel), one result each.
 /// State: null = not tested yet; loading while the calls run. Never an error: failures are per service.
 class ConnectionTestNotifier extends AsyncNotifier<List<ServiceHealth>?> {
   static const healthPath = '/health';

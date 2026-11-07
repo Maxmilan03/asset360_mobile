@@ -51,10 +51,23 @@ abstract final class Routes {
   /// Upcoming Activities on the list or calendar view.
   static String activitiesView(String view) => '$activities?view=$view';
   static const recentAlerts = '/home/recent-alerts';
+
+  /// API mode: Recent Alerts opened on a severity tab (Critical / Warning / Info).
+  static String recentAlertsSeverity(String severity) => '$recentAlerts?severity=$severity';
   static const assetLocation = '/home/asset-location';
   static const assetHealth = '/home/asset-health';
   static const costSummary = '/home/cost-summary';
   static const recentAssets = '/home/recent-assets';
+
+  /// API mode: Recent Assets narrowed to a status group key, asset type and / or site
+  /// (the filters GET /api/dashboards/mobile/recent-assets accepts).
+  static String recentAssetsFiltered({String? status, String? type, String? site}) {
+    final q = {'status': ?status, 'type': ?type, 'site': ?site};
+    return q.isEmpty ? recentAssets : Uri(path: recentAssets, queryParameters: q).toString();
+  }
+
+  /// API mode: Live Devices (GET /api/dashboards/network-status/tags).
+  static const devices = '/home/devices';
 
   // Assets
   static String assetDetail(String assetId, {String? tab}) =>

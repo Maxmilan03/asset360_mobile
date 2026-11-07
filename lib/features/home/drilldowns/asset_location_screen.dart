@@ -19,6 +19,7 @@ import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/data/repositories/tracking_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 import 'package:asset360_mobile/features/home/drilldowns/drilldown_page.dart';
+import 'package:asset360_mobile/features/home/drilldowns/live/live_asset_location_screen.dart';
 import 'package:asset360_mobile/features/home/home_style.dart';
 
 /// Status chips of the map (null = All).
@@ -139,7 +140,7 @@ class _AssetLocationScreenState extends ConsumerState<AssetLocationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (apiMode) return const NotAvailableDrilldown(title: 'Asset Location (Live)', feature: 'Live asset location');
+    if (apiMode) return const LiveAssetLocationScreen();
     ref.watch(trackingLiveProvider); // FL-012 moves every few seconds while the map is open
     ref.watch(trackingProvider);
     final all = ref.watch(mapPinsProvider);

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,10 +12,10 @@ import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
-import 'package:asset360_mobile/data/repositories/live_assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 import 'package:asset360_mobile/features/home/drilldowns/drilldown_page.dart';
+import 'package:asset360_mobile/features/home/drilldowns/live/live_recent_assets_screen.dart';
 
 final _n = NumberFormat('#,###');
 
@@ -25,12 +23,18 @@ final _n = NumberFormat('#,###');
 const _chips = <String?>[null, AssetStatus.active, AssetStatus.underMaintenance];
 
 /// Home "Recent Assets" → View All: detailed assets by last activity, newest first.
-/// API mode: the server's assets, newest first (createdAt desc), 20 per page.
+/// API mode: [LiveRecentAssetsScreen] (GET /api/dashboards/mobile/recent-assets).
 class RecentAssetsScreen extends StatelessWidget {
-  const RecentAssetsScreen({super.key});
+  const RecentAssetsScreen({super.key, this.status, this.type, this.site});
+
+  /// API mode filters from Home / Asset Overview links: status group key, asset type, site.
+  final String? status;
+  final String? type;
+  final String? site;
 
   @override
-  Widget build(BuildContext context) => apiMode ? const _LiveRecentAssets() : const _MockRecentAssets();
+  Widget build(BuildContext context) =>
+      apiMode ? LiveRecentAssetsScreen(status: status, type: type, site: site) : const _MockRecentAssets();
 }
 
 class _MockRecentAssets extends ConsumerStatefulWidget {
@@ -167,159 +171,6 @@ class _RecentRow extends ConsumerWidget {
         ref.read(recentAssetsProvider.notifier).viewed(asset.id);
         context.push(Routes.assetDetail(asset.id));
       },
-    );
-  }
-}
-
-// ---------------------------------------------------------------- API mode
-
-class _LiveRecentAssets extends ConsumerStatefulWidget {
-  const _LiveRecentAssets();
-
-  @override
-  ConsumerState<_LiveRecentAssets> createState() => _LiveRecentAssetsState();
-}
-
-class _LiveRecentAssetsState extends ConsumerState<_LiveRecentAssets> {
-  final _search = TextEditingController();
-  Timer? _debounce;
-  String? _status;
-  String _query = '';
-
-  AssetListQuery get _listQuery => AssetListQuery(
-    search: _query.trim().isEmpty ? null : _query.trim(),
-    status: _status,
-    sortBy: 'createdAt',
-    sortDirection: 'desc',
-  );
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _search.dispose();
-    super.dispose();
-  }
-
-  void _onSearch(String v) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () {
-      if (mounted) setState(() => _query = v);
-    });
-  }
-
-  void _clear() => setState(() {
-    _debounce?.cancel();
-    _search.clear();
-    _query = '';
-    _status = null;
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final q = _listQuery;
-    final list = ref.watch(liveAssetListProvider(q));
-    final data = list.value;
-    final summary = ref.watch(assetSummaryProvider).value;
-    int? count(String? s) => summary == null ? null : (s == null ? summary.total : summary.statusCounts[s]);
-    final Widget sliver;
-    if (data == null) {
-      sliver = SliverToBoxAdapter(
-        child: list.hasError
-            ? LoadErrorState(error: list.error!, onRetry: () => ref.invalidate(liveAssetListProvider(q)))
-            : const ListSkeleton(rows: 6),
-      );
-    } else if (data.items.isEmpty) {
-      sliver = SliverToBoxAdapter(
-        child: EmptyState(
-          icon: Icons.search_off_rounded,
-          title: 'No assets found',
-          message: 'Try another search or status.',
-          actionLabel: 'Clear search & filters',
-          onAction: _clear,
-        ),
-      );
-    } else {
-      sliver = SliverCardList(
-        itemCount: data.items.length,
-        indent: 90,
-        itemBuilder: (_, i) {
-          // Infinite scroll: the next page when the last row is built.
-          if (i == data.items.length - 1 && data.hasMore && data.loadMoreError == null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) ref.read(liveAssetListProvider(q).notifier).loadMore();
-            });
-          }
-          final a = data.items[i];
-          return LiveAssetTile(
-            item: a,
-            trailingBottom: a.createdAt == null ? null : DemoClock.formatDate(a.createdAt!.toLocal()),
-            onTap: () => context.push(Routes.assetDetail(a.assetRegistrationId)),
-          );
-        },
-      );
-    }
-    return DrilldownPage(
-      title: 'Recent Assets',
-      subtitle: 'Newest first',
-      skeletonRows: 6,
-      onRefresh: () => ref
-        ..invalidate(liveAssetListProvider(q))
-        ..invalidate(assetSummaryProvider),
-      sliver: sliver,
-      footer: [
-        if (data != null) ...[
-          if (data.loadingMore) const Center(child: CircularProgressIndicator()),
-          if (data.loadMoreError != null)
-            Center(
-              child: TextButton.icon(
-                onPressed: () => ref.read(liveAssetListProvider(q).notifier).loadMore(),
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Could not load more. Retry'),
-              ),
-            ),
-          ShowingFooter(text: 'Showing ${data.items.length} of ${_n.format(data.totalCount)}'),
-        ],
-      ],
-      children: [
-        TextField(
-          controller: _search,
-          onChanged: _onSearch,
-          textInputAction: TextInputAction.search,
-          style: AppText.body.copyWith(fontSize: 13.5),
-          decoration: InputDecoration(
-            hintText: 'Search by asset tag, name or ID...',
-            prefixIcon: Icon(Icons.search_rounded, color: AppColors.text, size: 22),
-            suffixIcon: _search.text.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: 'Clear search',
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                    onPressed: () => setState(() {
-                      _debounce?.cancel();
-                      _search.clear();
-                      _query = '';
-                    }),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final s in _chips) ...[
-                PillChip(
-                  label: count(s) == null ? (s ?? 'All') : '${s ?? 'All'} (${_n.format(count(s))})',
-                  selected: _status == s,
-                  onTap: () => setState(() => _status = s),
-                ),
-                const SizedBox(width: 8),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 4),
-      ],
     );
   }
 }

@@ -17,6 +17,9 @@ final mediaDioProvider = Provider<Dio>((ref) => _serviceDio(ref, kMediaBaseUrl))
 /// employees). Same Bearer handling as the others.
 final masterDataDioProvider = Provider<Dio>((ref) => _serviceDio(ref, kMasterDataBaseUrl));
 
+/// The Dio instance for the Dashboard service (DASHBOARD_BASE_URL: Home dashboard + network status).
+final dashboardDioProvider = Provider<Dio>((ref) => _serviceDio(ref, kDashboardBaseUrl));
+
 /// Every service reads the Bearer token (for CreatedBy) but a missing token never blocks a call.
 Dio _serviceDio(Ref ref, String baseUrl) {
   final dio = Dio(
@@ -49,6 +52,11 @@ final mediaClientProvider = Provider<ApiClient>(
 /// The same wrapper for the Master Data service.
 final masterDataClientProvider = Provider<ApiClient>(
   (ref) => ApiClient(ref.watch(masterDataDioProvider), service: BackendService.masterData),
+);
+
+/// The same wrapper for the Dashboard service.
+final dashboardClientProvider = Provider<ApiClient>(
+  (ref) => ApiClient(ref.watch(dashboardDioProvider), service: BackendService.dashboard),
 );
 
 class ApiClient {

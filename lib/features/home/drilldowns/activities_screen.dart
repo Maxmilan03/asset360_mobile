@@ -11,6 +11,7 @@ import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/models/home_insights.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/features/home/drilldowns/drilldown_page.dart';
+import 'package:asset360_mobile/features/home/drilldowns/live/live_activities_screen.dart';
 import 'package:asset360_mobile/features/home/home_style.dart';
 
 final _dayTitle = DateFormat('EEE, d MMM yyyy');
@@ -20,7 +21,7 @@ DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
 /// The Sunday of [d]'s week.
 DateTime _sunday(DateTime d) => DateTime(d.year, d.month, d.day - d.weekday % 7);
 
-ChipTone _statusTone(String status) => switch (status) {
+ChipTone activityStatusTone(String status) => switch (status) {
   'Planned' => ChipTone.blue,
   'Scheduled' => ChipTone.purple,
   'Pending' => ChipTone.amber,
@@ -80,7 +81,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (apiMode) return const NotAvailableDrilldown(title: 'Upcoming Activities', feature: 'Upcoming activities');
+    if (apiMode) return LiveActivitiesScreen(calendar: widget.calendar);
     final all = ref.watch(plannedActivitiesProvider);
     final today = DemoClock.today;
     return DrilldownPage(
@@ -90,7 +91,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
           '${DemoClock.formatDate(activityWindowEnd.subtract(const Duration(days: 1)))}',
       skeletonRows: 5,
       children: [
-        _ViewToggle(calendar: _calendar, onChanged: (v) => setState(() => _calendar = v)),
+        ActivityViewToggle(calendar: _calendar, onChanged: (v) => setState(() => _calendar = v)),
         const SizedBox(height: 14),
         if (_calendar) ..._calendarView(all, today) else ..._listView(all, today),
       ],
@@ -140,7 +141,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
         ),
       ),
       const SizedBox(height: 16),
-      _DayHeader(day: _selected, today: today, count: dayList.length),
+      ActivityDayHeader(day: _selected, today: today, count: dayList.length),
       const SizedBox(height: 8),
       if (dayList.isEmpty)
         const EmptyState(
@@ -155,7 +156,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
             children: [
               for (var j = 0; j < dayList.length; j++) ...[
                 if (j > 0) const Divider(),
-                _ActivityRow(activity: dayList[j]),
+                ActivityRow(activity: dayList[j]),
               ],
             ],
           ),
@@ -201,7 +202,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
           onAction: () => setState(() => _kind = null),
         ),
       for (final e in days.entries) ...[
-        _DayHeader(day: e.key, today: today, count: e.value.length),
+        ActivityDayHeader(day: e.key, today: today, count: e.value.length),
         const SizedBox(height: 8),
         AppCard(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -209,7 +210,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
             children: [
               for (var j = 0; j < e.value.length; j++) ...[
                 if (j > 0) const Divider(),
-                _ActivityRow(activity: e.value[j]),
+                ActivityRow(activity: e.value[j]),
               ],
             ],
           ),
@@ -220,8 +221,8 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   }
 }
 
-class _ViewToggle extends StatelessWidget {
-  const _ViewToggle({required this.calendar, required this.onChanged});
+class ActivityViewToggle extends StatelessWidget {
+  const ActivityViewToggle({super.key, required this.calendar, required this.onChanged});
 
   final bool calendar;
   final ValueChanged<bool> onChanged;
@@ -278,8 +279,8 @@ class _ViewToggle extends StatelessWidget {
   }
 }
 
-class _DayHeader extends StatelessWidget {
-  const _DayHeader({required this.day, required this.today, required this.count});
+class ActivityDayHeader extends StatelessWidget {
+  const ActivityDayHeader({super.key, required this.day, required this.today, required this.count});
 
   final DateTime day;
   final DateTime today;
@@ -304,17 +305,20 @@ class _DayHeader extends StatelessWidget {
   );
 }
 
-class _ActivityRow extends StatelessWidget {
-  const _ActivityRow({required this.activity});
+class ActivityRow extends StatelessWidget {
+  const ActivityRow({super.key, required this.activity, this.onTap});
 
   final PlannedActivity activity;
+
+  /// Replaces opening [PlannedActivity.route] (API mode: modules not connected yet).
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final a = activity;
     final (icon, tone, _) = activityLook(a.kind);
     return InkWell(
-      onTap: () => context.push(a.route),
+      onTap: onTap ?? () => context.push(a.route),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
@@ -331,7 +335,9 @@ class _ActivityRow extends StatelessWidget {
                     children: [
                       Text(a.kind.label, style: AppText.caption.copyWith(fontWeight: FontWeight.w600)),
                       Text(
-                        '${DemoClock.formatTime(a.start)} – ${DemoClock.formatTime(a.end)}',
+                        a.end == a.start
+                            ? DemoClock.formatTime(a.start)
+                            : '${DemoClock.formatTime(a.start)} – ${DemoClock.formatTime(a.end)}',
                         style: AppText.caption.copyWith(color: AppColors.text),
                       ),
                     ],
@@ -369,7 +375,7 @@ class _ActivityRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            StatusChip(a.status, tone: _statusTone(a.status)),
+            StatusChip(a.status, tone: activityStatusTone(a.status)),
           ],
         ),
       ),

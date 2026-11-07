@@ -16,6 +16,7 @@ import 'package:asset360_mobile/data/models/home_insights.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/home/drilldowns/drilldown_page.dart';
+import 'package:asset360_mobile/features/home/drilldowns/live/live_maintenance_screen.dart';
 import 'package:asset360_mobile/features/home/home_style.dart';
 
 const _allSites = 'All Sites';
@@ -46,7 +47,7 @@ class _MaintenancePerformanceScreenState extends ConsumerState<MaintenancePerfor
       context: context,
       useRootNavigator: false,
       isScrollControlled: true,
-      builder: (_) => _FilterSheet(sites: sites, site: _site, type: _type),
+      builder: (_) => MaintenanceFilterSheet(sites: sites, types: homeAssetTypes, site: _site, type: _type),
     );
     if (result != null) {
       setState(() {
@@ -58,9 +59,7 @@ class _MaintenancePerformanceScreenState extends ConsumerState<MaintenancePerfor
 
   @override
   Widget build(BuildContext context) {
-    if (apiMode) {
-      return const NotAvailableDrilldown(title: 'Maintenance Performance', feature: 'Maintenance performance');
-    }
+    if (apiMode) return const LiveMaintenanceScreen();
     final all = ref.watch(maintenanceMonthsProvider);
     final months = lastMonths(_months);
     final inPeriod = all.where((r) => months.contains(r.month)).toList();
@@ -115,7 +114,7 @@ class _MaintenancePerformanceScreenState extends ConsumerState<MaintenancePerfor
               initialValue: _months,
               onSelected: (m) => setState(() => _months = m),
               itemBuilder: (_) => [for (final m in _periods) PopupMenuItem(value: m, child: Text('Last $m Months'))],
-              child: _Dropdown(label: 'Last $_months Months'),
+              child: PeriodDropdown(label: 'Last $_months Months'),
             ),
             const Spacer(),
             Material(
@@ -147,8 +146,8 @@ class _MaintenancePerformanceScreenState extends ConsumerState<MaintenancePerfor
             spacing: 6,
             runSpacing: 6,
             children: [
-              if (_site != _allSites) _FilterChip(label: _site, onDeleted: () => setState(() => _site = _allSites)),
-              if (_type != null) _FilterChip(label: _type!, onDeleted: () => setState(() => _type = null)),
+              if (_site != _allSites) FilterInputChip(label: _site, onDeleted: () => setState(() => _site = _allSites)),
+              if (_type != null) FilterInputChip(label: _type!, onDeleted: () => setState(() => _type = null)),
             ],
           ),
         ],
@@ -159,8 +158,8 @@ class _MaintenancePerformanceScreenState extends ConsumerState<MaintenancePerfor
   }
 }
 
-class _Dropdown extends StatelessWidget {
-  const _Dropdown({required this.label});
+class PeriodDropdown extends StatelessWidget {
+  const PeriodDropdown({super.key, required this.label});
 
   final String label;
 
@@ -185,8 +184,8 @@ class _Dropdown extends StatelessWidget {
   );
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.onDeleted});
+class FilterInputChip extends StatelessWidget {
+  const FilterInputChip({super.key, required this.label, required this.onDeleted});
 
   final String label;
   final VoidCallback onDeleted;
@@ -203,18 +202,26 @@ class _FilterChip extends StatelessWidget {
   );
 }
 
-class _FilterSheet extends StatefulWidget {
-  const _FilterSheet({required this.sites, required this.site, required this.type});
+/// Site + Asset Type filter; pops (site, type) — "All Sites" / null = no filter.
+class MaintenanceFilterSheet extends StatefulWidget {
+  const MaintenanceFilterSheet({
+    super.key,
+    required this.sites,
+    required this.types,
+    required this.site,
+    required this.type,
+  });
 
   final List<String> sites;
+  final List<String> types;
   final String site;
   final String? type;
 
   @override
-  State<_FilterSheet> createState() => _FilterSheetState();
+  State<MaintenanceFilterSheet> createState() => _FilterSheetState();
 }
 
-class _FilterSheetState extends State<_FilterSheet> {
+class _FilterSheetState extends State<MaintenanceFilterSheet> {
   late String _site = widget.site;
   late String? _type = widget.type;
 
@@ -245,7 +252,7 @@ class _FilterSheetState extends State<_FilterSheet> {
       runSpacing: 6,
       children: [
         _choice('All Types', _type == null, () => setState(() => _type = null)),
-        for (final t in homeAssetTypes) _choice(t, _type == t, () => setState(() => _type = t)),
+        for (final t in widget.types) _choice(t, _type == t, () => setState(() => _type = t)),
       ],
     ),
     const SizedBox(height: 20),
@@ -335,7 +342,7 @@ class _Overview extends StatelessWidget {
               const SizedBox(height: 12),
               SizedBox(
                 height: 190,
-                child: _GroupedBars(perMonth: perMonth, labels: labels),
+                child: WoGroupedBars(perMonth: perMonth, labels: labels),
               ),
             ],
           ),
@@ -344,7 +351,7 @@ class _Overview extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _MetricCard(
+              child: MetricCard(
                 label: 'MTTR',
                 value: '$mttr',
                 unit: 'hrs',
@@ -355,7 +362,7 @@ class _Overview extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _MetricCard(
+              child: MetricCard(
                 label: 'MTBF',
                 value: mtbf.round().toString(),
                 unit: 'days',
@@ -371,22 +378,29 @@ class _Overview extends StatelessWidget {
   }
 }
 
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({
+class MetricCard extends StatelessWidget {
+  const MetricCard({
+    super.key,
     required this.label,
     required this.value,
     required this.unit,
     required this.caption,
     required this.change,
     required this.higherIsBetter,
+    this.changeSuffix = 'vs last month',
   });
 
   final String label;
   final String value;
   final String unit;
   final String caption;
-  final double change;
+
+  /// Change in percent against the previous period; null = nothing to compare.
+  final double? change;
   final bool higherIsBetter;
+
+  /// Text after the change ("vs last month").
+  final String changeSuffix;
 
   @override
   Widget build(BuildContext context) => AppCard(
@@ -417,7 +431,9 @@ class _MetricCard extends StatelessWidget {
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
-          child: ChangeChip(pct: change, higherIsBetter: higherIsBetter, suffix: 'vs last month'),
+          child: change == null
+              ? Text('No previous period to compare', style: AppText.caption.copyWith(fontSize: 11))
+              : ChangeChip(pct: change!, higherIsBetter: higherIsBetter, suffix: changeSuffix),
         ),
       ],
     ),
@@ -455,8 +471,8 @@ FlGridData get _grid => FlGridData(
   getDrawingHorizontalLine: (_) => FlLine(color: AppColors.divider, strokeWidth: 1),
 );
 
-class _GroupedBars extends StatelessWidget {
-  const _GroupedBars({required this.perMonth, required this.labels});
+class WoGroupedBars extends StatelessWidget {
+  const WoGroupedBars({super.key, required this.perMonth, required this.labels});
 
   final List<WoMix> perMonth;
   final List<String> labels;
@@ -533,7 +549,7 @@ class _Trends extends StatelessWidget {
               const SizedBox(height: 12),
               SizedBox(
                 height: 190,
-                child: _Lines(
+                child: WoLines(
                   labels: labels,
                   series: [
                     ('Planned', plannedColor, [for (final m in perMonth) m.planned.toDouble()]),
@@ -550,7 +566,7 @@ class _Trends extends StatelessWidget {
           title: 'MTTR Trend (hrs)',
           child: SizedBox(
             height: 160,
-            child: _Lines(labels: labels, unit: 'hrs', series: [('MTTR', AppColors.green, mttr)]),
+            child: WoLines(labels: labels, unit: 'hrs', series: [('MTTR', AppColors.green, mttr)]),
           ),
         ),
         const SizedBox(height: 12),
@@ -558,7 +574,7 @@ class _Trends extends StatelessWidget {
           title: 'MTBF Trend (days)',
           child: SizedBox(
             height: 160,
-            child: _Lines(labels: labels, unit: 'days', series: [('MTBF', AppColors.iconBlue, mtbf)]),
+            child: WoLines(labels: labels, unit: 'days', series: [('MTBF', AppColors.iconBlue, mtbf)]),
           ),
         ),
       ],
@@ -566,8 +582,8 @@ class _Trends extends StatelessWidget {
   }
 }
 
-class _Lines extends StatelessWidget {
-  const _Lines({required this.labels, required this.series, this.unit = 'WOs'});
+class WoLines extends StatelessWidget {
+  const WoLines({super.key, required this.labels, required this.series, this.unit = 'WOs'});
 
   final List<String> labels;
   final List<(String, Color, List<double>)> series;

@@ -17,6 +17,7 @@ import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 import 'package:asset360_mobile/features/home/drilldowns/drilldown_page.dart';
+import 'package:asset360_mobile/features/home/drilldowns/live/live_cost_summary_screen.dart';
 import 'package:asset360_mobile/features/home/home_style.dart';
 
 final _n = NumberFormat('#,###');
@@ -85,7 +86,7 @@ class _CostSummaryScreenState extends ConsumerState<CostSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (apiMode) return const NotAvailableDrilldown(title: 'Cost Summary (AED)', feature: 'Cost summary');
+    if (apiMode) return const LiveCostSummaryScreen();
     final years = ref.watch(costYearsProvider);
     final y = years[_year.clamp(0, years.length - 1)];
     return DrilldownPage(
@@ -141,7 +142,7 @@ class _CostSummaryScreenState extends ConsumerState<CostSummaryScreen> {
             for (final (i, g) in CostGroup.values.indexed) ...[
               if (i > 0) const SizedBox(width: 8),
               Expanded(
-                child: _GroupCard(
+                child: CostGroupCard(
                   group: g,
                   amount: y.groupTotal(g),
                   pct: y.pct(y.groupTotal(g)),
@@ -245,13 +246,14 @@ class _CostSummaryScreenState extends ConsumerState<CostSummaryScreen> {
   }
 }
 
-class _GroupCard extends StatelessWidget {
-  const _GroupCard({required this.group, required this.amount, required this.pct, required this.onTap});
+/// One of the three cost cards (Maintenance / Operations / Spare Parts): amount, share and bar.
+class CostGroupCard extends StatelessWidget {
+  const CostGroupCard({super.key, required this.group, required this.amount, required this.pct, this.onTap});
 
   final CostGroup group;
   final int amount;
   final double pct;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

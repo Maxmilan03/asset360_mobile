@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asset360_mobile/core/widgets/widgets.dart';
+import 'package:asset360_mobile/data/repositories/dashboard_repository.dart';
 import 'package:asset360_mobile/data/repositories/live_assets_repository.dart';
 
-/// API mode (apiMode = true) pieces of Home.
+/// API mode (apiMode = true) pieces of Home. The cards themselves are in live_dashboard_cards.dart.
 
 /// A Home card whose data has no backend in this phase: the design's title, "Not available yet"
 /// inside. [onAction] (optional) keeps a "View All" that still leads somewhere real.
@@ -24,24 +25,10 @@ class HomeNotAvailableCard extends StatelessWidget {
   );
 }
 
-/// Loading (shimmer) / error (message + Retry) / data for a live Home card.
-class LiveCardBody<T> extends ConsumerWidget {
-  const LiveCardBody({super.key, required this.provider, required this.builder, this.rows = 2});
-
-  final FutureProvider<T> provider;
-  final Widget Function(T value) builder;
-  final int rows;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => switch (ref.watch(provider)) {
-    AsyncData(:final value) => builder(value),
-    AsyncError(:final error) => LoadErrorState(error: error, onRetry: () => ref.invalidate(provider)),
-    _ => ListSkeleton(rows: rows, card: false),
-  };
-}
-
-/// Pull-to-refresh on Home: reload what the live cards show.
+/// Pull-to-refresh on Home: reload every dashboard section (each shows its own shimmer) and the
+/// Asset service summary other screens share.
 void refreshLiveHome(WidgetRef ref) {
+  refreshDashboard(ref);
   ref
     ..invalidate(assetSummaryProvider)
     ..invalidate(recentLiveAssetsProvider);

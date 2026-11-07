@@ -11,8 +11,8 @@ import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/models/asset.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
-import 'package:asset360_mobile/data/repositories/live_assets_repository.dart';
 import 'package:asset360_mobile/features/home/drilldowns/drilldown_page.dart';
+import 'package:asset360_mobile/features/home/drilldowns/live/live_asset_overview_screen.dart';
 import 'package:asset360_mobile/features/home/home_style.dart';
 
 final _n = NumberFormat('#,###');
@@ -33,8 +33,8 @@ const _palette = [
 enum _Tab { status, type, location }
 
 /// One donut slice / list row of a tab.
-class _Row {
-  const _Row(this.label, this.count, this.color, this.icon, this.route);
+class OverviewRowData {
+  const OverviewRowData(this.label, this.count, this.color, this.icon, this.route, {this.onTap});
 
   final String label;
   final int count;
@@ -43,6 +43,9 @@ class _Row {
 
   /// Filtered Assets list.
   final String route;
+
+  /// Replaces opening [route] (API mode: rows without a filter value).
+  final VoidCallback? onTap;
 }
 
 /// Home "Asset Overview" → View All: the 12,458 assets by status, type and site / building.
@@ -64,23 +67,35 @@ class _AssetOverviewScreenState extends ConsumerState<AssetOverviewScreen> {
     super.dispose();
   }
 
-  List<_Row> _rows() {
+  List<OverviewRowData> _rows() {
     final org = ref.watch(orgSummaryProvider);
     final breakdown = ref.watch(assetBreakdownProvider);
     return switch (_tab) {
       _Tab.status => [
         for (final s in AssetStatus.all)
-          _Row(s, org.statusCounts[s] ?? 0, assetStatusColors[s]!, assetStatusIcon(s), Routes.assetsWithStatus(s)),
+          OverviewRowData(
+            s,
+            org.statusCounts[s] ?? 0,
+            assetStatusColors[s]!,
+            assetStatusIcon(s),
+            Routes.assetsWithStatus(s),
+          ),
       ],
       _Tab.type => [
         for (var i = 0; i < breakdown.byType.length; i++)
           for (final s in [breakdown.byType[i]])
-            _Row(s.name, s.total, _palette[i % _palette.length], assetTypeIcon(s.name), Routes.assetsWithType(s.name)),
+            OverviewRowData(
+              s.name,
+              s.total,
+              _palette[i % _palette.length],
+              assetTypeIcon(s.name),
+              Routes.assetsWithType(s.name),
+            ),
       ],
       _Tab.location => [
         for (var i = 0; i < breakdown.byLocation.length; i++)
           for (final s in [breakdown.byLocation[i]])
-            _Row(
+            OverviewRowData(
               s.name,
               s.total,
               _palette[i % _palette.length],
@@ -99,27 +114,7 @@ class _AssetOverviewScreenState extends ConsumerState<AssetOverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // API mode: By Status = the server's summary; By Type / By Location have no backend yet.
-    if (apiMode) {
-      final live = ref.watch(assetSummaryProvider);
-      if (!live.hasValue || _tab != _Tab.status) {
-        return DrilldownPage(
-          title: 'Asset Overview',
-          subtitle: 'Live asset status summary',
-          onRefresh: () => ref.invalidate(assetSummaryProvider),
-          children: [
-            _tabs(),
-            const SizedBox(height: 12),
-            if (_tab != _Tab.status)
-              AppCard(child: NotAvailableYet(feature: _tab == _Tab.type ? 'Assets by type' : 'Assets by location'))
-            else if (live.hasError)
-              LoadErrorState(error: live.error!, onRetry: () => ref.invalidate(assetSummaryProvider))
-            else
-              const ListSkeleton(rows: 4),
-          ],
-        );
-      }
-    }
+    if (apiMode) return const LiveAssetOverviewScreen();
     final rows = _rows();
     final total = rows.fold(0, (a, r) => a + r.count);
     final q = _query.trim().toLowerCase();
@@ -133,7 +128,6 @@ class _AssetOverviewScreenState extends ConsumerState<AssetOverviewScreen> {
     return DrilldownPage(
       title: 'Asset Overview',
       subtitle: 'All ${_n.format(total)} assets across every site',
-      onRefresh: apiMode ? () => ref.invalidate(assetSummaryProvider) : null,
       children: [
         _tabs(),
         const SizedBox(height: 12),
@@ -192,7 +186,7 @@ class _AssetOverviewScreenState extends ConsumerState<AssetOverviewScreen> {
               children: [
                 for (var i = 0; i < shown.length; i++) ...[
                   if (i > 0) const Divider(height: 1, indent: 62),
-                  _OverviewRow(row: shown[i], total: total),
+                  OverviewRow(row: shown[i], total: total),
                 ],
               ],
             ),
@@ -202,17 +196,17 @@ class _AssetOverviewScreenState extends ConsumerState<AssetOverviewScreen> {
   }
 }
 
-class _OverviewRow extends StatelessWidget {
-  const _OverviewRow({required this.row, required this.total});
+class OverviewRow extends StatelessWidget {
+  const OverviewRow({super.key, required this.row, required this.total});
 
-  final _Row row;
+  final OverviewRowData row;
   final int total;
 
   @override
   Widget build(BuildContext context) {
     final pct = total == 0 ? 0 : (row.count * 100 / total).round();
     return InkWell(
-      onTap: () => context.push(row.route),
+      onTap: row.onTap ?? () => context.push(row.route),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
         child: Row(

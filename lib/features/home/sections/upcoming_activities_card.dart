@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:asset360_mobile/data/api/api_config.dart';
-import 'package:asset360_mobile/features/home/sections/live_home.dart';
+import 'package:asset360_mobile/features/home/sections/live_dashboard_cards.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
@@ -29,7 +29,7 @@ class UpcomingActivitiesCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (apiMode) return const HomeNotAvailableCard(title: 'Upcoming Activities');
+    if (apiMode) return const LiveUpcomingActivitiesCard();
     final list = ref.watch(upcomingActivitiesProvider);
     return SectionCard(
       title: 'Upcoming Activities',
@@ -46,85 +46,123 @@ class UpcomingActivitiesCard extends ConsumerWidget {
               onAction: DemoGuard.push(context, Routes.activitiesView('calendar')),
             ),
           for (final a in list)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: const Color(0xFFF8F9FC),
-                borderRadius: BorderRadius.circular(10),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: DemoGuard.tap(DemoAction.homeActivityRows, DemoGuard.push(context, activityRoute(a))),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.divider),
-                          ),
-                          child: Column(
-                            children: [
-                              Text('${a.at.day}', style: AppText.cardTitle.copyWith(fontSize: 16)),
-                              Text(DateFormat('MMM').format(a.at), style: AppText.caption),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconSquare(icon: activityIcon(a.kind).$1, tone: activityIcon(a.kind).$2, size: 40),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                a.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppText.bodyStrong.copyWith(fontSize: 13.5),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(a.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.caption),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 84),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(DemoClock.formatTime(a.at), style: AppText.body.copyWith(fontSize: 13)),
-                              const SizedBox(height: 3),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.location_on_outlined, size: 12, color: AppColors.textSecondary),
-                                  const SizedBox(width: 2),
-                                  Flexible(
-                                    child: Text(
-                                      a.location,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: AppText.caption.copyWith(fontSize: 10.5),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+            UpcomingActivityRow(
+              day: a.at,
+              icon: activityIcon(a.kind).$1,
+              tone: activityIcon(a.kind).$2,
+              title: a.title,
+              subtitle: a.subtitle,
+              time: DemoClock.formatTime(a.at),
+              location: a.location,
+              onTap: DemoGuard.tap(DemoAction.homeActivityRows, DemoGuard.push(context, activityRoute(a))),
             ),
         ],
       ),
     );
   }
+}
+
+/// One row of the Upcoming Activities card: date box, type icon, title / subtitle, time and location.
+class UpcomingActivityRow extends StatelessWidget {
+  const UpcomingActivityRow({
+    super.key,
+    required this.day,
+    required this.icon,
+    required this.tone,
+    required this.title,
+    required this.subtitle,
+    required this.time,
+    this.location,
+    this.onTap,
+  });
+
+  final DateTime day;
+  final IconData icon;
+  final TileTone tone;
+  final String title;
+  final String subtitle;
+  final String time;
+  final String? location;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Material(
+      color: const Color(0xFFF8F9FC),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.divider),
+                ),
+                child: Column(
+                  children: [
+                    Text('${day.day}', style: AppText.cardTitle.copyWith(fontSize: 16)),
+                    Text(DateFormat('MMM').format(day), style: AppText.caption),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconSquare(icon: icon, tone: tone, size: 40),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.bodyStrong.copyWith(fontSize: 13.5),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.caption),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 84),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(time, style: AppText.body.copyWith(fontSize: 13)),
+                    if (location != null) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.location_on_outlined, size: 12, color: AppColors.textSecondary),
+                          const SizedBox(width: 2),
+                          Flexible(
+                            child: Text(
+                              location!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.caption.copyWith(fontSize: 10.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }

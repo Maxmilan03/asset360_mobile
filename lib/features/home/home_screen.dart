@@ -7,6 +7,7 @@ import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_theme.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/api/api_config.dart';
+import 'package:asset360_mobile/features/home/sections/live_devices_card.dart';
 import 'package:asset360_mobile/features/home/sections/live_home.dart';
 import 'package:asset360_mobile/features/home/sections/top_section.dart';
 import 'package:asset360_mobile/features/home/sections/quick_actions_card.dart';
@@ -32,7 +33,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _refreshing = false;
 
   Future<void> _refresh() async {
-    if (apiMode) refreshLiveHome(ref);
+    // API mode: every section reloads its own endpoint and shows its own shimmer.
+    if (apiMode) {
+      refreshLiveHome(ref);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      return;
+    }
     setState(() => _refreshing = true);
     await Future<void>.delayed(const Duration(seconds: 1));
     if (mounted) setState(() => _refreshing = false);
@@ -41,18 +47,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
-    const sections = <Widget>[
-      HomeTopSection(),
-      QuickActionsCard(),
-      MyTasksCard(),
-      AssetOverviewCard(),
-      MaintenancePerformanceCard(),
-      UpcomingActivitiesCard(),
-      RecentAlertsCard(),
-      AssetLocationCard(),
-      AssetHealthCard(),
-      CostSummaryCard(),
-      RecentAssetsCard(),
+    final sections = <Widget>[
+      const HomeTopSection(),
+      const QuickActionsCard(),
+      const MyTasksCard(),
+      const AssetOverviewCard(),
+      const MaintenancePerformanceCard(),
+      const UpcomingActivitiesCard(),
+      const RecentAlertsCard(),
+      const AssetLocationCard(),
+      // API mode only: online / offline devices, live over a WebSocket.
+      if (apiMode) const LiveDevicesCard(),
+      const AssetHealthCard(),
+      const CostSummaryCard(),
+      const RecentAssetsCard(),
     ];
     return Scaffold(
       backgroundColor: AppColors.headerBottom,

@@ -13,6 +13,7 @@ import 'package:asset360_mobile/data/models/home_insights.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/features/assets/asset_ui.dart';
 import 'package:asset360_mobile/features/home/drilldowns/drilldown_page.dart';
+import 'package:asset360_mobile/features/home/drilldowns/live/live_asset_health_screen.dart';
 import 'package:asset360_mobile/features/home/home_style.dart';
 
 final _n = NumberFormat('#,###');
@@ -36,7 +37,7 @@ class _AssetHealthScreenState extends ConsumerState<AssetHealthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (apiMode) return const NotAvailableDrilldown(title: 'Asset Health', feature: 'Asset health');
+    if (apiMode) return const LiveAssetHealthScreen();
     final b = ref.watch(assetBreakdownProvider);
     return DrilldownPage(
       title: 'Asset Health',

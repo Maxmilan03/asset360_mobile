@@ -8,6 +8,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 
+import 'dashboard_samples.dart';
+
 /// A fake Asset + Media service for tests: answers by method + path with contract-shaped JSON
 /// (docs/backend_ref/Services/Asset/Api/…/Contracts). Register replies with [on]; unknown routes
 /// answer 404 `{"message"}`. Every request is kept in [requests].
@@ -62,6 +64,7 @@ class FakeAssetBackend implements HttpClientAdapter {
 
   /// Two assets, options, filters, ratings, categories … so every screen has something to show.
   void seedDefaults() {
+    seedDashboard();
     on('GET', '/api/asset-registrations', (o) {
       final q = o.uri.queryParameters;
       final search = (q['search'] ?? '').toLowerCase();
@@ -211,6 +214,38 @@ class FakeAssetBackend implements HttpClientAdapter {
     on('GET', '$md/locations/tree', (_) => FakeReply(200, mdLocationTree));
   }
 
+  /// Dashboard service (5470): GET /api/dashboards/mobile/* and network status (dashboard_samples.dart).
+  void seedDashboard() {
+    const m = '/api/dashboards/mobile';
+    on('GET', '$m/home', (_) => const FakeReply(200, dashHomeJson));
+    on('GET', '$m/asset-overview', (o) {
+      final q = (o.uri.queryParameters['search'] ?? '').toLowerCase();
+      if (q.isEmpty) return const FakeReply(200, dashAssetOverviewJson);
+      List<Object?> f(String k) => [
+        for (final b in dashAssetOverviewJson[k]! as List)
+          if ('${(b as Map)['label']}'.toLowerCase().contains(q)) b,
+      ];
+      return FakeReply(200, {
+        ...dashAssetOverviewJson,
+        'byStatus': f('byStatus'),
+        'byType': f('byType'),
+        'byLocation': f('byLocation'),
+      });
+    });
+    on('GET', '$m/maintenance-performance', (_) => const FakeReply(200, dashMaintenanceJson));
+    on('GET', '$m/upcoming-activities', (_) => const FakeReply(200, dashActivitiesJson));
+    on('GET', '$m/recent-alerts', (o) => FakeReply(200, dashAlertsJson(o.uri.queryParameters['severity'])));
+    on('GET', '$m/asset-locations', (_) => const FakeReply(200, dashLocationsJson));
+    on('GET', '$m/asset-health', (_) => const FakeReply(200, dashHealthJson));
+    on('GET', '$m/cost-summary', (_) => const FakeReply(200, dashCostJson));
+    on('GET', '$m/recent-assets', (o) {
+      final q = o.uri.queryParameters;
+      return FakeReply(200, dashRecentAssetsJson(status: q['status'], assetType: q['assetType'], site: q['site']));
+    });
+    on('GET', '/api/dashboards/network-status', (_) => const FakeReply(200, dashNetworkStatusJson));
+    on('GET', '/api/dashboards/network-status/tags', (_) => const FakeReply(200, dashTagsJson));
+  }
+
   /// Containers / widget tests: route the Asset and Media clients here (config checks off).
   List<Override> get overrides {
     Dio dio(String base) => Dio(BaseOptions(baseUrl: base))..httpClientAdapter = this;
@@ -221,6 +256,9 @@ class FakeAssetBackend implements HttpClientAdapter {
       ),
       masterDataClientProvider.overrideWithValue(
         ApiClient(dio('http://md.test:5500'), checkConfig: false, service: BackendService.masterData),
+      ),
+      dashboardClientProvider.overrideWithValue(
+        ApiClient(dio('http://dash.test:5470'), checkConfig: false, service: BackendService.dashboard),
       ),
     ];
   }

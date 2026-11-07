@@ -8,6 +8,7 @@ import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/api/token_store.dart';
 import 'package:asset360_mobile/data/mock/assets_mock.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
+import 'package:asset360_mobile/data/repositories/live_assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/scans_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/auth/splash_screen.dart';
@@ -77,14 +78,15 @@ void main() {
       if (live != null) expect(find.textContaining(live), findsWidgets, reason: route);
     }
 
-    // Home: the server's total (2) in the Asset Overview donut; "Not available yet" elsewhere.
+    // Home: the Dashboard service's data (test/live/dashboard_test.dart); only My Tasks has no endpoint.
     router.go(Routes.home);
     await tester.pumpAndSettle();
     expect(find.text('Asset Overview'), findsOneWidget);
-    expect(find.text('Not available yet'), findsWidgets);
+    expect(find.text('Not available yet'), findsOneWidget);
 
     expect(c.read(assetsProvider), isEmpty, reason: 'no mock assets in the register');
     expect(c.read(scanHistoryProvider), isEmpty, reason: 'the seed scans point at mock assets');
+    await tester.runAsync(() => c.read(assetSummaryProvider.future));
     expect(c.read(orgSummaryProvider).totalAssets, 2, reason: 'the org summary is the server summary');
     await tester.pumpWidget(const SizedBox());
     c.dispose();

@@ -13,6 +13,7 @@ import 'package:asset360_mobile/data/repositories/alerts_repository.dart';
 import 'package:asset360_mobile/data/repositories/assets_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
 import 'package:asset360_mobile/features/home/drilldowns/drilldown_page.dart';
+import 'package:asset360_mobile/features/home/drilldowns/live/live_recent_alerts_screen.dart';
 
 const _type = 'Type';
 const _asset = 'Asset';
@@ -47,7 +48,10 @@ ChipTone _severityTone(String s) => switch (s) {
 
 /// Home "Recent Alerts" drill-down: every alert at the Home site, newest first, by severity tab.
 class RecentAlertsScreen extends ConsumerStatefulWidget {
-  const RecentAlertsScreen({super.key});
+  const RecentAlertsScreen({super.key, this.severity});
+
+  /// API mode: the severity tab to open (Critical / Warning / Info).
+  final String? severity;
 
   @override
   ConsumerState<RecentAlertsScreen> createState() => _RecentAlertsScreenState();
@@ -93,7 +97,7 @@ class _RecentAlertsScreenState extends ConsumerState<RecentAlertsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (apiMode) return const NotAvailableDrilldown(title: 'Recent Alerts', feature: 'Alerts');
+    if (apiMode) return LiveRecentAlertsScreen(initialSeverity: widget.severity);
     ref.watch(clockTickProvider); // "5 mins ago" moves with the clock
     final site = ref.watch(sessionProvider.select((s) => s.site));
     final byId = {for (final a in ref.watch(assetsProvider)) a.id: a};

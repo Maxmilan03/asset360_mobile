@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asset360_mobile/data/api/api_config.dart';
-import 'package:asset360_mobile/features/home/sections/live_home.dart';
+import 'package:asset360_mobile/features/home/sections/live_dashboard_cards.dart';
 import 'package:asset360_mobile/app/router/routes.dart';
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/app/theme/app_text.dart';
@@ -15,7 +15,7 @@ class AssetHealthCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (apiMode) return const HomeNotAvailableCard(title: 'Asset Health');
+    if (apiMode) return const LiveAssetHealthCard();
     final org = ref.watch(orgSummaryProvider);
     return SectionCard(
       title: 'Asset Health',
