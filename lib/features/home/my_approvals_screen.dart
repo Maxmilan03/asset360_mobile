@@ -30,7 +30,9 @@ class MyApprovalsScreen extends ConsumerWidget {
           children: const [
             PageTitle(title: 'My Approvals', subtitle: 'Movement and disposal requests'),
             SizedBox(height: 16),
-            AppCard(child: NotAvailableYet(feature: 'Approvals', icon: Icons.verified_outlined)),
+            AppCard(
+              child: NotAvailableYet(feature: 'Approvals', icon: Icons.verified_outlined),
+            ),
           ],
         ),
       );

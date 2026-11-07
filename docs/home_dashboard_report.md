@@ -101,3 +101,49 @@ Bearer token when signed in.
 ws / wss URL, reconnect backoff / reset / stop with a fake channel and fake timers, the notifier's REST → socket
 counts, Home in API mode (every section from its endpoint, no mock value), one failing section + Retry, site
 filter, every drill-down's tabs / filters, Devices → asset detail, pull-to-refresh.
+
+---
+
+# Update — Dashboard service refresh (7 Nov 2026)
+
+Re-read MobileDashboardEndpoints.cs, MobileDashboardContracts.cs and Mobile/MobileDashboardService.cs.
+
+## Changes on the server and in the app
+
+| Item | Server | App |
+|---|---|---|
+| My Tasks | NEW `GET /mobile/my-tasks?type=&site=&utcOffsetMinutes=`: the bearer token's user (no `user` parameter), no paging, `counts` (total / workOrders / inspections / approvals / overdue / dueToday) | Home card (tabs with server counts, "N overdue · N due today", 3 rows) + `/home/tasks` screen. Rows: WO / inspection / approval modules are not connected → "Not available yet"; the asset tag link opens the asset. 401 → that card's error + Retry. |
+| Counters | `/mobile/home` `quickActions` | unchanged (already used) |
+| Device tags | `assetRegistrationId` added, `assetId` null | rows open `assetRegistrationId` |
+| Alerts → asset | `assetId` = asset TAG | tag link → `GET /api/asset-registrations/lookup?code=&type=assetTag` → live detail; 404 → snack "No asset with tag X was found". The row itself: "Alert details: Not available yet". |
+| Site | **every** mobile endpoint takes `site` (name or id) | every Home card + drill-down sends it; the "only some cards" note is removed. Site list = `/asset-overview` `byLocation` (unfiltered). |
+| Greeting | `userName` filled when a token is sent | `greeting.userName` ?? signed-in first name |
+| Status keys | operational / under-maintenance / out-of-service / retired (+ other) | server labels; colour by key: green / amber / red / grey (chips, filter-chip dots, legends, donuts, map pins) |
+
+## Real data now (read-only, 7 Nov)
+
+| Section | Data |
+|---|---|
+| Counters (`/home`) | 10 open WOs, 5 inspections, 3 approvals, 5 critical alerts (Dubai HQ: 8 / 3 / 0 / 4) |
+| Asset Overview | 6 assets (5 Operational, 1 Under Maintenance) |
+| Maintenance Performance | 32 WOs in 6 months, 78.1 % planned (25 / 3 / 4) |
+| Upcoming Activities | 15 in the next 30 days |
+| Recent Alerts | 13 in 7 days (5 critical, 6 warning, 2 info) |
+| Asset Location | **6 assets with lat / lng → 6 pins** (Dubai, centre 25.1713, 55.2486) |
+| Asset Health | 6 assets, 66.7 % healthy |
+| Cost Summary | real costs (Dubai HQ YTD AED 46,765) |
+| Recent Assets | 6 |
+| Live Devices | 3 online / 1 offline; 4 tags (TAG-DEMO-001…004 → AR000002…AR000005) |
+| My Tasks | 401 without a token — **not verified with a real token** (see below) |
+
+## Token checks
+
+- Without a token: everything 200 except `my-tasks` (401).
+- With an invalid token: the same (the other endpoints ignore it; `my-tasks` 401).
+- With a real token: not run — no token / test credentials were available to this session. `greeting.userName` and
+  My Tasks contents are therefore only verified with contract-shaped test data.
+
+## Tests
+
+`test/live/dashboard_test.dart` now 26 tests (+ my-tasks parsing, site on every endpoint, status tones, alert tag →
+lookup / not-found snack, My Tasks tabs / View All / 401, greeting userName). Full suite: 336 passing.

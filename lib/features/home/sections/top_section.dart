@@ -22,7 +22,8 @@ class HomeTopSection extends ConsumerWidget {
     final user = ref.watch(currentUserProvider);
     final home = ref.watch(homeDataProvider);
     // API mode: greeting + the four counters from GET /api/dashboards/mobile/home.
-    final live = apiMode ? ref.watch(dashHomeProvider) : null;
+    final dashSite = apiMode ? ref.watch(dashSiteProvider) : null;
+    final live = apiMode ? ref.watch(dashHomeProvider(dashSite)) : null;
     final greet = live?.value?.greeting;
     final hour = DemoClock.now.hour;
     final greeting = greet != null && greet.salutation.isNotEmpty
@@ -30,7 +31,9 @@ class HomeTopSection extends ConsumerWidget {
         : (hour < 12 ? 'Good Morning' : (hour < 17 ? 'Good Afternoon' : 'Good Evening'));
     final message = greet != null && greet.message.isNotEmpty ? '${greet.message}.' : "Here's what's happening today.";
     final day = apiMode ? (greet?.generatedAtUtc?.toLocal() ?? DateTime.now()) : DemoClock.now;
-    final site = apiMode ? ref.watch(dashSiteProvider) : (home.filtered ? home.site : null);
+    final site = apiMode ? dashSite : (home.filtered ? home.site : null);
+    // API mode: the server's userName when the token gave it one, else the signed-in user's first name.
+    final name = greet?.userName ?? user.firstName;
 
     return AppCard(
       padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
@@ -44,7 +47,7 @@ class HomeTopSection extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('$greeting, ${user.firstName}!', style: AppText.pageTitle.copyWith(fontSize: 20)),
+                    Text('$greeting, $name!', style: AppText.pageTitle.copyWith(fontSize: 20)),
                     const SizedBox(height: 4),
                     Text(message, style: AppText.pageSubtitle),
                   ],
@@ -77,13 +80,6 @@ class HomeTopSection extends ConsumerWidget {
                 deleteIconColor: AppColors.primary,
               ),
             ),
-            if (apiMode) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Applies to Maintenance Performance and Recent Assets; the other cards cover all sites.',
-                style: AppText.caption.copyWith(fontSize: 11.5),
-              ),
-            ],
           ],
           const SizedBox(height: 14),
           SizedBox(height: 128, child: apiMode ? _LiveCounters(live!) : _counters(context, home)),

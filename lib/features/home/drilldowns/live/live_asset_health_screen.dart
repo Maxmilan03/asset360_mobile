@@ -42,7 +42,7 @@ class _LiveAssetHealthScreenState extends ConsumerState<LiveAssetHealthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = dashAssetHealthProvider(LiveAssetHealthCard.top);
+    final provider = dashAssetHealthProvider((top: LiveAssetHealthCard.top, site: ref.watch(dashSiteProvider)));
     return DrilldownPage(
       title: 'Asset Health',
       subtitle: 'Healthy ≥ 70 · Warning 40–69 · Critical < 40',

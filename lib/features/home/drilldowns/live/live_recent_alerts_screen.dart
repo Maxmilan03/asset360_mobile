@@ -38,7 +38,7 @@ class _LiveRecentAlertsScreenState extends ConsumerState<LiveRecentAlertsScreen>
   late int _tab = _tabs.indexWhere((t) => t.$2 != null && t.$2 == widget.initialSeverity).clamp(0, _tabs.length);
   int _days = 7;
 
-  DashAlertsQuery get _q => (severity: _tabs[_tab].$2, days: _days);
+  DashAlertsQuery get _q => (severity: _tabs[_tab].$2, days: _days, site: ref.watch(dashSiteProvider));
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +89,7 @@ class _LiveRecentAlertsScreenState extends ConsumerState<LiveRecentAlertsScreen>
 
     return DrilldownPage(
       title: 'Recent Alerts',
-      subtitle: 'All sites · ${_label(_days)}',
+      subtitle: '${dashSiteLabel(ref.watch(dashSiteProvider))} · ${_label(_days)}',
       skeletonRows: 6,
       onRefresh: () => ref.invalidate(provider),
       trailing: PopupMenuButton<int>(

@@ -78,11 +78,11 @@ void main() {
       if (live != null) expect(find.textContaining(live), findsWidgets, reason: route);
     }
 
-    // Home: the Dashboard service's data (test/live/dashboard_test.dart); only My Tasks has no endpoint.
+    // Home: the Dashboard service's data (test/live/dashboard_test.dart); every section has an endpoint.
     router.go(Routes.home);
     await tester.pumpAndSettle();
     expect(find.text('Asset Overview'), findsOneWidget);
-    expect(find.text('Not available yet'), findsOneWidget);
+    expect(find.text('Not available yet'), findsNothing);
 
     expect(c.read(assetsProvider), isEmpty, reason: 'no mock assets in the register');
     expect(c.read(scanHistoryProvider), isEmpty, reason: 'the seed scans point at mock assets');

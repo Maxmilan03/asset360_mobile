@@ -177,10 +177,7 @@ void main() {
     expect(find.text('Retired Category'), findsNothing, reason: 'inactive');
     await tester.tap(find.text('Machinery & Equipment').last);
     await tester.pumpAndSettle();
-    expect(
-      backend.calls('GET', '/api/master-data/asset-categories').first.uri.queryParameters,
-      {'status': 'Active'},
-    );
+    expect(backend.calls('GET', '/api/master-data/asset-categories').first.uri.queryParameters, {'status': 'Active'});
     await _pick(tester, 'Sub Category', 'Power Generation');
     await _pick(tester, 'Asset Type', 'Generator');
     expect(backend.calls('GET', '/api/master-data/asset-types').map((r) => r.uri.queryParameters), [
@@ -430,11 +427,7 @@ void main() {
       200,
       scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first,
     );
-    backend.on(
-      'GET',
-      '/api/master-data/departments',
-      (_) => const FakeReply(503, {'message': 'Master Data is down'}),
-    );
+    backend.on('GET', '/api/master-data/departments', (_) => const FakeReply(503, {'message': 'Master Data is down'}));
     h.container.invalidate(mdDepartmentsProvider);
     await tester.pumpAndSettle();
     expect(find.textContaining('Could not load departments'), findsOneWidget);

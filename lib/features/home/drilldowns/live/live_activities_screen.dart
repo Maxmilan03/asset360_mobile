@@ -70,7 +70,7 @@ class _LiveActivitiesScreenState extends ConsumerState<LiveActivitiesScreen> {
     if (old.calendar != widget.calendar) _calendar = widget.calendar;
   }
 
-  DashActivitiesQuery get _q => (from: _from, to: _to, type: null);
+  DashActivitiesQuery get _q => (from: _from, to: _to, type: null, site: ref.watch(dashSiteProvider));
 
   void _moveWeek(int by) {
     final i = _weekIndex + by;
@@ -97,7 +97,8 @@ class _LiveActivitiesScreenState extends ConsumerState<LiveActivitiesScreen> {
     final provider = dashActivitiesProvider(_q);
     return DrilldownPage(
       title: 'Upcoming Activities',
-      subtitle: '${DemoClock.formatShort(_from)} – ${DemoClock.formatDate(_to)}',
+      subtitle:
+          '${DemoClock.formatShort(_from)} – ${DemoClock.formatDate(_to)} · ${dashSiteLabel(ref.watch(dashSiteProvider))}',
       skeletonRows: 5,
       onRefresh: () => ref.invalidate(provider),
       children: [

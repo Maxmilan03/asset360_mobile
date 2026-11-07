@@ -108,6 +108,7 @@ class _LiveRecentAssetsScreenState extends ConsumerState<LiveRecentAssetsScreen>
           final a = page.items[i];
           return LiveAssetTile(
             item: dashAssetItem(a),
+            statusChip: a.status == null ? null : DashStatusChip(label: a.status!, groupKey: a.statusGroup),
             trailingBottom: a.createdAtUtc == null ? null : DemoClock.formatDate(a.createdAtUtc!.toLocal()),
             onTap: () => context.push(Routes.assetDetail(a.assetRegistrationId)),
           );
@@ -168,6 +169,7 @@ class _LiveRecentAssetsScreenState extends ConsumerState<LiveRecentAssetsScreen>
                       : counts)
                 if (c.key == 'all' || c.count > 0 || c.key == _status) ...[
                   PillChip(
+                    dot: c.key == 'all' ? null : dashStatusColor(c.key),
                     label: counts.isEmpty ? c.label : '${c.label} (${dashNumber.format(c.count)})',
                     selected: (_status ?? 'all') == c.key,
                     onTap: () => setState(() => _status = c.key == 'all' ? null : c.key),

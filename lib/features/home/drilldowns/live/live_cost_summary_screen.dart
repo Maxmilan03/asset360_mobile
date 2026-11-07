@@ -38,22 +38,24 @@ class _LiveCostSummaryScreenState extends ConsumerState<LiveCostSummaryScreen> {
   static final _year = DateTime.now().year;
 
   /// Menu: label + query.
-  static final _choices = <(String, DashCostQuery)>[
-    ('YTD $_year', (period: DashCostPeriod.ytd, year: null)),
-    ('${_year - 1}', (period: DashCostPeriod.year, year: _year - 1)),
-    ('Last 12 Months', (period: DashCostPeriod.last12Months, year: null)),
+  /// Menu: label, `period`, `year`.
+  static final _choices = <(String, String, int?)>[
+    ('YTD $_year', DashCostPeriod.ytd, null),
+    ('${_year - 1}', DashCostPeriod.year, _year - 1),
+    ('Last 12 Months', DashCostPeriod.last12Months, null),
   ];
 
   int _choice = 0;
 
   @override
   Widget build(BuildContext context) {
-    final q = _choices[_choice].$2;
+    final c = _choices[_choice];
+    final DashCostQuery q = (period: c.$2, year: c.$3, site: ref.watch(dashSiteProvider));
     final provider = dashCostSummaryProvider(q);
     final currency = ref.watch(provider).value?.currency ?? 'AED';
     return DrilldownPage(
       title: 'Cost Summary ($currency)',
-      subtitle: 'Work order costs across all sites',
+      subtitle: 'Work order costs · ${dashSiteLabel(ref.watch(dashSiteProvider))}',
       onRefresh: () => ref.invalidate(provider),
       trailing: PopupMenuButton<int>(
         key: const ValueKey('costPeriod'),

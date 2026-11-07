@@ -22,50 +22,53 @@ import 'package:asset360_mobile/features/home/sections/upcoming_activities_card.
 
 // ---------------------------------------------------------------- Asset Overview
 
-class LiveAssetOverviewCard extends StatelessWidget {
+class LiveAssetOverviewCard extends ConsumerWidget {
   const LiveAssetOverviewCard({super.key});
 
   @override
-  Widget build(BuildContext context) => SectionCard(
-    title: 'Asset Overview',
-    actionLabel: 'View All',
-    onAction: DemoGuard.push(context, Routes.assetOverview),
-    child: DashSection<DashAssetOverview>(
-      provider: dashAssetOverviewProvider(null),
-      onRetry: (ref) => ref.invalidate(dashAssetOverviewProvider(null)),
-      isEmpty: (o) => o.totalAssets == 0,
-      emptyIcon: Icons.inventory_2_outlined,
-      emptyTitle: 'No assets yet',
-      emptyMessage: 'Registered assets appear here.',
-      builder: (o) => Row(
-        children: [
-          DonutChart(
-            values: [for (final s in o.byStatus) s.count.toDouble()],
-            colors: [for (final s in o.byStatus) dashStatusColor(s.key)],
-            center: DonutCenter(value: dashNumber.format(o.totalAssets), caption: 'Assets'),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              children: [
-                for (final s in o.byStatus)
-                  LegendRow(
-                    color: dashStatusColor(s.key),
-                    label: s.label,
-                    value: dashNumber.format(s.count),
-                    pct: '(${dashPct(s.percent)})',
-                    onTap: DemoGuard.tap(
-                      DemoAction.homeLegendFilters,
-                      DemoGuard.push(context, Routes.recentAssetsFiltered(status: s.key)),
-                    ),
-                  ),
-              ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final q = (search: null, site: ref.watch(dashSiteProvider));
+    return SectionCard(
+      title: 'Asset Overview',
+      actionLabel: 'View All',
+      onAction: DemoGuard.push(context, Routes.assetOverview),
+      child: DashSection<DashAssetOverview>(
+        provider: dashAssetOverviewProvider(q),
+        onRetry: (ref) => ref.invalidate(dashAssetOverviewProvider(q)),
+        isEmpty: (o) => o.totalAssets == 0,
+        emptyIcon: Icons.inventory_2_outlined,
+        emptyTitle: 'No assets yet',
+        emptyMessage: 'Registered assets appear here.',
+        builder: (o) => Row(
+          children: [
+            DonutChart(
+              values: [for (final s in o.byStatus) s.count.toDouble()],
+              colors: [for (final s in o.byStatus) dashStatusColor(s.key)],
+              center: DonutCenter(value: dashNumber.format(o.totalAssets), caption: 'Assets'),
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                children: [
+                  for (final s in o.byStatus)
+                    LegendRow(
+                      color: dashStatusColor(s.key),
+                      label: s.label,
+                      value: dashNumber.format(s.count),
+                      pct: '(${dashPct(s.percent)})',
+                      onTap: DemoGuard.tap(
+                        DemoAction.homeLegendFilters,
+                        DemoGuard.push(context, Routes.recentAssetsFiltered(status: s.key)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 // ---------------------------------------------------------------- Maintenance Performance
@@ -125,88 +128,94 @@ String _metric(DashMetricValue v) {
 
 // ---------------------------------------------------------------- Upcoming Activities
 
-class LiveUpcomingActivitiesCard extends StatelessWidget {
+class LiveUpcomingActivitiesCard extends ConsumerWidget {
   const LiveUpcomingActivitiesCard({super.key});
 
   static const rows = 3;
-  static const DashActivitiesQuery query = (from: null, to: null, type: null);
 
   @override
-  Widget build(BuildContext context) => SectionCard(
-    title: 'Upcoming Activities',
-    actionLabel: 'View Calendar',
-    onAction: DemoGuard.push(context, Routes.activitiesView('calendar')),
-    child: DashSection<DashActivities>(
-      provider: dashActivitiesProvider(query),
-      onRetry: (ref) => ref.invalidate(dashActivitiesProvider(query)),
-      isEmpty: (a) => a.items.isEmpty,
-      emptyIcon: Icons.event_available_rounded,
-      emptyTitle: 'No upcoming activities',
-      emptyMessage: 'Nothing scheduled in the next 30 days.',
-      builder: (a) => Column(
-        children: [
-          for (final i in a.items.take(rows))
-            UpcomingActivityRow(
-              day: i.date ?? i.startUtc?.toLocal() ?? DateTime.now(),
-              icon: dashActivityLook(i.type).$1,
-              tone: dashActivityLook(i.type).$2,
-              title: i.title,
-              subtitle: [i.reference, ?i.assetName].where((s) => s.isNotEmpty).join(' · '),
-              time: i.startUtc == null ? '' : DemoClock.formatTime(i.startUtc!.toLocal()),
-              location: i.location,
-              onTap: () => showNotAvailableYet(context, dashModuleOf(i.type)),
-            ),
-        ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final DashActivitiesQuery query = (from: null, to: null, type: null, site: ref.watch(dashSiteProvider));
+    return SectionCard(
+      title: 'Upcoming Activities',
+      actionLabel: 'View Calendar',
+      onAction: DemoGuard.push(context, Routes.activitiesView('calendar')),
+      child: DashSection<DashActivities>(
+        provider: dashActivitiesProvider(query),
+        onRetry: (ref) => ref.invalidate(dashActivitiesProvider(query)),
+        isEmpty: (a) => a.items.isEmpty,
+        emptyIcon: Icons.event_available_rounded,
+        emptyTitle: 'No upcoming activities',
+        emptyMessage: 'Nothing scheduled in the next 30 days.',
+        builder: (a) => Column(
+          children: [
+            for (final i in a.items.take(rows))
+              UpcomingActivityRow(
+                day: i.date ?? i.startUtc?.toLocal() ?? DateTime.now(),
+                icon: dashActivityLook(i.type).$1,
+                tone: dashActivityLook(i.type).$2,
+                title: i.title,
+                subtitle: [i.reference, ?i.assetName].where((s) => s.isNotEmpty).join(' · '),
+                time: i.startUtc == null ? '' : DemoClock.formatTime(i.startUtc!.toLocal()),
+                location: i.location,
+                onTap: () => showNotAvailableYet(context, dashModuleOf(i.type)),
+              ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 // ---------------------------------------------------------------- Recent Alerts
 
-class LiveRecentAlertsCard extends StatelessWidget {
+class LiveRecentAlertsCard extends ConsumerWidget {
   const LiveRecentAlertsCard({super.key});
 
   static const rows = 3;
-  static const DashAlertsQuery query = (severity: null, days: 7);
 
   @override
-  Widget build(BuildContext context) => SectionCard(
-    title: 'Recent Alerts',
-    actionLabel: 'View All',
-    onAction: DemoGuard.push(context, Routes.recentAlerts),
-    padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-    child: DashSection<DashPage<DashAlertItem, DashAlertCounts>>(
-      provider: dashAlertsProvider(query),
-      onRetry: (ref) => ref.invalidate(dashAlertsProvider(query)),
-      isEmpty: (p) => p.items.isEmpty,
-      emptyIcon: Icons.notifications_off_outlined,
-      emptyTitle: 'No recent alerts',
-      emptyMessage: 'Nothing in the last 7 days.',
-      builder: (p) => Column(
-        children: [
-          for (final (i, a) in p.items.take(rows).indexed) ...[
-            if (i > 0) const Divider(),
-            DashAlertRow(alert: a, compact: true),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final DashAlertsQuery query = (severity: null, days: 7, site: ref.watch(dashSiteProvider));
+    return SectionCard(
+      title: 'Recent Alerts',
+      actionLabel: 'View All',
+      onAction: DemoGuard.push(context, Routes.recentAlerts),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+      child: DashSection<DashPage<DashAlertItem, DashAlertCounts>>(
+        provider: dashAlertsProvider(query),
+        onRetry: (ref) => ref.invalidate(dashAlertsProvider(query)),
+        isEmpty: (p) => p.items.isEmpty,
+        emptyIcon: Icons.notifications_off_outlined,
+        emptyTitle: 'No recent alerts',
+        emptyMessage: 'Nothing in the last 7 days.',
+        builder: (p) => Column(
+          children: [
+            for (final (i, a) in p.items.take(rows).indexed) ...[
+              if (i > 0) const Divider(),
+              DashAlertRow(alert: a, compact: true),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// One dashboard alert (Home card and Recent Alerts drill-down). Alert details are not connected
 /// yet, so a tap says so.
-class DashAlertRow extends StatelessWidget {
+class DashAlertRow extends ConsumerWidget {
   const DashAlertRow({super.key, required this.alert, this.compact = false});
 
   final DashAlertItem alert;
   final bool compact;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final (icon, tone, chip) = dashSeverityLook(alert.severity);
-    final sub = [?alert.reference ?? alert.assetId, ?alert.assetName].join(' – ');
+    // assetId is the ASSET TAG ("CHL-30002"): a link that looks the asset up (type=assetTag).
+    final tag = alert.assetId;
+    final sub = [?(tag == null ? alert.reference : null), ?alert.assetName].join(' – ');
     return InkWell(
       onTap: () => showNotAvailableYet(context, dashModuleOf(alert.source)),
       child: Padding(
@@ -229,11 +238,21 @@ class DashAlertRow extends StatelessWidget {
                     style: compact ? AppText.body.copyWith(fontSize: 13) : AppText.bodyStrong.copyWith(fontSize: 13.5),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    sub.isEmpty ? alert.source : sub,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.caption,
+                  Row(
+                    children: [
+                      if (tag != null) ...[
+                        Flexible(child: AssetTagLink(tag: tag)),
+                        if (sub.isNotEmpty) Text(' – ', style: AppText.caption),
+                      ],
+                      Flexible(
+                        child: Text(
+                          sub.isEmpty && tag == null ? alert.source : sub,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.caption,
+                        ),
+                      ),
+                    ],
                   ),
                   if (!compact) ...[
                     const SizedBox(height: 4),
@@ -268,13 +287,12 @@ class DashAlertRow extends StatelessWidget {
 
 // ---------------------------------------------------------------- Asset Location
 
-class LiveAssetLocationCard extends StatelessWidget {
+class LiveAssetLocationCard extends ConsumerWidget {
   const LiveAssetLocationCard({super.key});
 
-  static const DashLocationsQuery query = (status: null, search: null);
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final DashLocationsQuery query = (status: null, search: null, site: ref.watch(dashSiteProvider));
     final open = DemoGuard.push(context, Routes.assetLocation);
     return SectionCard(
       title: 'Asset Location (Live)',
@@ -365,22 +383,23 @@ class LiveAssetLocationCard extends StatelessWidget {
 
 // ---------------------------------------------------------------- Asset Health
 
-class LiveAssetHealthCard extends StatelessWidget {
+class LiveAssetHealthCard extends ConsumerWidget {
   const LiveAssetHealthCard({super.key});
 
   /// Critical assets the drill-down lists (the card itself does not show them).
   static const top = 10;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final DashHealthQuery q = (top: top, site: ref.watch(dashSiteProvider));
     final open = DemoGuard.push(context, Routes.assetHealth);
     return SectionCard(
       title: 'Asset Health',
       actionLabel: 'View Details',
       onAction: open,
       child: DashSection<DashAssetHealth>(
-        provider: dashAssetHealthProvider(top),
-        onRetry: (ref) => ref.invalidate(dashAssetHealthProvider(top)),
+        provider: dashAssetHealthProvider(q),
+        onRetry: (ref) => ref.invalidate(dashAssetHealthProvider(q)),
         isEmpty: (h) => h.totalAssets == 0,
         emptyIcon: Icons.health_and_safety_outlined,
         emptyTitle: 'No assets to score yet',
@@ -428,10 +447,9 @@ class LiveAssetHealthCard extends StatelessWidget {
 class LiveCostSummaryCard extends ConsumerWidget {
   const LiveCostSummaryCard({super.key});
 
-  static const DashCostQuery query = (period: DashCostPeriod.ytd, year: null);
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final DashCostQuery query = (period: DashCostPeriod.ytd, year: null, site: ref.watch(dashSiteProvider));
     final currency = ref.watch(dashCostSummaryProvider(query)).value?.currency ?? 'AED';
     final open = DemoGuard.push(context, Routes.costSummary);
     return SectionCard(
@@ -505,6 +523,7 @@ class LiveRecentAssetsCard extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(10),
                 child: LiveAssetTile(
                   item: dashAssetItem(a),
+                  statusChip: a.status == null ? null : DashStatusChip(label: a.status!, groupKey: a.statusGroup),
                   onTap: DemoGuard.open(
                     Routes.assetDetail(a.assetRegistrationId),
                     () => context.go(Routes.assetDetail(a.assetRegistrationId)),

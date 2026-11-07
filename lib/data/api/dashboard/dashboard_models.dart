@@ -474,6 +474,103 @@ class DashActivityItem {
   final String? assignedTo;
 }
 
+// ---------------------------------------------------------------- My tasks
+
+/// GET /api/dashboards/mobile/my-tasks?type=&site=&utcOffsetMinutes= (MobileMyTasksResponse): open work
+/// orders, inspections and approvals assigned to the signed-in user (bearer token; 401 without one).
+class DashMyTasks {
+  const DashMyTasks({this.userName, required this.matchedAssigneeNames, required this.counts, required this.items});
+
+  factory DashMyTasks.fromJson(Object? body) {
+    final j = jMap(body);
+    return DashMyTasks(
+      userName: jStr(j['userName']),
+      matchedAssigneeNames: jStrings(j['matchedAssigneeNames']),
+      counts: DashMyTaskCounts.fromJson(jMap(j['counts'])),
+      items: _list(j['items'], DashTaskItem.fromJson),
+    );
+  }
+
+  final String? userName;
+
+  /// The assignee names the server matched to the user (how "mine" was decided).
+  final List<String> matchedAssigneeNames;
+  final DashMyTaskCounts counts;
+
+  /// Overdue first, then by due date; undated last.
+  final List<DashTaskItem> items;
+}
+
+class DashMyTaskCounts {
+  const DashMyTaskCounts({
+    required this.total,
+    required this.workOrders,
+    required this.inspections,
+    required this.approvals,
+    required this.overdue,
+    required this.dueToday,
+  });
+
+  factory DashMyTaskCounts.fromJson(Map<String, dynamic> j) => DashMyTaskCounts(
+    total: _i(j['total']),
+    workOrders: _i(j['workOrders']),
+    inspections: _i(j['inspections']),
+    approvals: _i(j['approvals']),
+    overdue: _i(j['overdue']),
+    dueToday: _i(j['dueToday']),
+  );
+
+  final int total, workOrders, inspections, approvals, overdue, dueToday;
+}
+
+/// One task. [type] is WorkOrder, Inspection or Approval ([DashActivityType]).
+class DashTaskItem {
+  const DashTaskItem({
+    required this.id,
+    required this.type,
+    required this.reference,
+    required this.title,
+    this.assetId,
+    this.assetName,
+    this.location,
+    this.dueUtc,
+    this.dueDate,
+    required this.isOverdue,
+    required this.status,
+    this.priority,
+  });
+
+  factory DashTaskItem.fromJson(Map<String, dynamic> j) => DashTaskItem(
+    id: _s(j['id']),
+    type: _s(j['type']),
+    reference: _s(j['reference']),
+    title: _s(j['title']),
+    assetId: jStr(j['assetId']),
+    assetName: jStr(j['assetName']),
+    location: jStr(j['location']),
+    dueUtc: jDate(j['dueUtc']),
+    dueDate: _day(j['dueDate']),
+    isOverdue: jBool(j['isOverdue']),
+    status: _s(j['status']),
+    priority: jStr(j['priority']),
+  );
+
+  final String id;
+  final String type;
+  final String reference;
+  final String title;
+
+  /// Asset tag (or the id the record holds).
+  final String? assetId;
+  final String? assetName;
+  final String? location;
+  final DateTime? dueUtc;
+  final DateTime? dueDate;
+  final bool isOverdue;
+  final String status;
+  final String? priority;
+}
+
 // ---------------------------------------------------------------- Recent alerts
 
 /// GET /api/dashboards/mobile/recent-alerts?severity=&days=&page=&pageSize= (MobileRecentAlertsResponse).
@@ -888,21 +985,31 @@ class NetworkStatusCounts {
 
 /// GET /api/dashboards/network-status/tags: one tag and how many records it has (highest first).
 class TagRecordCount {
-  const TagRecordCount({required this.tagId, required this.count, this.assetId, this.assetName});
+  const TagRecordCount({
+    required this.tagId,
+    required this.count,
+    this.assetId,
+    this.assetName,
+    this.assetRegistrationId,
+  });
 
   factory TagRecordCount.fromJson(Map<String, dynamic> j) => TagRecordCount(
     tagId: _s(j['tagId']),
     count: _i(j['count']),
     assetId: jStr(j['assetId']),
     assetName: jStr(j['assetName']),
+    assetRegistrationId: jStr(j['assetRegistrationId']),
   );
 
   final String tagId;
   final int count;
 
-  /// The asset mapped to the tag (asset registration id), if any.
+  /// The IoT record's own asset id (null on the DEV server); not used to open the asset.
   final String? assetId;
   final String? assetName;
+
+  /// The asset registration the tag is linked to ("AR000002"): opens the live Asset detail.
+  final String? assetRegistrationId;
 
   static List<TagRecordCount> list(Object? body) => _list(jItems(body), TagRecordCount.fromJson);
 }

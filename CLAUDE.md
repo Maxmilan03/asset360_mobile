@@ -156,14 +156,18 @@
   method per endpoint, only the query params each endpoint reads; `liveUri`), `network_status_live.dart`
   (`NetworkStatusSocket`: backoff 2/5/10/30 s, injectable `LiveSocketConnector` / `LiveScheduler`). Providers:
   `data/repositories/dashboard_repository.dart` (`dash*Provider` per endpoint, paged `dashAlertsProvider` /
-  `dashRecentAssetsProvider`, `dashSiteProvider` + `dashSitesProvider` = Home site selector in API mode (only
-  maintenance-performance and recent-assets take `site=`), `liveDevicesProvider` + `setActive`, `refreshDashboard`).
+  `dashRecentAssetsProvider`, `dashMyTasksProvider(site)` (token required, 401 without), `dashSiteProvider` +
+  `dashSitesProvider` = Home site selector in API mode (EVERY mobile endpoint takes `site=`; every card and
+  drill-down follows it), `liveDevicesProvider` + `setActive`, `refreshDashboard`). My Tasks = `features/home/
+  live_my_tasks.dart` (card + `/home/tasks` screen). Status colours by group key = `dashStatusTone` / `DashStatusChip`
+  (dash_ui.dart). Dashboard ids: alert / task / activity `assetId` = ASSET TAG → `openAssetByTag` / `AssetTagLink`
+  (lookup `type=assetTag`); tags open `assetRegistrationId`.
   UI: every Home card branches to `sections/live_dashboard_cards.dart` (each card = its own endpoint, `DashSection`
   = shimmer / error + Retry / empty message; /mobile/home = greeting + 4 counters only), `sections/live_devices_card.dart`
   (socket only while Home is visible (`TickerMode`) and the app is resumed), `features/home/devices_screen.dart`
   (`/home/devices`), drill-downs in `drilldowns/live/` (each mock drill-down returns its live screen in API mode;
   Recent Assets takes `?status=&type=&site=`, Recent Alerts `?severity=`), map = `dash_map.dart` (flutter_map + OSM),
-  shared bits `dash_ui.dart`. My Tasks stays "Not available yet". Tests: `test/live/dashboard_test.dart` (samples in
+  shared bits `dash_ui.dart`. Tests: `test/live/dashboard_test.dart` (samples in
   `dashboard_samples.dart`; `flutter_test_config.dart` gives every test an idle fake socket). Report:
   `docs/home_dashboard_report.md`.
 - Scan (prompt 07): `features/assets/scan/` — `scan_screen.dart` (QR camera + simulated NFC/RFID/BLE, Manual Entry, Multi Scan,

@@ -34,7 +34,8 @@ class _LiveAssetLocationScreenState extends ConsumerState<LiveAssetLocationScree
   String? _status;
   String? _selected;
 
-  DashLocationsQuery get _q => (status: _status, search: _query.trim().isEmpty ? null : _query.trim());
+  DashLocationsQuery get _q =>
+      (status: _status, search: _query.trim().isEmpty ? null : _query.trim(), site: ref.watch(dashSiteProvider));
 
   @override
   void dispose() {
@@ -73,7 +74,7 @@ class _LiveAssetLocationScreenState extends ConsumerState<LiveAssetLocationScree
     final total = byStatus.fold(0, (a, b) => a + b.count);
     return DrilldownPage(
       title: 'Asset Location (Live)',
-      subtitle: 'Assets with map coordinates',
+      subtitle: 'Assets with map coordinates · ${dashSiteLabel(ref.watch(dashSiteProvider))}',
       skeletonRows: 3,
       onRefresh: () => ref.invalidate(provider),
       children: [
@@ -115,6 +116,7 @@ class _LiveAssetLocationScreenState extends ConsumerState<LiveAssetLocationScree
               for (final s in byStatus)
                 if (s.count > 0 || s.key == _status) ...[
                   PillChip(
+                    dot: dashStatusColor(s.key),
                     label: '${s.label} (${dashNumber.format(s.count)})',
                     selected: _status == s.key,
                     onTap: () => setState(() {
@@ -195,7 +197,7 @@ class _LiveAssetLocationScreenState extends ConsumerState<LiveAssetLocationScree
                             overflow: TextOverflow.ellipsis,
                             style: AppText.caption,
                           ),
-                          trailing: a.status == null ? null : AssetStatusChip(a.status!),
+                          trailing: a.status == null ? null : DashStatusChip(label: a.status!, groupKey: a.statusGroup),
                           selected: a.assetRegistrationId == _selected,
                           onTap: () => _select(a),
                         ),
@@ -260,7 +262,7 @@ class _AssetCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    if (asset.status != null) AssetStatusChip(asset.status!),
+                    if (asset.status != null) DashStatusChip(label: asset.status!, groupKey: asset.statusGroup),
                     const Spacer(),
                     TextButton(
                       onPressed: () => context.push(Routes.assetDetail(asset.assetRegistrationId)),

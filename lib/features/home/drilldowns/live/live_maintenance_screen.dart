@@ -34,7 +34,9 @@ class _LiveMaintenanceScreenState extends ConsumerState<LiveMaintenanceScreen> {
   Future<void> _openFilters() async {
     final sites = ref.read(dashSitesProvider).value ?? const [DashSiteNotifier.allSites];
     final types = [
-      for (final t in ref.read(dashAssetOverviewProvider(null)).value?.byType ?? const <DashBreakdownItem>[])
+      for (final t
+          in ref.read(dashAssetOverviewProvider((search: null, site: null))).value?.byType ??
+              const <DashBreakdownItem>[])
         if (t.label.toLowerCase() != 'others') t.label,
     ];
     final result = await showModalBottomSheet<(String, String?)>(

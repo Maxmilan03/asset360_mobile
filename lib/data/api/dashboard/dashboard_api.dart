@@ -7,7 +7,8 @@ export 'package:asset360_mobile/data/api/dashboard/dashboard_models.dart';
 /// The read-only endpoints of the Dashboard service (DASHBOARD_BASE_URL, port 5470) the app uses.
 /// Paths and query parameters: docs/backend_ref/Services/Dashboard/Api/A360.Dashboard.Api/Endpoints/
 /// MobileDashboardEndpoints.cs and NetworkStatusEndpoints.cs. Only the parameters each endpoint
-/// reads are sent; null / empty values are left out.
+/// reads are sent; null / empty values are left out. Every mobile endpoint takes an optional `site`
+/// (site name or id).
 class DashboardApi {
   const DashboardApi(this.client, {this.utcOffsetMinutes});
 
@@ -22,6 +23,7 @@ class DashboardApi {
   static const assetOverview = '$mobile/asset-overview';
   static const maintenancePerformance = '$mobile/maintenance-performance';
   static const upcomingActivities = '$mobile/upcoming-activities';
+  static const myTasks = '$mobile/my-tasks';
   static const recentAlerts = '$mobile/recent-alerts';
   static const assetLocations = '$mobile/asset-locations';
   static const assetHealth = '$mobile/asset-health';
@@ -47,12 +49,13 @@ class DashboardApi {
     return (await client.get<Object?>(path, query: q.isEmpty ? null : q)).data;
   }
 
-  /// `utcOffsetMinutes` only.
-  Future<DashHome> getHome() async => DashHome.fromJson(await _get(home, {'utcOffsetMinutes': _offset}));
+  /// `site`, `utcOffsetMinutes`.
+  Future<DashHome> getHome({String? site}) async =>
+      DashHome.fromJson(await _get(home, {'site': site, 'utcOffsetMinutes': _offset}));
 
   /// `search` filters the group labels.
-  Future<DashAssetOverview> getAssetOverview({String? search}) async =>
-      DashAssetOverview.fromJson(await _get(assetOverview, {'search': search}));
+  Future<DashAssetOverview> getAssetOverview({String? search, String? site}) async =>
+      DashAssetOverview.fromJson(await _get(assetOverview, {'search': search, 'site': site}));
 
   /// `months` (1–24, default 6), `assetType`, `site` (exact, case-insensitive), `utcOffsetMinutes`.
   Future<DashMaintenance> getMaintenancePerformance({int? months, String? assetType, String? site}) async =>
@@ -67,28 +70,44 @@ class DashboardApi {
 
   /// `from` / `to` (yyyy-MM-dd; default today + 29 days, at most a year), `type` (WorkOrder,
   /// Inspection, Approval; comma separated; null = all), `utcOffsetMinutes`.
-  Future<DashActivities> getUpcomingActivities({DateTime? from, DateTime? to, String? type}) async =>
+  Future<DashActivities> getUpcomingActivities({DateTime? from, DateTime? to, String? type, String? site}) async =>
       DashActivities.fromJson(
-        await _get(upcomingActivities, {'from': jDay(from), 'to': jDay(to), 'type': type, 'utcOffsetMinutes': _offset}),
+        await _get(upcomingActivities, {
+          'from': jDay(from),
+          'to': jDay(to),
+          'type': type,
+          'site': site,
+          'utcOffsetMinutes': _offset,
+        }),
       );
+
+  /// `type` (WorkOrder, Inspection, Approval; comma separated; null = all), `site`, `utcOffsetMinutes`.
+  /// The user is the bearer token's (there is no user parameter); 401 without a token. No paging.
+  Future<DashMyTasks> getMyTasks({String? type, String? site}) async =>
+      DashMyTasks.fromJson(await _get(myTasks, {'type': type, 'site': site, 'utcOffsetMinutes': _offset}));
 
   /// `severity` (Critical / Warning / Info; null = all), `days` (1–90, default 7), `page`, `pageSize` (≤ 100).
-  Future<DashRecentAlerts> getRecentAlerts({String? severity, int? days, int page = 1, int pageSize = 20}) async =>
-      DashRecentAlerts.fromJson(
-        await _get(recentAlerts, {'severity': severity, 'days': days, 'page': page, 'pageSize': pageSize}),
-      );
+  Future<DashRecentAlerts> getRecentAlerts({
+    String? severity,
+    int? days,
+    String? site,
+    int page = 1,
+    int pageSize = 20,
+  }) async => DashRecentAlerts.fromJson(
+    await _get(recentAlerts, {'severity': severity, 'days': days, 'site': site, 'page': page, 'pageSize': pageSize}),
+  );
 
   /// `status` (a status group key or a raw status), `search`.
-  Future<DashAssetLocations> getAssetLocations({String? status, String? search}) async =>
-      DashAssetLocations.fromJson(await _get(assetLocations, {'status': status, 'search': search}));
+  Future<DashAssetLocations> getAssetLocations({String? status, String? search, String? site}) async =>
+      DashAssetLocations.fromJson(await _get(assetLocations, {'status': status, 'search': search, 'site': site}));
 
   /// `top` (1–50, default 5) critical assets.
-  Future<DashAssetHealth> getAssetHealth({int? top}) async =>
-      DashAssetHealth.fromJson(await _get(assetHealth, {'top': top}));
+  Future<DashAssetHealth> getAssetHealth({int? top, String? site}) async =>
+      DashAssetHealth.fromJson(await _get(assetHealth, {'top': top, 'site': site}));
 
   /// `period` ([DashCostPeriod]), `year` (2000–2100).
-  Future<DashCostSummary> getCostSummary({String? period, int? year}) async =>
-      DashCostSummary.fromJson(await _get(costSummary, {'period': period, 'year': year}));
+  Future<DashCostSummary> getCostSummary({String? period, int? year, String? site}) async =>
+      DashCostSummary.fromJson(await _get(costSummary, {'period': period, 'year': year, 'site': site}));
 
   /// `status` (group key; null / all = every status), `search`, `assetType`, `site`, `page`, `pageSize` (≤ 100).
   Future<DashRecentAssets> getRecentAssets({

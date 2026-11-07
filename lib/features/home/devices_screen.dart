@@ -12,7 +12,7 @@ import 'package:asset360_mobile/features/home/drilldowns/drilldown_page.dart';
 import 'package:asset360_mobile/features/home/sections/live_devices_card.dart';
 
 /// Home → Live Devices → View Devices: GET /api/dashboards/network-status/tags (tag id, record
-/// count, mapped asset), highest count first. A row with an asset opens the live Asset detail.
+/// count, mapped asset), highest count first. A row with an `assetRegistrationId` opens the live Asset detail.
 class DevicesScreen extends ConsumerWidget {
   const DevicesScreen({super.key});
 
@@ -69,7 +69,8 @@ class _TagRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final assetId = tag.assetId;
+    // The tag's asset registration ("AR000002"); the record's own assetId is not an asset registration id.
+    final assetId = tag.assetRegistrationId;
     return InkWell(
       onTap: assetId == null
           ? () => context.showSnack('No asset is linked to tag ${tag.tagId}')

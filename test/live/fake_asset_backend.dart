@@ -214,6 +214,9 @@ class FakeAssetBackend implements HttpClientAdapter {
     on('GET', '$md/locations/tree', (_) => FakeReply(200, mdLocationTree));
   }
 
+  /// Tests without a signed-in token still get My Tasks (the real server answers 401).
+  bool myTasksWithoutToken = true;
+
   /// Dashboard service (5470): GET /api/dashboards/mobile/* and network status (dashboard_samples.dart).
   void seedDashboard() {
     const m = '/api/dashboards/mobile';
@@ -234,6 +237,14 @@ class FakeAssetBackend implements HttpClientAdapter {
     });
     on('GET', '$m/maintenance-performance', (_) => const FakeReply(200, dashMaintenanceJson));
     on('GET', '$m/upcoming-activities', (_) => const FakeReply(200, dashActivitiesJson));
+    // Needs a bearer token, like the server (401 without one).
+    on(
+      'GET',
+      '$m/my-tasks',
+      (o) => o.headers['Authorization'] == null && !myTasksWithoutToken
+          ? const FakeReply(401)
+          : FakeReply(200, dashMyTasksJson(type: o.uri.queryParameters['type'])),
+    );
     on('GET', '$m/recent-alerts', (o) => FakeReply(200, dashAlertsJson(o.uri.queryParameters['severity'])));
     on('GET', '$m/asset-locations', (_) => const FakeReply(200, dashLocationsJson));
     on('GET', '$m/asset-health', (_) => const FakeReply(200, dashHealthJson));

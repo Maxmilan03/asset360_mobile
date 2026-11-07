@@ -5,12 +5,19 @@ import 'package:intl/intl.dart';
 
 import 'package:asset360_mobile/app/theme/app_colors.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
-import 'package:asset360_mobile/data/api/assets/asset_api_models.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:asset360_mobile/app/router/routes.dart';
+import 'package:asset360_mobile/data/api/api_exception.dart';
+import 'package:asset360_mobile/data/api/assets/assets_api.dart';
 import 'package:asset360_mobile/data/repositories/dashboard_repository.dart';
 
 /// Shared pieces of the API-mode Home dashboard and its drill-downs (Dashboard service data).
 
 final dashNumber = NumberFormat('#,###');
+
+/// The Home site filter as text ("All sites" / the site name).
+String dashSiteLabel(String? site) => site ?? 'All sites';
 
 /// "83.3" → "83%", "0" → "0%".
 String dashPct(double v) => '${v.round()}%';
@@ -64,14 +71,28 @@ class DashEmpty extends StatelessWidget {
   Widget build(BuildContext context) => EmptyState(icon: icon, title: title, message: message);
 }
 
-/// Colour of a server status group (operational, under-maintenance, out-of-service, retired, other).
-Color dashStatusColor(String key) => switch (key) {
-  'operational' => const Color(0xFF22B35E),
-  'under-maintenance' => const Color(0xFFF5B800),
-  'out-of-service' => const Color(0xFFF2711C),
-  'retired' => const Color(0xFFEF4444),
-  _ => const Color(0xFF7C8595),
+/// Tone of a server status group key: green operational, amber under-maintenance, red
+/// out-of-service, grey retired / other / unknown. Chips, legends, donuts and map pins all use it.
+ChipTone dashStatusTone(String key) => switch (key) {
+  'operational' => ChipTone.green,
+  'under-maintenance' => ChipTone.amber,
+  'out-of-service' => ChipTone.red,
+  _ => ChipTone.grey,
 };
+
+/// Colour of a server status group (see [dashStatusTone]).
+Color dashStatusColor(String key) => dashStatusTone(key).foreground;
+
+/// A status chip: the server's text, coloured by its status group key.
+class DashStatusChip extends StatelessWidget {
+  const DashStatusChip({super.key, required this.label, required this.groupKey});
+
+  final String label;
+  final String groupKey;
+
+  @override
+  Widget build(BuildContext context) => StatusChip(label, tone: dashStatusTone(groupKey));
+}
 
 IconData dashStatusIcon(String key) => switch (key) {
   'operational' => Icons.check_circle_rounded,
@@ -166,3 +187,46 @@ String dashTimeAgo(DateTime? at, {DateTime? now}) {
 
 /// "AED 1,250" / "1.25M" style amounts.
 String dashMoney(double v) => dashNumber.format(v.round());
+
+/// Opens the live Asset detail of the asset with tag [tag]: GET /api/asset-registrations/lookup
+/// ?code=&type=assetTag (dashboard alerts, tasks and activities carry the TAG, not the registration
+/// id). No match → a snack; a server error → its message.
+Future<void> openAssetByTag(BuildContext context, WidgetRef ref, String tag) async {
+  try {
+    final found = await ref.read(assetsApiProvider).lookup(tag, type: 'assetTag');
+    if (!context.mounted) return;
+    if (found == null || found.asset.assetRegistrationId.isEmpty) {
+      context.showSnack('No asset with tag $tag was found');
+      return;
+    }
+    await context.push(Routes.assetDetail(found.asset.assetRegistrationId));
+  } catch (e) {
+    if (context.mounted) context.showSnack(ApiException.from(e).message);
+  }
+}
+
+/// An asset tag shown as a link ("CHL-30002 ›") that opens the asset via [openAssetByTag].
+class AssetTagLink extends ConsumerWidget {
+  const AssetTagLink({super.key, required this.tag});
+
+  final String tag;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Semantics(
+    link: true,
+    label: 'Open asset $tag',
+    child: InkWell(
+      onTap: () => openAssetByTag(context, ref, tag),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Text(
+          '$tag ›',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+        ),
+      ),
+    ),
+  );
+}

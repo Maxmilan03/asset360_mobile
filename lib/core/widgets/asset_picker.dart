@@ -139,9 +139,13 @@ class LiveAssetTile extends StatelessWidget {
     this.selected = false,
     this.showChevron = true,
     this.trailingBottom,
+    this.statusChip,
   });
 
   final AssetListItem item;
+
+  /// Replaces the default [AssetStatusChip] of `item.status` (dashboard rows colour it by status group).
+  final Widget? statusChip;
   final VoidCallback? onTap;
   final bool selected;
   final bool showChevron;
@@ -159,7 +163,7 @@ class LiveAssetTile extends StatelessWidget {
       location: locationOf(item).isEmpty ? null : locationOf(item),
       imagePath: item.imageUrl,
       details: [if (tag != null) TagLabel(item.assetRegistrationId, icon: Icons.tag_rounded)],
-      trailingTop: item.status == null ? null : AssetStatusChip(item.status!),
+      trailingTop: statusChip ?? (item.status == null ? null : AssetStatusChip(item.status!)),
       trailingBottom: trailingBottom,
       showChevron: showChevron,
       selected: selected,

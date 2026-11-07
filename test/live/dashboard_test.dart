@@ -15,6 +15,7 @@ import 'package:asset360_mobile/data/repositories/dashboard_repository.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
 import 'package:asset360_mobile/data/repositories/maintenance_repository.dart';
 import 'package:asset360_mobile/data/repositories/session_repository.dart';
+import 'package:asset360_mobile/core/widgets/chips.dart';
 import 'package:asset360_mobile/features/auth/splash_screen.dart';
 import 'package:asset360_mobile/features/home/dash_ui.dart';
 import 'package:asset360_mobile/features/home/drilldowns/drilldown_page.dart';
@@ -290,8 +291,9 @@ void main() {
       final tags = await api.getNetworkStatusTags();
       expect(tags.first.tagId, 'E2801170000002089A1B');
       expect(tags.first.count, 420);
-      expect(tags.first.assetId, 'AR000001');
-      expect(tags.last.assetId, isNull);
+      expect(tags.first.assetId, isNull, reason: 'the server sends assetRegistrationId instead');
+      expect(tags.first.assetRegistrationId, 'AR000001');
+      expect(tags.last.assetRegistrationId, isNull);
     });
 
     test('tolerant: missing / wrongly typed fields read as 0 / null / empty, never throw', () {
@@ -305,6 +307,67 @@ void main() {
       expect(DashCostSummary.fromJson(const {}).currency, 'AED');
       expect(NetworkStatusCounts.fromJson({'totalOnline': '4'}).totalOnline, 4);
       expect(TagRecordCount.list({'items': dashTagsJson}).length, 2, reason: 'a wrapped list is read too');
+    });
+
+    test('GET /mobile/my-tasks?type=&site=&utcOffsetMinutes= (no user parameter: the token decides)', () async {
+      final t = await _api(backend).getMyTasks(type: 'WorkOrder', site: 'Main Site');
+      expect(_query(backend, DashboardApi.myTasks), {
+        'type': 'WorkOrder',
+        'site': 'Main Site',
+        'utcOffsetMinutes': '240',
+      });
+      expect(t.userName, 'max.milan');
+      expect(t.matchedAssigneeNames, ['max.milan', 'Max Milan']);
+      final c = t.counts;
+      expect((c.total, c.workOrders, c.inspections, c.approvals, c.overdue, c.dueToday), (3, 1, 1, 1, 1, 0));
+      final wo = t.items.single;
+      expect(wo.reference, 'WO-8812');
+      expect(wo.assetId, 'TAG-0001');
+      expect(wo.isOverdue, isTrue);
+      expect(wo.dueUtc, DateTime.utc(2026, 11, 5, 8));
+      expect(wo.dueDate, DateTime(2026, 11, 5));
+      final all = await _api(backend).getMyTasks();
+      expect(all.items.last.dueUtc, isNull);
+      expect(all.items.last.isOverdue, isFalse);
+    });
+
+    test('site= goes to every mobile endpoint', () async {
+      final api = _api(backend);
+      const site = 'North Plant';
+      await api.getHome(site: site);
+      await api.getAssetOverview(site: site);
+      await api.getMaintenancePerformance(site: site);
+      await api.getUpcomingActivities(site: site);
+      await api.getMyTasks(site: site);
+      await api.getRecentAlerts(site: site);
+      await api.getAssetLocations(site: site);
+      await api.getAssetHealth(site: site);
+      await api.getCostSummary(site: site);
+      await api.getRecentAssets(site: site);
+      for (final p in [
+        DashboardApi.home,
+        DashboardApi.assetOverview,
+        DashboardApi.maintenancePerformance,
+        DashboardApi.upcomingActivities,
+        DashboardApi.myTasks,
+        DashboardApi.recentAlerts,
+        DashboardApi.assetLocations,
+        DashboardApi.assetHealth,
+        DashboardApi.costSummary,
+        DashboardApi.recentAssets,
+      ]) {
+        expect(_query(backend, p)['site'], site, reason: p);
+      }
+    });
+
+    test('status group keys → chip tones: green / amber / red / grey', () {
+      expect(dashStatusTone('operational'), ChipTone.green);
+      expect(dashStatusTone('under-maintenance'), ChipTone.amber);
+      expect(dashStatusTone('out-of-service'), ChipTone.red);
+      expect(dashStatusTone('retired'), ChipTone.grey);
+      expect(dashStatusTone('other'), ChipTone.grey);
+      expect(dashStatusTone('something-new'), ChipTone.grey);
+      expect(dashStatusColor('out-of-service'), ChipTone.red.foreground);
     });
 
     test('live URL: ws:// for http, wss:// for https, path kept', () {
@@ -512,16 +575,17 @@ void main() {
       final mock = ProviderContainer();
       final home = mock.read(homeDataProvider);
       final org = mock.read(orgSummaryProvider);
-      final mockTexts = <String>{
-        for (final a in seedAssets()) a.id,
-        for (final a in home.recentAlerts) a.message,
-        for (final a in mock.read(upcomingActivitiesProvider)) a.title,
-        NumberFormat('#,###').format(org.totalAssets),
-        compactAed(org.totalCost),
-      }
-        // Quick Actions are the same tiles in both modes (navigation, not data).
-        ..removeAll([for (final d in quickActionDefs.values) d.label])
-        ..removeWhere((t) => t.length < 3);
+      final mockTexts =
+          <String>{
+              for (final a in seedAssets()) a.id,
+              for (final a in home.recentAlerts) a.message,
+              for (final a in mock.read(upcomingActivitiesProvider)) a.title,
+              NumberFormat('#,###').format(org.totalAssets),
+              compactAed(org.totalCost),
+            }
+            // Quick Actions are the same tiles in both modes (navigation, not data).
+            ..removeAll([for (final d in quickActionDefs.values) d.label])
+            ..removeWhere((t) => t.length < 3);
       mock.dispose();
       debugApiMode = true;
       expect(mockTexts, contains('12,458'));
@@ -538,7 +602,7 @@ void main() {
       expect(leaked, isEmpty, reason: 'mock values on the API-mode Home');
 
       // /mobile/home: greeting + the four counters.
-      expect(shows('Good Afternoon'), isTrue);
+      expect(shows('Good Afternoon, max.milan!'), isTrue, reason: 'greeting.userName from the server');
       for (final n in ['37', '29', '17', '13']) {
         expect(find.text(n), findsWidgets, reason: 'counter $n');
       }
@@ -553,11 +617,15 @@ void main() {
       expect(find.text('12'), findsWidgets, reason: 'devices online');
       expect(find.text('Live'), findsOneWidget, reason: 'the socket is connected');
       expect(find.text('My Tasks'), findsOneWidget);
-      expect(find.text('Not available yet'), findsOneWidget, reason: 'only My Tasks has no endpoint');
+      expect(find.text('All (3)'), findsOneWidget, reason: '/my-tasks counts');
+      expect(find.text('Replace generator air filter'), findsOneWidget);
+      expect(find.text('1 overdue'), findsOneWidget);
+      expect(find.text('Not available yet'), findsNothing, reason: 'every Home section has an endpoint now');
 
       // Each section called its own endpoint.
       for (final p in [
         DashboardApi.home,
+        DashboardApi.myTasks,
         DashboardApi.assetOverview,
         DashboardApi.maintenancePerformance,
         DashboardApi.upcomingActivities,
@@ -602,7 +670,7 @@ void main() {
       await dispose(tester);
     });
 
-    testWidgets('site selector narrows Maintenance + Recent Assets with site=', (tester) async {
+    testWidgets('site selector: every Home section reloads with site=', (tester) async {
       await pumpApp(tester);
       c.read(routerProvider).go(Routes.home);
       await tester.pumpAndSettle();
@@ -610,9 +678,22 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('North Plant').last);
       await tester.pumpAndSettle();
-      expect(_query(backend, DashboardApi.maintenancePerformance)['site'], 'North Plant');
-      expect(_query(backend, DashboardApi.recentAssets)['site'], 'North Plant');
+      for (final p in [
+        DashboardApi.home,
+        DashboardApi.myTasks,
+        DashboardApi.assetOverview,
+        DashboardApi.maintenancePerformance,
+        DashboardApi.upcomingActivities,
+        DashboardApi.recentAlerts,
+        DashboardApi.assetLocations,
+        DashboardApi.assetHealth,
+        DashboardApi.costSummary,
+        DashboardApi.recentAssets,
+      ]) {
+        expect(_query(backend, p)['site'], 'North Plant', reason: p);
+      }
       expect(find.text('Showing North Plant only'), findsOneWidget);
+      expect(find.textContaining('the other cards cover all sites'), findsNothing, reason: 'no partial-site note');
       expect(shows('Chiller Unit 2'), isTrue);
       await dispose(tester);
     });
@@ -716,6 +797,60 @@ void main() {
       await tester.tap(find.text('E2801170000002089A1B'));
       await tester.pumpAndSettle();
       expect(router.routerDelegate.currentConfiguration.last.matchedLocation, Routes.assetDetail('AR000001'));
+      await dispose(tester);
+    });
+
+    testWidgets('alert asset tag → lookup type=assetTag → live detail; unknown tag → snack', (tester) async {
+      await pumpApp(tester);
+      final router = c.read(routerProvider);
+      router.go(Routes.recentAlerts);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('TAG-9999 ›'));
+      await tester.pumpAndSettle();
+      expect(backend.calls('GET', '/api/asset-registrations/lookup').last.uri.queryParameters, {
+        'code': 'TAG-9999',
+        'type': 'assetTag',
+      });
+      expect(find.text('No asset with tag TAG-9999 was found'), findsOneWidget);
+      await tester.pumpAndSettle(const Duration(seconds: 5));
+
+      await tester.tap(find.text('High Temperature'));
+      await tester.pump();
+      expect(find.textContaining('Alert details: Not available yet'), findsOneWidget, reason: 'the row itself');
+      await tester.pumpAndSettle(const Duration(seconds: 5));
+
+      await tester.tap(find.text('TAG-0001 ›'));
+      await tester.pumpAndSettle();
+      expect(router.routerDelegate.currentConfiguration.last.matchedLocation, Routes.assetDetail('AR000001'));
+      await dispose(tester);
+    });
+
+    testWidgets('My Tasks: tabs filter, View All lists every task; 401 shows its own error', (tester) async {
+      await pumpApp(tester);
+      final router = c.read(routerProvider);
+      router.go(Routes.home);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Approvals (1)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Approvals (1)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Asset Transfer Approval'), findsOneWidget);
+      expect(find.text('Replace generator air filter'), findsNothing);
+
+      router.go('${Routes.myTasks}?tab=0');
+      await tester.pumpAndSettle();
+      expect(find.text('Replace generator air filter'), findsOneWidget);
+      expect(find.text('Chiller monthly checklist'), findsOneWidget);
+      expect(find.text('3 tasks'), findsOneWidget);
+      await tester.tap(find.text('Replace generator air filter'));
+      await tester.pump();
+      expect(find.textContaining('Work orders: Not available yet'), findsOneWidget);
+      await tester.pumpAndSettle(const Duration(seconds: 5));
+
+      backend.myTasksWithoutToken = false;
+      c.invalidate(dashMyTasksProvider);
+      await tester.pumpAndSettle();
+      expect(find.text('Retry'), findsOneWidget, reason: '401 without a token');
       await dispose(tester);
     });
 

@@ -19,8 +19,8 @@ final dashboardApiProvider = Provider<DashboardApi>((ref) => DashboardApi(ref.wa
 // ------------------------------------------------------------------ site filter
 
 /// The Home site selector in API mode: null = All Sites, else a site name from the server's
-/// asset overview (`byLocation` = asset site names). Only maintenance-performance and
-/// recent-assets accept `site=`; the other endpoints are org-wide.
+/// asset overview (`byLocation` = asset site names). Every mobile endpoint accepts `site=`, so every
+/// Home card and drill-down follows it.
 class DashSiteNotifier extends Notifier<String?> {
   @override
   String? build() => null;
@@ -34,7 +34,7 @@ final dashSiteProvider = NotifierProvider<DashSiteNotifier, String?>(DashSiteNot
 
 /// "All Sites" + the site names the server knows (from /asset-overview `byLocation`, "Others" left out).
 final dashSitesProvider = FutureProvider<List<String>>((ref) async {
-  final o = await ref.watch(dashAssetOverviewProvider(null).future);
+  final o = await ref.watch(dashAssetOverviewProvider((search: null, site: null)).future);
   return [
     DashSiteNotifier.allSites,
     for (final l in o.byLocation)
@@ -44,12 +44,21 @@ final dashSitesProvider = FutureProvider<List<String>>((ref) async {
 
 // ------------------------------------------------------------------ one call each
 
-/// GET /mobile/home: greeting, quick-action counts and the summary cards.
-final dashHomeProvider = FutureProvider<DashHome>((ref) => ref.watch(dashboardApiProvider).getHome());
+/// GET /mobile/home?site=: greeting, quick-action counts and the summary cards (null site = all).
+final dashHomeProvider = FutureProvider.family<DashHome, String?>(
+  (ref, site) => ref.watch(dashboardApiProvider).getHome(site: site),
+);
 
-/// GET /mobile/asset-overview?search=.
-final dashAssetOverviewProvider = FutureProvider.family<DashAssetOverview, String?>(
-  (ref, search) => ref.watch(dashboardApiProvider).getAssetOverview(search: search),
+/// GET /mobile/my-tasks?site=: the signed-in user's open tasks (all types; tabs filter on the phone).
+final dashMyTasksProvider = FutureProvider.family<DashMyTasks, String?>(
+  (ref, site) => ref.watch(dashboardApiProvider).getMyTasks(site: site),
+);
+
+/// Query of GET /mobile/asset-overview.
+typedef DashOverviewQuery = ({String? search, String? site});
+
+final dashAssetOverviewProvider = FutureProvider.family<DashAssetOverview, DashOverviewQuery>(
+  (ref, q) => ref.watch(dashboardApiProvider).getAssetOverview(search: q.search, site: q.site),
 );
 
 /// Query of GET /mobile/maintenance-performance.
@@ -61,29 +70,32 @@ final dashMaintenanceProvider = FutureProvider.autoDispose.family<DashMaintenanc
 );
 
 /// Query of GET /mobile/upcoming-activities (null = the server default: today + 29 days, every type).
-typedef DashActivitiesQuery = ({DateTime? from, DateTime? to, String? type});
+typedef DashActivitiesQuery = ({DateTime? from, DateTime? to, String? type, String? site});
 
 final dashActivitiesProvider = FutureProvider.autoDispose.family<DashActivities, DashActivitiesQuery>(
-  (ref, q) => ref.watch(dashboardApiProvider).getUpcomingActivities(from: q.from, to: q.to, type: q.type),
+  (ref, q) =>
+      ref.watch(dashboardApiProvider).getUpcomingActivities(from: q.from, to: q.to, type: q.type, site: q.site),
 );
 
 /// Query of GET /mobile/asset-locations.
-typedef DashLocationsQuery = ({String? status, String? search});
+typedef DashLocationsQuery = ({String? status, String? search, String? site});
 
 final dashAssetLocationsProvider = FutureProvider.autoDispose.family<DashAssetLocations, DashLocationsQuery>(
-  (ref, q) => ref.watch(dashboardApiProvider).getAssetLocations(status: q.status, search: q.search),
+  (ref, q) => ref.watch(dashboardApiProvider).getAssetLocations(status: q.status, search: q.search, site: q.site),
 );
 
-/// GET /mobile/asset-health?top= (top critical assets, 1–50).
-final dashAssetHealthProvider = FutureProvider.autoDispose.family<DashAssetHealth, int>(
-  (ref, top) => ref.watch(dashboardApiProvider).getAssetHealth(top: top),
+/// Query of GET /mobile/asset-health (top critical assets, 1–50).
+typedef DashHealthQuery = ({int top, String? site});
+
+final dashAssetHealthProvider = FutureProvider.autoDispose.family<DashAssetHealth, DashHealthQuery>(
+  (ref, q) => ref.watch(dashboardApiProvider).getAssetHealth(top: q.top, site: q.site),
 );
 
 /// Query of GET /mobile/cost-summary.
-typedef DashCostQuery = ({String period, int? year});
+typedef DashCostQuery = ({String period, int? year, String? site});
 
 final dashCostSummaryProvider = FutureProvider.family<DashCostSummary, DashCostQuery>(
-  (ref, q) => ref.watch(dashboardApiProvider).getCostSummary(period: q.period, year: q.year),
+  (ref, q) => ref.watch(dashboardApiProvider).getCostSummary(period: q.period, year: q.year, site: q.site),
 );
 
 /// GET /network-status: the initial online / offline counts (the WebSocket updates them).
@@ -171,7 +183,7 @@ abstract class _DashPagedNotifier<T, C> extends AsyncNotifier<DashPage<T, C>> {
 }
 
 /// Query of GET /mobile/recent-alerts (severity null = all; days 1–90).
-typedef DashAlertsQuery = ({String? severity, int days});
+typedef DashAlertsQuery = ({String? severity, int days, String? site});
 
 class DashAlertsNotifier extends _DashPagedNotifier<DashAlertItem, DashAlertCounts> {
   DashAlertsNotifier(this.query);
@@ -182,7 +194,13 @@ class DashAlertsNotifier extends _DashPagedNotifier<DashAlertItem, DashAlertCoun
   Future<DashPage<DashAlertItem, DashAlertCounts>> fetch(int page) async {
     final r = await ref
         .read(dashboardApiProvider)
-        .getRecentAlerts(severity: query.severity, days: query.days, page: page, pageSize: _DashPagedNotifier.pageSize);
+        .getRecentAlerts(
+          severity: query.severity,
+          days: query.days,
+          site: query.site,
+          page: page,
+          pageSize: _DashPagedNotifier.pageSize,
+        );
     return DashPage(items: r.items, totalCount: r.totalCount, page: page, counts: r.counts);
   }
 
@@ -290,6 +308,7 @@ final liveDevicesProvider = NotifierProvider<LiveDevicesNotifier, LiveDevicesSta
 /// Every dashboard provider (family providers invalidate all their queries).
 final List<ProviderOrFamily> dashboardProviders = [
   dashHomeProvider,
+  dashMyTasksProvider,
   dashAssetOverviewProvider,
   dashMaintenanceProvider,
   dashActivitiesProvider,

@@ -173,7 +173,7 @@ const _alertWarning = {
   'source': 'WorkOrder',
   'title': 'Work Order Overdue',
   'reference': 'WO-7700',
-  'assetId': 'TAG-0002',
+  'assetId': 'TAG-9999',
   'assetName': 'Chiller Unit 2',
   'severity': 'Warning',
   'status': 'In Progress',
@@ -327,7 +327,72 @@ Map<String, Object?> dashRecentAssetsJson({String? status, String? assetType, St
 
 const dashNetworkStatusJson = {'totalOnline': 12, 'totalOffline': 3};
 
+/// The DEV server now sends assetRegistrationId (assetId is null).
 const dashTagsJson = [
-  {'tagId': 'E2801170000002089A1B', 'count': 420, 'assetId': 'AR000001', 'assetName': 'Diesel Generator 500 kVA'},
-  {'tagId': 'E2801170000002089FFF', 'count': 7, 'assetId': null, 'assetName': null},
+  {
+    'tagId': 'E2801170000002089A1B',
+    'count': 420,
+    'assetId': null,
+    'assetName': 'Diesel Generator 500 kVA',
+    'assetRegistrationId': 'AR000001',
+  },
+  {'tagId': 'E2801170000002089FFF', 'count': 7, 'assetId': null, 'assetName': null, 'assetRegistrationId': null},
 ];
+
+/// GET /mobile/my-tasks (MobileMyTasksResponse), honouring `type`.
+Map<String, Object?> dashMyTasksJson({String? type}) {
+  const items = [
+    {
+      'id': '6650cc000000000000000001',
+      'type': 'WorkOrder',
+      'reference': 'WO-8812',
+      'title': 'Replace generator air filter',
+      'assetId': 'TAG-0001',
+      'assetName': 'Diesel Generator 500 kVA',
+      'location': 'Block A - Ground',
+      'dueUtc': '2026-11-05T08:00:00Z',
+      'dueDate': '2026-11-05',
+      'isOverdue': true,
+      'status': 'In Progress',
+      'priority': 'High',
+    },
+    {
+      'id': '6650cc000000000000000002',
+      'type': 'Inspection',
+      'reference': 'INS-4410',
+      'title': 'Chiller monthly checklist',
+      'assetId': 'TAG-0002',
+      'assetName': 'Chiller Unit 2',
+      'location': null,
+      'dueUtc': '2026-11-12T06:00:00Z',
+      'dueDate': '2026-11-12',
+      'isOverdue': false,
+      'status': 'Scheduled',
+      'priority': null,
+    },
+    {
+      'id': '6650cc000000000000000003',
+      'type': 'Approval',
+      'reference': '6650cc000000000000000003',
+      'title': 'Asset Transfer Approval',
+      'assetId': null,
+      'assetName': null,
+      'location': null,
+      'dueUtc': null,
+      'dueDate': null,
+      'isOverdue': false,
+      'status': 'Pending',
+      'priority': 'Medium',
+    },
+  ];
+  final shown = [
+    for (final i in items)
+      if (type == null || i['type'] == type) i,
+  ];
+  return {
+    'userName': 'max.milan',
+    'matchedAssigneeNames': ['max.milan', 'Max Milan'],
+    'counts': {'total': 3, 'workOrders': 1, 'inspections': 1, 'approvals': 1, 'overdue': 1, 'dueToday': 0},
+    'items': shown,
+  };
+}

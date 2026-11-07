@@ -191,11 +191,14 @@ class PriorityChip extends StatelessWidget {
 
 /// Pill used for filter rows such as "All (12)  Work Orders (5)".
 class PillChip extends StatelessWidget {
-  const PillChip({super.key, required this.label, required this.selected, required this.onTap});
+  const PillChip({super.key, required this.label, required this.selected, required this.onTap, this.dot});
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+
+  /// Optional colour dot before the label (e.g. a status group's colour).
+  final Color? dot;
 
   @override
   Widget build(BuildContext context) {
@@ -207,13 +210,30 @@ class PillChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: selected ? Colors.white : AppColors.text,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (dot != null) ...[
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: dot,
+                    shape: BoxShape.circle,
+                    border: selected ? Border.all(color: Colors.white, width: 1.2) : null,
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected ? Colors.white : AppColors.text,
+                ),
+              ),
+            ],
           ),
         ),
       ),

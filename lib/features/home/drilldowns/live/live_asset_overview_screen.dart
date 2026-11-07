@@ -101,13 +101,18 @@ class _LiveAssetOverviewScreenState extends ConsumerState<LiveAssetOverviewScree
 
   @override
   Widget build(BuildContext context) {
-    final all = dashAssetOverviewProvider(null);
-    final searched = dashAssetOverviewProvider(_searchParam);
+    final site = ref.watch(dashSiteProvider);
+    final all = dashAssetOverviewProvider((search: null, site: site));
+    final searched = dashAssetOverviewProvider((search: _searchParam, site: site));
     final total = ref.watch(all).value?.totalAssets;
     final empty = total == 0;
     return DrilldownPage(
       title: 'Asset Overview',
-      subtitle: total == null ? 'Live asset summary' : 'All ${dashNumber.format(total)} assets across every site',
+      subtitle: total == null
+          ? 'Live asset summary'
+          : site == null
+          ? 'All ${dashNumber.format(total)} assets across every site'
+          : '${dashNumber.format(total)} assets at $site',
       onRefresh: () => ref.invalidate(dashAssetOverviewProvider),
       children: [
         SegmentTabs(

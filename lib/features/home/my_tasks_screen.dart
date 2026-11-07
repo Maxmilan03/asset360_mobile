@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:asset360_mobile/core/widgets/widgets.dart';
 import 'package:asset360_mobile/data/api/api_config.dart';
 import 'package:asset360_mobile/data/repositories/home_repository.dart';
+import 'package:asset360_mobile/features/home/live_my_tasks.dart';
 import 'package:asset360_mobile/features/home/task_row.dart';
 
 /// Full list behind Home "My Tasks → View All".
@@ -21,19 +22,8 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // API mode: work orders, inspections and approvals have no backend in this phase.
-    if (apiMode) {
-      return AppScaffold(
-        body: ListView(
-          padding: context.pagePadding,
-          children: const [
-            PageTitle(title: 'My Tasks', subtitle: 'Work orders, inspections and approvals assigned to you'),
-            SizedBox(height: 16),
-            AppCard(child: NotAvailableYet(feature: 'My Tasks', icon: Icons.task_alt_rounded)),
-          ],
-        ),
-      );
-    }
+    // API mode: GET /api/dashboards/mobile/my-tasks.
+    if (apiMode) return LiveMyTasksScreen(initialTab: _tab);
     final home = ref.watch(homeDataProvider);
     final tabs = [
       ('All', home.allTasks),
